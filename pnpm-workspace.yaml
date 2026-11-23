@@ -43,6 +43,8 @@ catalog:
     lit: 3.3.3
     mocha: 11.8.0
     publint: 0.3.24
+    # The root's CSS tooling and the commit graph UI package's published-stylesheet transform.
+    postcss: 8.5.28
     # Shared by the root webview build and the publishable commit-graph UI stylesheet build.
     sass-embedded: 1.104.1
     sinon: 22.1.0

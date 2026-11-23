@@ -932,6 +932,7 @@ export interface GraphComponentConfig {
 	/** How branch/tag pills are laid out on each row — `'stacked'` grows an extra line to show them above
 	 *  the commit instead of inline with it. Backed by `gitlens.graph.refs.layout`. */
 	refsLayout?: 'inline' | 'stacked';
+	refsMetadataRange?: 'rendered' | 'loaded';
 	/** Whether the minimap is available at all; when `false` it is never shown and has no header toggle. */
 	minimap?: Config['graph']['minimap']['enabled'];
 	/** When to show an available minimap; the stored per-workspace toggle overrides this. */

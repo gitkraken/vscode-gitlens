@@ -1,34 +1,14 @@
 import type { GraphPlacement } from '@gitkraken/commit-graph/geometry.js';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import type { ZoneSpec } from '@gitkraken/commit-graph/zones.js';
-import * as l10n from '@vscode/l10n';
-import type { WorkDirStats } from '../contracts/state.js';
+import type { WipRowInfo } from '../contracts/rows.js';
+import type { CommitGraphPausedOperationStatus, WorkDirStats } from '../contracts/state.js';
+import type { WipNodeState } from '../gutter/render.js';
 
 export function hasDirtyCounts(stats: Partial<WorkDirStats> | undefined): boolean {
 	if (stats == null) return false;
 
 	return (stats.added ?? 0) + (stats.modified ?? 0) + (stats.deleted ?? 0) + (stats.renamed ?? 0) > 0;
-}
-
-/**
- * Per-working-tree-row identity supplied by the host. The renderer uses this separately from the row's
- * generic commit payload so the inline branch pill, scroll marker, tooltip, and accessible label can name
- * a working tree without encoding product-specific identity into the row message.
- */
-export interface WipRowInfo {
-	/** Tip branch name, or a host-synthesized detached-HEAD label when {@link detached} is true. */
-	branchName?: string;
-	/** Whether the working tree is on a detached HEAD, making its identity pill non-interactive. */
-	detached?: boolean;
-	/** Tracked upstream name, when already available to the host. */
-	upstreamName?: string;
-	/** Already-resolved merge target; the renderer never fetches it. */
-	target?: { sha: string; name?: string };
-	/** Display name for a secondary working tree. */
-	worktreeName?: string;
-	/** HEAD sha used as the branch-pill jump target. */
-	tipSha?: string;
-	/** Whether this row represents the host's primary working tree. */
-	isPrimary: boolean;
 }
 
 /**
@@ -62,8 +42,34 @@ export function wipZoneSuppressFromIndex(
 
 /** The full and short forms of a WIP row's visible label — the degradation ladder's first rung
  *  (`computeWipRowFit`) swaps between them; never an ellipsis on the label itself. */
-export const wipRowFullLabel: string = l10n.t('Working Changes');
-export const wipRowShortLabel: string = l10n.t('WIP');
+export function wipRowFullLabel(): string {
+	return l10n.t('Working Changes');
+}
+
+export function wipRowShortLabel(): string {
+	return l10n.t('WIP');
+}
+
+export function wipRowBranchTitle(info: WipRowInfo | undefined, idLength: number): string | undefined {
+	if (info == null) return undefined;
+	if (info.detached !== true && info.branchName) return info.branchName;
+
+	const shortSha = info.tipSha?.slice(0, idLength);
+	if (info.worktreeName && shortSha) return `${info.worktreeName} (${shortSha})`;
+
+	return info.branchName || info.worktreeName || shortSha || undefined;
+}
+
+export function wipRowState(
+	wipState: WipNodeState | undefined,
+	pausedOpStatus: CommitGraphPausedOperationStatus | undefined,
+	hasConflicts: boolean | undefined,
+): 'clean' | 'dirty' | undefined {
+	if (pausedOpStatus != null || hasConflicts === true) return 'dirty';
+	if (wipState == null) return undefined;
+
+	return wipState === 'clean' ? 'clean' : 'dirty';
+}
 
 /**
  * Measured inputs `computeWipRowFit` needs to decide a WIP row's label + pill-name cap. All widths are
@@ -119,9 +125,9 @@ export function computeWipRowFit(availableWidth: number, metrics: WipRowFitMetri
 	}
 
 	if (metrics.shortLabelWidth + pillWidth + fixed <= availableWidth) {
-		return { label: wipRowShortLabel, pillMaxWidth: undefined };
+		return { label: wipRowShortLabel(), pillMaxWidth: undefined };
 	}
 
 	const nameBudget = availableWidth - metrics.shortLabelWidth - fixed - metrics.pillChromeWidth;
-	return { label: wipRowShortLabel, pillMaxWidth: Math.max(0, nameBudget) };
+	return { label: wipRowShortLabel(), pillMaxWidth: Math.max(0, nameBudget) };
 }

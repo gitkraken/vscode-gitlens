@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Improves _Commit Graph_ scrolling performance by cutting the style and layout work done while rows scroll
+- Improves _Commit Graph_ performance by requesting pull request and upstream details only for the branches on screen, and by redrawing only the rows an answer affects
+
+### Fixed
+
+- Fixes jumping to a commit in the _Commit Graph_ stopping short of its row when rows update while the jump is still travelling
+- Fixes translucent theme colors in the _Commit Graph_ being flattened onto the editor background instead of showing as the theme defines them
+- Fixes <kbd>Escape</kbd> not closing the _Commit Graph_'s overlay side bar while focus is on the rows and nothing is selected
+- Fixes the _Commit Graph_ never retrying avatars that failed to load
+
 ## [19.7.0] - 2026-11-24
 
 ### Changed

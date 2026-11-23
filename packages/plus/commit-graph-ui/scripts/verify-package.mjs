@@ -114,6 +114,44 @@ await verifyPackedPackage({
 		if (surfaceCss.includes('gl-graph__scroll-markers') || !scrollMarkerCss.includes('gl-graph__scroll-markers')) {
 			throw new Error('Packed scroll-marker styles were not isolated from the base surface stylesheet');
 		}
+
+		const pillStyles = await readFile(
+			join(packedRoot, 'dist', 'components', 'components', 'pills', 'pill.css.js'),
+			'utf8',
+		);
+		if (
+			[surfaceCss, vscodeThemeCss, stickyTimelineCss, scrollMarkerCss].some(css => /\drem\b/i.test(css)) ||
+			!surfaceCss.includes('var(--gl-graph-rem,10px)') ||
+			!pillStyles.includes('var(--gl-graph-rem,10px)')
+		) {
+			throw new Error('Packed styles still size with rem instead of --gl-graph-rem');
+		}
+		if (surfaceCss.includes(':root')) {
+			throw new Error('Packed commit graph stylesheet defines tokens on the host page root');
+		}
+
+		const retiredTokens = 'brand|border|secondary|background|foreground|muted-foreground|muted|status-warning';
+		const retiredRead = new RegExp(`var\\(\\s*--(?:${retiredTokens})\\s*[,)]`);
+		const retiredDeclaration = new RegExp(`[{;]\\s*--(?:${retiredTokens})\\s*:`);
+		const packedStyles = [surfaceCss, vscodeThemeCss, stickyTimelineCss, scrollMarkerCss];
+		if (packedStyles.some(css => retiredRead.test(css) || retiredDeclaration.test(css))) {
+			throw new Error('Packed styles still declare or read the retired HSL-triplet colour tokens');
+		}
+		if (packedStyles.some(css => css.includes('prefers-color-scheme'))) {
+			throw new Error('Packed styles pick colours by the OS scheme instead of the inherited color-scheme');
+		}
+		if (
+			!/--gl-graph-foreground:\s*light-dark\(/.test(surfaceCss) ||
+			!surfaceCss.includes('--gl-graph-accent:') ||
+			!vscodeThemeCss.includes('--gl-graph-accent:')
+		) {
+			throw new Error('Packed styles are missing the base colour tokens');
+		}
+
+		const messages = JSON.parse(await readFile(join(packedRoot, 'dist', 'l10n', 'messages.json'), 'utf8'));
+		if (Object.keys(messages).length === 0) {
+			throw new Error('Packed message catalog is empty');
+		}
 	},
 	compilerOptions: {
 		experimentalDecorators: true,
@@ -125,16 +163,30 @@ await verifyPackedPackage({
 			`import type { GlCommitGraph } from '@gitkraken/commit-graph-ui/graph.js';\n` +
 			`import { registerCommitGraphElements } from '@gitkraken/commit-graph-ui/register.js';\n` +
 			`import { minimalCommitGraphProfile } from '@gitkraken/commit-graph-ui/profile.js';\n` +
-			`export function mount(element: GlCommitGraph): void { element.profile = minimalCommitGraphProfile; registerCommitGraphElements(); }\n`,
+			`export function mount(element: GlCommitGraph): void { element.profile = minimalCommitGraphProfile; registerCommitGraphElements(); }\n` +
+			`import type { CommitGraphEventMap, GraphChangeSelectionDetail } from '@gitkraken/commit-graph-ui/contracts/events.js';\n` +
+			`export function onSelect(element: GlCommitGraph, select: (detail: GraphChangeSelectionDetail) => void): void { element.addEventListener('gl-graph-changeselection', e => select(e.detail)); }\n` +
+			`export type JumpRequest = CommitGraphEventMap['gl-graph-jumptocommit'];\n`,
 		'src/full.ts':
 			`import { registerCommitGraphElements } from '@gitkraken/commit-graph-ui/register.js';\n` +
+			`import { formatGraphMessage, setGraphLanePalette, setGraphLocalizer } from '@gitkraken/commit-graph-ui/localization.js';\n` +
+			`import type { WipRowInfo } from '@gitkraken/commit-graph-ui/contracts/rows.js';\n` +
+			`import type { GraphKeymap } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';\n` +
+			`import type { GlCommitGraph } from '@gitkraken/commit-graph-ui/graph.js';\n` +
+			`export function useKeymap(element: GlCommitGraph, keymap: GraphKeymap): void { element.keymap = keymap; }\n` +
+			`export function useHostOptions(element: GlCommitGraph): void { element.headerMenu = { label: 'Columns', open: false }; element.vscode = { settingsContext: undefined }; setGraphLanePalette(['#336699', 'rebeccapurple']); }\n` +
+			`import type { GraphCopyRequestDetail } from '@gitkraken/commit-graph-ui/contracts/contributions.js';\n` +
+			`export const copiedContext = (detail: GraphCopyRequestDetail): string | undefined => detail.vscodeContext ?? detail.vscodeSelectionContexts?.[0];\n` +
 			`import { laneCollapseExtension } from '@gitkraken/commit-graph-ui/extensions/laneCollapse.js';\n` +
-			`import { refsExtension } from '@gitkraken/commit-graph-ui/extensions/refs.js';\n` +
+			`import { refPillKey, refsExtension } from '@gitkraken/commit-graph-ui/extensions/refs.js';\n` +
 			`import { scrollMarkersExtension } from '@gitkraken/commit-graph-ui/extensions/scrollMarkers.js';\n` +
 			`import { stickyTimelineExtension } from '@gitkraken/commit-graph-ui/extensions/stickyTimeline.js';\n` +
 			`import { wipStatsExtension } from '@gitkraken/commit-graph-ui/extensions/wipStats.js';\n` +
 			`import { defaultCommitGraphRowAdapter } from '@gitkraken/commit-graph-ui/contracts/rows.js';\n` +
 			`import type { CommitGraphProfile } from '@gitkraken/commit-graph-ui/profile.js';\n` +
+			`setGraphLocalizer(message => formatGraphMessage(message.message, message.args), { locale: 'fr' });\n` +
+			`export const wipRowInfo: WipRowInfo = { branchName: 'main', isPrimary: true };\n` +
+			`export const mainPillKey: string = refPillKey({ kind: 'head', name: 'main' });\n` +
 			`registerCommitGraphElements();\n` +
 			`export const runtime: CommitGraphProfile = Object.freeze({ rowAdapter: defaultCommitGraphRowAdapter, refs: refsExtension, wipStats: wipStatsExtension, laneCollapse: laneCollapseExtension, stickyTimeline: stickyTimelineExtension, scrollMarkers: scrollMarkersExtension });\n`,
 	},

@@ -83,6 +83,9 @@ export interface CommitGraphProfile {
 	readonly laneCollapse?: CommitGraphLaneCollapseExtension;
 	readonly stickyTimeline?: CommitGraphStickyTimelineExtension;
 	readonly scrollMarkers?: CommitGraphScrollMarkersExtension;
+	/** Host-owned row content, placed by each provider's `zone` (`message` by default, or `ref`) and rendered after the
+	 *  built-in extensions. */
+	readonly rowAdornments?: readonly RowAdornmentProvider<TemplateResult>[];
 	readonly renderRefFinder?: GraphRefFinderRenderer;
 	readonly resolveWipRowContext?: GraphWipRowContextResolver;
 }

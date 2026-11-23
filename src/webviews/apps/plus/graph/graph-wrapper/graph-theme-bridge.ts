@@ -1,70 +1,14 @@
 import { LANE_PALETTE, setLanePalette } from '@gitkraken/commit-graph/lanes/colors.js';
-import type { Color } from '@gitlens/utils/color.js';
 import { formatHex, getCssVariable, parseColor } from '@gitlens/utils/color.js';
 
-/**
- * Resolves the parts of the VS Code theme that CSS alone can't express, for the commit-graph engine and
- * the host-neutral renderer packages. The plain `--gl-graph-*` ← `--vscode-*` aliases are NOT here: they
- * are static CSS, loaded from `@gitkraken/commit-graph-ui/themes/vscode.css` by `graph.scss`.
- *
- * commit-graph expects each token as an HSL triplet (e.g. `217 91% 60%`) so its Tailwind utility
- * classes can compose `hsl(var(--brand))` and `hsl(var(--brand) / 0.12)`. VS Code provides
- * raw color values, so we resolve them via getComputedStyle and convert to HSL components.
- *
- * Translucent theme colors are composited onto the editor background FIRST (see `toHslTriplet`). The
- * triplet has no room for alpha — consumers append their own `/ N` — so dropping it instead collapsed
- * dim tokens onto their solid counterparts: VS Code defines dark `descriptionForeground` as
- * `transparent(foreground, 0.7)`, so `--muted-foreground` came out identical to (or brighter than)
- * `--foreground` and nothing muted actually looked muted. Flattening yields the color VS Code paints.
- *
- * Vars set on `:root`:
- *   --brand            selection / focus / HEAD chip
- *   --border           chip / popover borders
- *   --secondary        hover background, remote ref chip
- *   --background       popover / menu surface
- *   --foreground       text
- *   --muted-foreground dim text (sha, date)
- *   --status-warning   tag ref chip
- *
- * The runtime values defined here override the static defaults from
- * `@gitkraken/commit-graph/theme.css` so the graph picks up theme switches.
- *
- * Also resolves the theme's `gitlens.graphLaneNColor` contributions (package.json defaults: dark and
- * highContrast use the engine's balanced OKLCH set, light keeps the classic saturated set) into the
- * engine's active lane palette (see `applyLanePalette`). Returns whether the lane palette actually
- * changed, so the caller can invalidate lane-colored adornment caches only when it matters.
- */
 export function applyGraphThemeVariables(isLight: boolean, isHighContrast: boolean): boolean {
-	const computed = getComputedStyle(document.documentElement);
 	const root = document.documentElement.style;
 
 	// The two theme-KIND switches: no `--vscode-*` variable carries them, so they can't be static CSS.
 	root.setProperty('--gl-graph-contrast-outline-width', isHighContrast ? '1px' : '0px');
 	root.setProperty('--gl-graph-operation-ready-foreground', isLight ? '#fff' : '#06150a');
 
-	const tokens: Record<string, readonly string[]> = {
-		'--brand': ['--vscode-button-background', '--vscode-focusBorder', '--vscode-textLink-foreground'],
-		'--border': ['--gl-color-border-overlay'],
-		'--secondary': ['--vscode-list-hoverBackground'],
-		'--background': ['--vscode-editor-background'],
-		'--foreground': ['--vscode-editor-foreground', '--vscode-foreground'],
-		'--muted-foreground': ['--vscode-descriptionForeground', '--vscode-disabledForeground'],
-		'--status-warning': ['--vscode-editorWarning-foreground', '--vscode-list-warningForeground'],
-	};
-
-	// Resolved once for the whole pass — the surface every one of these tokens is ultimately painted on.
-	// `parseColor` (not `Color.from`, which falls back to RED) so an unresolvable background stays null and
-	// simply skips the compositing.
-	const background = parseColor(getCssVariable('--vscode-editor-background', computed));
-
-	for (const [themeVar, vscodeCandidates] of Object.entries(tokens)) {
-		const triplet = resolveTriplet(computed, vscodeCandidates, background);
-		if (triplet != null) {
-			root.setProperty(themeVar, triplet);
-		}
-	}
-
-	return applyLanePalette(computed);
+	return applyLanePalette(getComputedStyle(document.documentElement));
 }
 
 // The 10 lane colors VS Code exposes as `--vscode-gitlens-graphLaneNColor` (from the
@@ -94,39 +38,4 @@ function applyLanePalette(computed: CSSStyleDeclaration): boolean {
 	});
 
 	return setLanePalette(resolved);
-}
-
-function resolveTriplet(
-	computed: CSSStyleDeclaration,
-	candidates: readonly string[],
-	background: Color | null,
-): string | undefined {
-	for (const variable of candidates) {
-		const value = getCssVariable(variable, computed);
-		if (!value) continue;
-
-		const triplet = toHslTriplet(value, background);
-		if (triplet != null) return triplet;
-	}
-	return undefined;
-}
-
-function toHslTriplet(value: string, background: Color | null): string | undefined {
-	try {
-		// `parseColor` (not `Color.from`) so an unparseable value returns null and `resolveTriplet` falls
-		// through to the next candidate, instead of silently pinning the token to `Color.red`.
-		let color = parseColor(value);
-		if (color == null) return undefined;
-
-		// `makeOpaque` no-ops when the color is already opaque or the background isn't, so this is safe to
-		// apply unconditionally.
-		if (background != null) {
-			color = color.makeOpaque(background);
-		}
-
-		const { h, s, l } = color.hsla;
-		return `${h} ${(s * 100).toFixed(1)}% ${(l * 100).toFixed(1)}%`;
-	} catch {
-		return undefined;
-	}
 }

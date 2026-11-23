@@ -1,14 +1,15 @@
 import * as l10n from '@vscode/l10n';
 import type { CSSResultGroup } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import type { PausedOperationStatus } from '@gitlens/utils/pausedOperation.js';
 import {
 	getPausedOperationLabel,
 	getPausedOperationVariant,
 	pausedOperationVariantIcons,
 } from '@gitlens/utils/pausedOperation.js';
-import { formatPlural } from '@gitlens/utils/plural.js';
+import { formatPlural, getPluralLocale } from '@gitlens/utils/plural.js';
+import { customElementIfFree } from '../customElementIfFree.js';
 import './codeIcon.js';
 import './commitStats.js';
 import './overlays/tooltip.js';
@@ -45,7 +46,7 @@ export function getWipTooltipParts(workingTreeState: {
 	return parts;
 }
 
-@customElement('gl-wip-stats')
+@customElementIfFree('gl-wip-stats')
 export class GlWipStats extends LitElement {
 	static override styles: CSSResultGroup[] = [
 		pillStyles,
@@ -181,10 +182,13 @@ export class GlWipStats extends LitElement {
 			const parts = getWipTooltipParts({ added: added, changed: modified, deleted: removed });
 			const tooltipContent = parts.length
 				? l10n.t('{changes} in the working tree', {
-						changes: new Intl.ListFormat(this.lang || document.documentElement.lang || undefined, {
-							style: 'short',
-							type: 'unit',
-						}).format(parts),
+						changes: new Intl.ListFormat(
+							this.lang || getPluralLocale() || document.documentElement.lang || undefined,
+							{
+								style: 'short',
+								type: 'unit',
+							},
+						).format(parts),
 					})
 				: l10n.t('Working tree has changes');
 

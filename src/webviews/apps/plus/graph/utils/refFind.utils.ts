@@ -1,5 +1,5 @@
-import { getExcludedRemotes, refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs/pills.js';
-import { emptySetMarker } from '@gitkraken/commit-graph-ui/scope/filtering.js';
+import { getExcludedRemotes, includeNoRefsKey } from '@gitkraken/commit-graph-ui/contracts/state.js';
+import { refPillKey } from '@gitkraken/commit-graph-ui/extensions/refs.js';
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import * as l10n from '@vscode/l10n';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
@@ -74,18 +74,6 @@ export interface RefFindSources {
 	wip?: RefFindWipSource;
 }
 
-/**
- * Projects a filter map to a set of {@link refPillKey}s. Matches on the entries' `name`/`type`/`owner`
- * rather than the map keys, which are `<repoPath>|heads/<name>` ids the webview can't rebuild from
- * sidebar data. A remote entry carries a BARE `name` with the owner in `.owner` (see
- * `graphWebview.ts`'s `convertBranchToIncludeOnlyRef`), which is exactly the shape `refPillKey` takes — so hiding
- * `origin/main` leaves an identically-named branch on another remote findable. A whole-remote wildcard
- * (`name: '*'`) is skipped here — it mints no candidate of its own, and its remote is excluded by owner
- * via {@link getExcludedRemotes} in `isVisible` instead.
- *
- * `undefined` means "no filter". A map holding only {@link emptySetMarker} yields an EMPTY set, not
- * `undefined` — as an include-only filter that correctly admits nothing.
- */
 function toRefKeySet(refs: Record<string, GraphRefOptData> | undefined): Set<string> | undefined {
 	if (refs == null) return undefined;
 
@@ -94,7 +82,7 @@ function toRefKeySet(refs: Record<string, GraphRefOptData> | undefined): Set<str
 
 	const keys = new Set<string>();
 	for (const [key, ref] of entries) {
-		if (key === emptySetMarker || ref?.name == null) continue;
+		if (key === includeNoRefsKey || ref?.name == null) continue;
 		// `worktree` refs have no jump candidate to match, so they never contribute a key.
 		if (ref.type !== 'head' && ref.type !== 'remote' && ref.type !== 'tag') continue;
 		// Whole-remote wildcards have no bare ref of their own — a literal key would be dead weight.

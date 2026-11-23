@@ -154,7 +154,7 @@ export class JumpToastController implements ReactiveController {
 		});
 	};
 
-	onEdgeSearch = (e: CustomEventType<'gl-graph-edge-search'>): void => {
+	onEdgeSearch = (e: CustomEventType<'gl-graph-edgesearch'>): void => {
 		const { kind, status } = e.detail;
 		if (status === 'started') {
 			this.clearToast();

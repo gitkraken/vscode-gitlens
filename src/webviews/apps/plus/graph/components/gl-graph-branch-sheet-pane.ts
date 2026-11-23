@@ -77,9 +77,6 @@ import '@gitlens/components/components/codeIcon.js';
 import '@gitlens/components/components/overlays/tooltip.js';
 import '../../../shared/components/pills/tracking-status.js';
 
-/** Minimal branch/tag identity carried by the `gl-graph-open-branch` event (a ref-pill click).
- *  `context` is the ref's serialized `data-vscode-context` (row-menu parity for the kebab + the
- *  remote/tag action links). */
 export type BranchSheetRef = {
 	name: string;
 	refType: string;

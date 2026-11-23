@@ -1,6 +1,7 @@
 import * as assert from 'assert';
-import { emptySetMarker } from '@gitkraken/commit-graph-ui/scope/filtering.js';
-import { countLoadedIncludedRefs, pickScopePageTarget } from '@gitkraken/commit-graph-ui/scope/paging.js';
+import { pickScopePageTarget } from '@gitkraken/commit-graph-ui/contracts/events.js';
+import { includeNoRefsKey } from '@gitkraken/commit-graph-ui/contracts/state.js';
+import { countLoadedIncludedRefs } from '@gitkraken/commit-graph-ui/scope/paging.js';
 
 suite('pickScopePageTarget', () => {
 	test('returns an unloaded, unrequested anchor sha when one exists', () => {
@@ -69,14 +70,12 @@ suite('countLoadedIncludedRefs', () => {
 	});
 
 	test('ignores the empty-set sentinel so a narrowed-to-nothing filter reports nothing to disclose', () => {
-		// `favorited`/`agents` with no matching branches ship `{ [emptySetMarker]: … }` to mean "include
-		// nothing". Counting it would render a permanent "0 of 1 branches" footer with no way to resolve it.
-		const result = countLoadedIncludedRefs({ [emptySetMarker]: {} }, new Set<string>());
+		const result = countLoadedIncludedRefs({ [includeNoRefsKey]: {} }, new Set<string>());
 		assert.deepStrictEqual(result, { loaded: 0, total: 0 });
 	});
 
 	test('counts real refs alongside the sentinel without counting the sentinel itself', () => {
-		const refs = { [emptySetMarker]: {}, 'refs/heads/main': {} };
+		const refs = { [includeNoRefsKey]: {}, 'refs/heads/main': {} };
 		const result = countLoadedIncludedRefs(refs, new Set(['refs/heads/main']));
 		assert.deepStrictEqual(result, { loaded: 1, total: 1 });
 	});

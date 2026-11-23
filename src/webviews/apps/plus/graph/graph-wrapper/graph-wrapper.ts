@@ -1,16 +1,23 @@
 import type { GraphRowAction } from '@gitkraken/commit-graph-ui/contracts/contributions.js';
-import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import type {
+	GraphAvatarLoadErrorDetail,
+	GraphMissingAvatarsDetail,
+	GraphRefDoubleClickDetail,
+	GraphRowPeekRequest,
+	GraphScopeAnchorsUnreachableDetail,
+	GraphWipShasDetail,
+} from '@gitkraken/commit-graph-ui/contracts/events.js';
+import { pickScopePageTarget } from '@gitkraken/commit-graph-ui/contracts/events.js';
+import type { GraphKeymap } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import type { WipRowInfo } from '@gitkraken/commit-graph-ui/contracts/rows.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/contracts/state.js';
 import { getGraphDebugDiagnostics } from '@gitkraken/commit-graph-ui/debug.js';
-import type { GlCommitGraph, GraphRowHiddenReason, GraphRowPeekRequest } from '@gitkraken/commit-graph-ui/graph.js';
+import type { GlCommitGraph, GraphRowHiddenReason } from '@gitkraken/commit-graph-ui/graph.js';
 import { commitGraphElementName, registerCommitGraphElements } from '@gitkraken/commit-graph-ui/register.js';
-import type { WipRowInfo } from '@gitkraken/commit-graph-ui/rows/wip.js';
-import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
-import { pickScopePageTarget } from '@gitkraken/commit-graph-ui/scope/paging.js';
 /*global document window*/
 import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { WipCandidate } from '@gitkraken/commit-graph/wip/nearest.js';
 import { findNearestWipByAncestry, findWipInColumn } from '@gitkraken/commit-graph/wip/nearest.js';
-import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume } from '@lit/context';
 import * as l10n from '@vscode/l10n';
@@ -23,14 +30,12 @@ import { uncommitted } from '@gitlens/git/models/revision.js';
 import type { GitCommitReachability } from '@gitlens/git/providers/commits.js';
 import { areEqual as areArraysEqual } from '@gitlens/utils/array.js';
 import { debounce } from '@gitlens/utils/debounce.js';
-import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
 import { areEqual } from '@gitlens/utils/object.js';
 import type { GraphBranchesVisibility } from '../../../../../config.js';
 import type { CommitDetails } from '../../../../commitDetails/protocol.js';
 import type {
 	DidLoadRowParams,
 	GraphAvatars,
-	GraphColumnName,
 	GraphColumnsConfig,
 	GraphMissingRefsMetadata,
 	GraphRef,
@@ -59,7 +64,7 @@ import { agentIndicatorTooltipFor, pickWipRowAgentStatus } from '../components/w
 import { graphServicesContext, graphStateContext } from '../context.js';
 import type { GraphCrossPaneState } from '../graphCrossPaneState.js';
 import { graphCrossPaneContext } from '../graphCrossPaneState.js';
-import { countRenderedSearchResults, isGraphSearchResultsError } from '../stateProvider.js';
+import { isGraphSearchResultsError } from '../stateProvider.js';
 import { getOverviewBranchSelectionSha } from '../utils/branchSelection.utils.js';
 import { GraphHostSelectionRequest } from '../utils/hostSelectionRequest.js';
 import { getSelectedRepoFamily, getSelectedRepoPath } from '../utils/repository.utils.js';
@@ -366,16 +371,7 @@ declare global {
 			 *  programmatic re-drive through {@link GlGraphWrapper.selectCommits}. */
 			userIntent?: boolean;
 		}>;
-		'gl-graph-change-column-mode': CustomEvent<{ name: GraphColumnName; mode: ColumnMode | undefined }>;
 		'gl-graph-change-visible-days': CustomEvent<{ top: number; bottom: number }>;
-		/** A downward fork-point/ref-row search paging past the loaded end (Alt+`↑`/`↓`, `[`/`]`) —
-		 *  `'started'` while it's in flight, then exactly one of `'found'` / `'exhausted'` / `'cancelled'`. */
-		'gl-graph-edge-search': CustomEvent<{
-			kind: 'forkPoint' | 'refRow';
-			status: 'started' | 'found' | 'exhausted' | 'cancelled';
-		}>;
-		'gl-graph-enable-changes-column': CustomEvent<void>;
-		'gl-graph-filter-column': CustomEvent<{ zone: GraphZoneType }>;
 		'gl-graph-mouse-leave': CustomEvent<void>;
 		/** A jump that settled without landing on its row, and whose caller didn't opt out of feedback
 		 *  (see {@link GraphNavigationOptions.feedback}). Never fires for a superseded navigation. */
@@ -548,10 +544,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	@property({ attribute: false })
 	anchorShas?: readonly string[];
 
-	/** The webview's key dispatcher, forwarded to `<gl-commit-graph>` so it can register the `rows` scope
-	 *  and its bindings. Owned by `gl-graph-app`. */
 	@property({ attribute: false })
-	keymap?: KeymapDispatcher<GraphKeymapScope>;
+	keymap?: GraphKeymap;
 
 	/** The current branch's merge-target tip + name (pulled client-side via the scope-anchor pipeline) —
 	 *  forwarded straight through to `<gl-commit-graph>`, the one row-marker leg the client can't derive
@@ -583,15 +577,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	// SHA indexes over the decorated set (including synthetic WIP rows), cached on the exact rows identity.
 	// Selection, navigation, topological ranges, and context menus share this one O(rows) build.
 	private _decoratedRowsIndexCache?: DecoratedRowsIndex;
-	// {@link countRenderedSearchResults} over the decorated-rows sha index, cached on both identities so
-	// an unrelated re-render (neither the rows nor the search changed) skips the walk over `results.ids`.
-	// A progressive search re-pushes `searchResults` many times against an unchanged graph, so the pair
-	// has to be in the key, not the rows alone.
-	private _searchResultsRenderedCountCache?: {
-		decoratedRows: GitGraphRow[] | undefined;
-		searchResults: typeof graphStateContext.__context__.searchResults;
-		result: number;
-	};
 
 	// Tracks the last observed `branchesVisibility` + repo so a genuine in-repo TOGGLE into `'current'`
 	// (not the initial paint, not a repo switch) can refocus a hidden anchor.
@@ -636,12 +621,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		// remount resumes the retry instead of dropping rows nothing else would ever ask about again.
 	}
 
-	// Reveal intent rides on the EVENT, not on the source: `gl-jump-to-commit` is dispatched by affordances
-	// as different as a ref pill, a WIP row's neighbor button and the Pull popover, and only the dispatcher
-	// knows whether its target is one row away or across the history.
 	private onJumpToCommit = (
 		e: CustomEvent<{ sha: string; focus?: boolean; reveal?: GraphRevealMode; flash?: boolean }>,
 	) => {
+		// KEEP: claiming the jump stops the graph's own fallback from running alongside this navigation.
+		e.preventDefault();
 		void this.navigateToCommit(e.detail.sha, {
 			source: 'jump',
 			focus: e.detail.focus,
@@ -1379,7 +1363,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	override render() {
 		const { graphState } = this;
 		const { rows: decoratedRows, showPrimary, primaryWipRowId } = this.getDecoratedRows();
-		const searchResultsRenderedCount = this.getRenderedSearchResultsCount(decoratedRows);
 
 		// Gate the Changes-column stats props on the column being visible AND its stats consent enabled:
 		// a hidden OR dormant (opt-in pending) column must get zero stats-driven re-renders (the host
@@ -1400,7 +1383,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.refsMetadataResetToken=${graphState.refsMetadataResetToken}
 			.enabledRefMetadataTypes=${graphState.config?.enabledRefMetadataTypes}
 			.searchResults=${graphState.searchResults}
-			.searchResultsRenderedCount=${searchResultsRenderedCount}
 			.searching=${graphState.searching}
 			.searchMode=${graphState.searchMode}
 			.config=${graphState.config}
@@ -1410,9 +1392,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.activeFilterColumns=${graphState.activeFilterColumns}
 			.repoPath=${this.getRepoPath()}
 			.repoFamily=${this.getRepoFamily()}
-			.columnsContext=${graphState.context?.header}
-			.settingsContext=${graphState.context?.settings}
-			.scrollMarkersContext=${graphState.context?.scrollMarkers}
+			.vscode=${{
+				columnsContext: graphState.context?.header,
+				settingsContext: graphState.context?.settings,
+				scrollMarkersContext: graphState.context?.scrollMarkers,
+			}}
 			.excludeRefs=${graphState.excludeRefs}
 			.excludeTypes=${graphState.excludeTypes}
 			.includeOnlyRefs=${graphState.includeOnlyRefs}
@@ -1434,12 +1418,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			.pagingHasMore=${graphState.paging?.hasMore ?? true}
 			?windowFocused=${graphState.windowFocused}
 			@gl-graph-changeselection=${this.onGraphSelectionChanged}
-			@gl-graph-edge-search=${this.onEdgeSearch}
 			@gl-graph-rowdoubleclick=${this.onGraphRowDoubleClick}
 			@gl-graph-refdoubleclick=${this.onGraphRefDoubleClick}
 			@gl-graph-contextmenu=${this.onGraphContextMenu}
 			@gl-graph-morerows=${this.onGraphMoreRows}
-			@gl-graph-retry-load=${this.onGraphRetryLoad}
+			@gl-graph-retryload=${this.onGraphRetryLoad}
 			@gl-graph-changevisibledays=${this.onGraphVisibleDaysChanged}
 			@gl-graph-visiblewipshaschanged=${this.onVisibleWipShasChanged}
 			@gl-graph-wipshasmissingstats=${this.onWipShasMissingStats}
@@ -1456,6 +1439,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			@gl-graph-unpinref=${this.onGraphUnpinRef}
 			@gl-graph-wiprowopen=${this.onGraphWipRowOpen}
 			@gl-graph-mouseleave=${this.onMouseLeave}
+			@gl-graph-jumptocommit=${this.onJumpToCommit}
+			@gl-graph-jumptonearestwip=${this.onJumpToNearestWip}
 		></gl-commit-graph>`;
 	}
 
@@ -2446,26 +2431,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return surviving?.[sha] != null;
 	}
 
-	/** {@link countRenderedSearchResults} against the decorated-rows sha index — the number the results
-	 *  bar shows. Reuses `getDecoratedRowsIndex`'s memoized index rather than building a second Set. */
-	private getRenderedSearchResultsCount(decoratedRows: GitGraphRow[] | undefined): number {
-		const searchResults = this.graphState.searchResults;
-
-		const cached = this._searchResultsRenderedCountCache;
-		if (cached != null && cached.decoratedRows === decoratedRows && cached.searchResults === searchResults) {
-			return cached.result;
-		}
-
-		const renderedShas = this.getDecoratedRowsIndex(decoratedRows)?.indexBySha ?? new Map<string, number>();
-		const result = countRenderedSearchResults(searchResults, renderedShas);
-		this._searchResultsRenderedCountCache = {
-			decoratedRows: decoratedRows,
-			searchResults: searchResults,
-			result: result,
-		};
-		return result;
-	}
-
 	private resolveHoverRow(sha: string): GitGraphRow | undefined {
 		const row = this.rowBySha(sha);
 		if (row != null) {
@@ -2613,7 +2578,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	/** Anchors whose page was held back because a row load was already in flight — replayed from `updated()`
 	 *  once it finishes. See {@link processUnreachableAnchors} for why dropping them isn't an option. Stamped
 	 *  with {@link scopeAnchorKey} so a replay can't page for a view the user has already left. */
-	private _deferredUnreachableAnchors?: { anchors: ReadonlySet<string>; key: string | undefined };
+	private _deferredUnreachableAnchors?: { anchors: readonly string[]; key: string | undefined };
 	private _unreachableAnchorScope: typeof graphStateContext.__context__.scope = undefined;
 	/** A row page held back because a load was already in flight — replayed from `updated()` once it clears.
 	 *  Stamped with the repository it was asked for: a swap REPLACES the row set, and the graph clamps a
@@ -3117,13 +3082,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.writeVscodeContext(serializeSelectionContext(context));
 	}
 
-	/** Rows scrolled into view carrying authors we have no avatar for. Straight request/response — the
-	 *  answer merges into the `avatars` prop; nothing rides a rows push. */
-	private onGraphMissingAvatars(event: CustomEvent<GraphAvatars>) {
+	private onGraphMissingAvatars(event: CustomEvent<GraphMissingAvatarsDetail>) {
 		const services = this.services;
 		if (services == null) return;
 
-		const emails = event.detail;
+		const emails = event.detail.avatars;
 		fireAndForget(
 			(async () => this.graphState.applyAvatars(await (await services.avatars).getMissingAvatars(emails)))(),
 			'avatars/getMissing',
@@ -3132,11 +3095,11 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 	/** The webview itself couldn't load these avatar URLs (CSP/CORS) — ask the host to re-serve them as
 	 *  data URIs. Only the entries that proxied come back, and they overwrite their own keys. */
-	private onGraphAvatarLoadError(event: CustomEvent<Record<string, string>>) {
+	private onGraphAvatarLoadError(event: CustomEvent<GraphAvatarLoadErrorDetail>) {
 		const services = this.services;
 		if (services == null) return;
 
-		const avatars = event.detail;
+		const avatars = event.detail.avatars;
 		fireAndForget(
 			(async () => this.graphState.applyAvatars(await (await services.avatars).proxyAvatars(avatars)))(),
 			'avatars/proxy',
@@ -3175,24 +3138,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.dispatchEvent(new CustomEvent('gl-graph-change-visible-days', { detail: event.detail }));
 	}
 
-	private onEdgeSearch(
-		event: CustomEvent<{ kind: 'forkPoint' | 'refRow'; status: 'started' | 'found' | 'exhausted' | 'cancelled' }>,
-	) {
-		// Re-emit unchanged so graph-app can drive the edge-search toast off the wrapper's own events.
-		this.dispatchEvent(new CustomEvent('gl-graph-edge-search', { detail: event.detail }));
-	}
-
 	private async onGraphRefDoubleClick(
-		event: CustomEvent<{
-			name: string;
-			kind: string;
-			remote: string | null;
-			context?: string;
-			current: boolean;
-			metadata?: GraphRefMetadataItem;
-		}>,
+		event: CustomEvent<Omit<GraphRefDoubleClickDetail, 'metadata'> & { metadata?: GraphRefMetadataItem }>,
 	): Promise<void> {
-		const { name, kind, remote, context, current, metadata } = event.detail;
+		const { name, kind, remote, vscodeContext, current, metadata } = event.detail;
 
 		// `gl-graph-refdoubleclick` is a misnomer — it fires on a single click. A PR chip click opens the
 		// in-webview sheet directly rather than round-tripping to the host to open the browser.
@@ -3214,7 +3163,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const ref = {
 			refType: refType as GraphRef['refType'],
 			name: name,
-			context: context,
+			context: vscodeContext,
 			...(refType === 'head' ? { isCurrentHead: current } : {}),
 			...(remote != null ? { owner: remote } : {}),
 		} satisfies Partial<GraphRef> as GraphRef;
@@ -3230,8 +3179,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		notifyService(services.rowActions, 'rowActions/refDoubleClick', svc => svc.handleRefDoubleClick(ref, metadata));
 	}
 
-	private onScopeAnchorsUnreachable(event: CustomEvent<Set<string>>) {
-		this.processUnreachableAnchors(event.detail);
+	private onScopeAnchorsUnreachable(event: CustomEvent<GraphScopeAnchorsUnreachableDetail>) {
+		this.processUnreachableAnchors(event.detail.shas);
 	}
 
 	/** Row loads THIS component started: a page it asked for (`graphState.loading`, which the rows push
@@ -3279,19 +3228,13 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		this.processUnreachableAnchors(deferred.anchors);
 	}
 
-	private processUnreachableAnchors(anchors: ReadonlySet<string> | undefined) {
-		// The component flagged that one or more scope anchors can't reach a visible ancestor
-		// within the loaded graph rows (merge base not yet fetched). Ask the host for more rows
-		// so the synthetic edges can resolve.
-		if (anchors == null || anchors.size === 0) {
+	private processUnreachableAnchors(anchors: readonly string[] | undefined) {
+		if (anchors == null || anchors.length === 0) {
 			this._deferredUnreachableAnchors = undefined;
 			return;
 		}
 
-		// Blocked for now — PARK it, never drop it. The component re-emits only when the loaded row count
-		// changes, and the case that most needs a retry is the one where no rows arrive at all, so a dropped
-		// signal is an anchor that never gets paged: focus re-roots against its open terminus and then sits
-		// there, never reaching its merge base, until the user unscopes and re-scopes. `updated()` replays.
+		// KEEP: park a blocked signal, never drop it; the graph re-emits only when the loaded row count changes.
 		if (this.rowLoadInFlight || !this.graphState.paging?.hasMore) {
 			this._deferredUnreachableAnchors = { anchors: anchors, key: this.scopeAnchorKey(this.graphState.scope) };
 			return;
@@ -3299,38 +3242,23 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 
 		this._deferredUnreachableAnchors = undefined;
 
-		// Drop prior dedupe state when the live scope reference changes — the stateProvider
-		// assigns a new scope object on every transition (re-scope, post-invalidation re-resolve),
-		// so reference inequality cleanly catches both.
 		const scope = this.graphState.scope;
 		if (scope !== this._unreachableAnchorScope) {
 			this._unreachableAnchorRequests.clear();
 			this._unreachableAnchorScope = scope;
 		}
 
-		// Forward a page-target SHA to the host so the provider's page-until-found path (graph.ts
-		// `getCommitsForGraphCore` stop logic) loads enough rows in one round trip — typically the
-		// `scope.mergeBase.sha` when the library flagged loaded branch tips as "unreachable"
-		// because their parent chain can't reach a visible ancestor. Without that targeted page,
-		// `isBounded` stays false and the library's scroll/fill-viewport paths leak generic pages.
 		const rows = this.graphState.rows;
 		if (rows?.length) {
-			// Reachability IS row membership, so the component re-emits on every row-count change for as long
-			// as anything stays unreachable. Once every candidate has spent its attempt budget we will never
-			// request again, so bail before the O(rows) `loaded` scan rather than rebuilding it per page.
-			// `pickScopePageTarget` can also fall back to the scope's merge base, so it counts as a candidate.
+			// KEEP: bail before the O(rows) loaded scan once every candidate, the merge base included, is spent.
 			const exhausted = (sha: string): boolean =>
 				(this._unreachableAnchorRequests.get(sha)?.attempts ?? 0) >= maxUnreachableAnchorPageAttempts;
 			const fallback = scope?.mergeBase?.sha;
-			if ([...anchors].every(exhausted) && (fallback == null || exhausted(fallback))) return;
+			if (anchors.every(exhausted) && (fallback == null || exhausted(fallback))) return;
 
 			const loaded = new Set(rows.map(r => r.sha));
 			const rowCount = rows.length;
 
-			// Which prior requests are still parked (ineligible to retry): those whose response delivered
-			// no new rows — the provider's cursor didn't advance, so retrying re-runs the same range — and
-			// those that have spent their whole attempt budget. Entries are kept, not deleted, so the
-			// attempt count survives a release.
 			const parked = new Set<string>();
 			for (const [sha, request] of this._unreachableAnchorRequests) {
 				if (rowCount <= request.rowCount || request.attempts >= maxUnreachableAnchorPageAttempts) {
@@ -3371,8 +3299,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		return undefined;
 	}
 
-	private onVisibleWipShasChanged(event: CustomEvent<Record<string, true>>) {
-		this._lastVisibleWipShas = Object.keys(event.detail);
+	private onVisibleWipShasChanged(event: CustomEvent<GraphWipShasDetail>) {
+		this._lastVisibleWipShas = event.detail.shas;
 		this.syncWipWatches();
 	}
 
@@ -3429,8 +3357,8 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	private readonly _wipStatsPendingRetry = new Set<string>();
 	private _wipStatsRetryTimer: ReturnType<typeof setTimeout> | undefined;
 
-	private onWipShasMissingStats(event: CustomEvent<Record<string, true>>) {
-		void this.fetchWipStats(Object.keys(event.detail));
+	private onWipShasMissingStats(event: CustomEvent<GraphWipShasDetail>) {
+		void this.fetchWipStats([...event.detail.shas]);
 	}
 
 	/**

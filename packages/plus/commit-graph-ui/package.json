@@ -42,6 +42,11 @@
 			"types": "./dist/profile.d.ts",
 			"default": "./dist/profile.js"
 		},
+		"./localization.js": {
+			"types": "./dist/localization.d.ts",
+			"default": "./dist/localization.js"
+		},
+		"./l10n/messages.json": "./dist/l10n/messages.json",
 		"./contracts/*.js": {
 			"types": "./dist/contracts/*.d.ts",
 			"default": "./dist/contracts/*.js"
@@ -77,12 +82,12 @@
 		"provenance": false
 	},
 	"scripts": {
-		"build": "tsdown && node scripts/css.mjs",
+		"build": "tsdown && node scripts/css.mjs && node scripts/messages.mjs",
 		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../../.oxlintrc.json .",
 		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus *.tgz",
 		"lint:css": "stylelint \"src/**/*.{css,scss,ts}\"",
 		"prepack": "pnpm run build",
-		"test": "mocha --require tsx --ui tdd --timeout 30000 \"src/**/__tests__/**/*.test.ts\"",
+		"test": "mocha --require tsx --ui tdd --timeout 30000 \"src/**/__tests__/**/*.test.ts\" \"scripts/__tests__/**/*.test.ts\"",
 		"verify:package": "node scripts/verify-package.mjs"
 	},
 	"dependencies": {
@@ -90,8 +95,7 @@
 		"@gitkraken/commit-graph": "workspace:*",
 		"@lit-labs/virtualizer": "catalog:",
 		"fast-string-truncated-width": "catalog:",
-		"vscode-uri": "catalog:",
-		"@vscode/l10n": "catalog:"
+		"vscode-uri": "catalog:"
 	},
 	"peerDependencies": {
 		"lit": "catalog:"
@@ -103,6 +107,7 @@
 		"@types/mocha": "catalog:",
 		"lit": "catalog:",
 		"mocha": "catalog:",
+		"postcss": "catalog:",
 		"publint": "catalog:",
 		"sass-embedded": "catalog:",
 		"tsdown": "catalog:",

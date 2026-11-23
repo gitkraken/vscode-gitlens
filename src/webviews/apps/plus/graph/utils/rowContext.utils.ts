@@ -1,4 +1,4 @@
-import { pickRowUndoTarget } from '@gitkraken/commit-graph-ui/rows/rows.js';
+import { pickRowUndoTarget } from '@gitkraken/commit-graph-ui/contracts/rows.js';
 import type { GitGraphRow, GitGraphRowContextFlags, GitGraphRowKind } from '@gitlens/git/models/graph.js';
 import { GitGraphRowContextFlags as ContextFlags } from '@gitlens/git/models/graph.js';
 import { uncommitted } from '@gitlens/git/models/revision.js';

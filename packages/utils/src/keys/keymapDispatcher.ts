@@ -36,38 +36,91 @@ type ScopeEntry = {
 	guards: readonly ((e: KeyboardEvent) => boolean)[];
 };
 
+export type KeymapRegistrar<TScope extends string> = {
+	registerScope(
+		id: TScope,
+		registration: ScopeRegistration | 'always',
+		guards?: readonly ((e: KeyboardEvent) => boolean)[],
+	): Disposable;
+	registerBindings(descriptors: readonly KeyBindingDescriptor<TScope, KeyboardEvent>[]): Disposable;
+	pushOverlay(entry: OverlayEntry): Disposable;
+	dispose(): void;
+};
+
 /** Owns a document-level keydown listener and dispatches it to registered bindings by scope, honoring
  *  an overlay-close stack (Escape) ahead of any binding match. Framework-agnostic — consumers register
  *  scopes/bindings/overlays and call {@link KeymapDispatcher.attach} once. */
 export class KeymapDispatcher<TScope extends string> {
 	private readonly isMac: boolean;
 	private readonly onWarn: ((message: string) => void) | undefined;
-	private readonly scopes = new Map<TScope, ScopeEntry>();
-	private alwaysOrder: TScope[] = [];
+	private readonly scopes = new Map<string, ScopeEntry>();
+	private alwaysOrder: string[] = [];
 	/** Registered descriptor groups, in registration order — kept so bindings can be rebuilt whenever
 	 *  a group is added/removed or the overrides change. */
-	private registrationGroups: (readonly KeyBindingDescriptor<TScope, KeyboardEvent>[])[] = [];
+	private registrationGroups: (readonly KeyBindingDescriptor<string, KeyboardEvent>[])[] = [];
 	private overrides: KeyBindingOverrides | undefined;
-	private bindings: KeyBinding<TScope, KeyboardEvent>[] = [];
+	private bindings: KeyBinding<string, KeyboardEvent>[] = [];
 	/** Every registered descriptor's outcome, `undefined` when disabled by an override — lets
 	 *  {@link sheetEntries} walk descriptors in registration order (not just the survivors) so a
 	 *  disabled owner's row can still surface via a registered `with` partner. */
 	private bindingByDescriptor = new Map<
-		KeyBindingDescriptor<TScope, KeyboardEvent>,
-		KeyBinding<TScope, KeyboardEvent> | undefined
+		KeyBindingDescriptor<string, KeyboardEvent>,
+		KeyBinding<string, KeyboardEvent> | undefined
 	>();
 	private overlayStack: OverlayEntry[] = [];
+	private registrarCount = 0;
 	private attached = false;
+	private readonly root: Element | undefined;
 
-	constructor(options: { isMac: boolean; onWarn?: (message: string) => void }) {
+	constructor(options: { isMac: boolean; onWarn?: (message: string) => void; root?: Element }) {
 		this.isMac = options.isMac;
 		this.onWarn = options.onWarn;
+		this.root = options.root;
 	}
 
 	registerScope(
 		id: TScope,
 		registration: ScopeRegistration | 'always',
 		guards: readonly ((e: KeyboardEvent) => boolean)[] = [],
+	): Disposable {
+		return this.addScope(id, registration, guards);
+	}
+
+	registerBindings(descriptors: readonly KeyBindingDescriptor<TScope, KeyboardEvent>[]): Disposable {
+		return this.addBindings(descriptors);
+	}
+
+	createRegistrar(): KeymapRegistrar<TScope> {
+		const suffix = `#${++this.registrarCount}`;
+		const owned = new Set<Disposable>();
+		const own = (disposable: Disposable): Disposable => {
+			owned.add(disposable);
+			return createDisposable(() => {
+				if (owned.delete(disposable)) {
+					disposable.dispose();
+				}
+			});
+		};
+
+		return {
+			registerScope: (id, registration, guards = []) =>
+				own(this.addScope(`${id}${suffix}`, registration, guards)),
+			registerBindings: descriptors =>
+				own(this.addBindings(descriptors.map(d => ({ ...d, scope: `${d.scope}${suffix}` })))),
+			pushOverlay: entry => own(this.pushOverlay(entry)),
+			dispose: () => {
+				for (const disposable of owned) {
+					disposable.dispose();
+				}
+				owned.clear();
+			},
+		};
+	}
+
+	private addScope(
+		id: string,
+		registration: ScopeRegistration | 'always',
+		guards: readonly ((e: KeyboardEvent) => boolean)[],
 	): Disposable {
 		const entry: ScopeEntry = { registration: registration, guards: guards };
 		this.scopes.set(id, entry);
@@ -84,7 +137,7 @@ export class KeymapDispatcher<TScope extends string> {
 		});
 	}
 
-	registerBindings(descriptors: readonly KeyBindingDescriptor<TScope, KeyboardEvent>[]): Disposable {
+	private addBindings(descriptors: readonly KeyBindingDescriptor<string, KeyboardEvent>[]): Disposable {
 		this.registrationGroups.push(descriptors);
 		this.rebuildBindings();
 
@@ -121,10 +174,10 @@ export class KeymapDispatcher<TScope extends string> {
 	}
 
 	private rebuildBindings(): void {
-		const bindings: KeyBinding<TScope, KeyboardEvent>[] = [];
+		const bindings: KeyBinding<string, KeyboardEvent>[] = [];
 		const byDescriptor = new Map<
-			KeyBindingDescriptor<TScope, KeyboardEvent>,
-			KeyBinding<TScope, KeyboardEvent> | undefined
+			KeyBindingDescriptor<string, KeyboardEvent>,
+			KeyBinding<string, KeyboardEvent> | undefined
 		>();
 
 		for (const group of this.registrationGroups) {
@@ -193,7 +246,7 @@ export class KeymapDispatcher<TScope extends string> {
 	}
 
 	sheetEntries(): readonly KeymapSheetRow[] {
-		const byId = new Map<string, KeyBinding<TScope, KeyboardEvent>>();
+		const byId = new Map<string, KeyBinding<string, KeyboardEvent>>();
 		for (const binding of this.bindings) {
 			if (binding.id == null) continue;
 
@@ -203,7 +256,7 @@ export class KeymapDispatcher<TScope extends string> {
 		// A partner's display segment — its live effective keys once overridden, otherwise the
 		// `with` entry's own default display (falling back to the partner's own keys).
 		const partnerSegment = (
-			partnerBinding: KeyBinding<TScope, KeyboardEvent>,
+			partnerBinding: KeyBinding<string, KeyboardEvent>,
 			partner: { keys?: readonly SheetDisplayEntry[] },
 		): readonly SheetDisplayEntry[] =>
 			partnerBinding.overridden ? partnerBinding.keys : (partner.keys ?? partnerBinding.keys);
@@ -260,6 +313,7 @@ export class KeymapDispatcher<TScope extends string> {
 
 	private readonly _onKeydown = (e: KeyboardEvent): void => {
 		if (e.defaultPrevented) return;
+		if (this.root != null && !e.composedPath().includes(this.root)) return;
 
 		if (e.key === 'Escape' && this.overlayStack.length > 0 && this.closeTopOverlay()) {
 			e.preventDefault();
@@ -267,7 +321,7 @@ export class KeymapDispatcher<TScope extends string> {
 			return;
 		}
 
-		const chain: TScope[] = [];
+		const chain: string[] = [];
 		for (const element of e.composedPath()) {
 			for (const [id, entry] of this.scopes) {
 				if (entry.registration === 'always') continue;

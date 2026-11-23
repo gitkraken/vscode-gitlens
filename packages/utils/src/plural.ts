@@ -18,11 +18,17 @@ import { getNumericFormat } from './date.js';
  * the two in sync if the grammar changes.
  */
 
+let pluralLocale: string | undefined;
 let pluralRules: Intl.PluralRules | undefined;
 
 /** Sets the UI locale used to categorize counts. `undefined` resets to the default (see {@link getPluralCategory}). */
 export function setPluralLocale(locale: string | undefined): void {
-	pluralRules = locale ? new Intl.PluralRules(locale) : undefined;
+	pluralLocale = locale || undefined;
+	pluralRules = pluralLocale != null ? new Intl.PluralRules(pluralLocale) : undefined;
+}
+
+export function getPluralLocale(): string | undefined {
+	return pluralLocale;
 }
 
 /**

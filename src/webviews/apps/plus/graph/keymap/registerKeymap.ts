@@ -1,4 +1,3 @@
-import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
 import * as l10n from '@vscode/l10n';
 import { isTextEntryTarget } from '@gitlens/utils/dom.js';
 import type { KeymapDispatcher } from '@gitlens/utils/keys/keymapDispatcher.js';
@@ -10,6 +9,7 @@ import type { GlGraphHeader } from '../graph-header.js';
 import type { GlGraphWrapper } from '../graph-wrapper/graph-wrapper.js';
 import type { GlGraphSidebarPanel } from '../sidebar/sidebar-panel.js';
 import { visibleSidebarPanels } from '../sidebar/sidebarPanels.js';
+import type { GraphKeymapScope } from './graphKeymap.js';
 
 /** `.open` matters: after a dialog closes, focus can remain on a control still slotted INSIDE the closed
  *  <dialog> (native close doesn't move it), and a tag-only test would keep treating that dialog as a

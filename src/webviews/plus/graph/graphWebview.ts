@@ -1,6 +1,6 @@
 import type { Handler } from '@eamodio/supertalk';
 import { SequencedChannel } from '@eamodio/supertalk-core/handlers/channel.js';
-import type { emptySetMarker } from '@gitkraken/commit-graph-ui/scope/filtering.js';
+import type { includeNoRefsKey } from '@gitkraken/commit-graph-ui/contracts/state.js';
 import { changesModeOrDefault, isChangesColumnMode } from '@gitkraken/commit-graph/stats.js';
 import { createWipRowId, getWipRowWorktreePath, isWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { ColumnMode } from '@gitkraken/commit-graph/zones.js';
@@ -5067,7 +5067,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					return {
 						// Create an empty set to say we want to include nothing
 						refs: {
-							['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphRefOptData,
+							['gk.empty-set-marker' satisfies typeof includeNoRefsKey]: {} as unknown as GraphRefOptData,
 						},
 						continuation: continuation,
 					};
@@ -5081,7 +5081,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 					return {
 						// Create an empty set to say we want to include nothing
 						refs: {
-							['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphRefOptData,
+							['gk.empty-set-marker' satisfies typeof includeNoRefsKey]: {} as unknown as GraphRefOptData,
 						},
 						continuation: continuation,
 					};
@@ -5361,6 +5361,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		const rawShortcutOverrides = configuration.get('graph.shortcuts.overrides') ?? {};
 		warnInvalidShortcutOverrides(rawShortcutOverrides);
 		const shortcutOverrides = normalizeShortcutOverrides(rawShortcutOverrides);
+		const minimapMarkerTypes = this.getMinimapMarkerTypes();
 
 		const config: GraphComponentConfig = {
 			aiEnabled: this.container.ai.enabled,
@@ -5397,10 +5398,11 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 			maxInlineRefs: configuration.get('graph.refs.maxInline'),
 			maxStackedRefs: configuration.get('graph.refs.maxStacked'),
 			refsLayout: configuration.get('graph.refs.layout'),
+			refsMetadataRange: minimapMarkerTypes.includes('pullRequests') ? 'loaded' : 'rendered',
 			minimap: configuration.get('graph.minimap.enabled'),
 			minimapDefaultVisibility: configuration.get('graph.minimap.defaultVisibility'),
 			minimapDataType: configuration.get('graph.minimap.dataType'),
-			minimapMarkerTypes: this.getMinimapMarkerTypes(),
+			minimapMarkerTypes: minimapMarkerTypes,
 			minimapReversed: configuration.get('graph.minimap.reversed'),
 			multiSelectionMode: configuration.get('graph.multiselect'),
 			onlyFollowFirstParent: configuration.get('graph.onlyFollowFirstParent'),

@@ -2,7 +2,7 @@ import type {
 	CommitGraphRef as CanonicalGraphCommitRef,
 	CommitGraphView as CanonicalGraphCommitView,
 } from '@gitkraken/commit-graph-ui/contracts/rows.js';
-import { pickRowUndoTarget } from '@gitkraken/commit-graph-ui/rows/rows.js';
+import { pickRowUndoTarget } from '@gitkraken/commit-graph-ui/contracts/rows.js';
 import type { CommitKind } from '@gitkraken/commit-graph/engine/types.js';
 import type { GitGraphRow } from '@gitlens/git/models/graph.js';
 import {

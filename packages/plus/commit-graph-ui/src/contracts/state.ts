@@ -68,14 +68,24 @@ export interface GraphComponentConfig {
 	maxInlineRefs?: number | 'auto';
 	maxStackedRefs?: number | 'auto';
 	multiSelectionMode?: boolean | 'topological';
+	/** Whether the header offers the group/ungroup toggles; `false` shows a grouped column's icon without one. */
+	placementControls?: boolean;
+	/** Which refs `gl-graph-missingrefsmetadata` asks about: `'rendered'` (default) the refs on screen, `'loaded'` also
+	 *  every loaded row's refs for `pullRequest`, at one host lookup per ref. */
+	refsMetadataRange?: 'rendered' | 'loaded';
 	refsLayout?: 'inline' | 'stacked';
 	scrollMarkerTypes?: GraphScrollMarkerTypes[];
 	scrollRowPadding?: number;
+	/** Whether a commit row shows its message body after the summary; visual only. Default true. */
+	showCommitMessageBody?: boolean;
 	showGhostRefsOnRowHover?: boolean;
 	showRemoteNamesOnRefs?: boolean;
 	stickyTimeline?: boolean;
 	style?: GraphStyle;
 	timelineSeparators?: boolean;
+	/** What a working-changes row shows as its title: `'label'` (default) "Working Changes" plus the branch pill,
+	 *  `'branch'` the worktree's identity with no branch pill. Visual only. */
+	wipRowTitle?: 'label' | 'branch';
 }
 
 export type GraphRefType = 'head' | 'remote' | 'tag' | 'worktree';
@@ -98,6 +108,13 @@ export interface GraphExcludeTypes {
 
 export type GraphExcludeRefs = Record<string, GraphRefOptData>;
 export type GraphIncludeOnlyRefs = Record<string, GraphRefOptData>;
+
+/** An `includeOnlyRefs` key that narrows the graph to no refs; its value is ignored. An empty map narrows nothing. */
+export const includeNoRefsKey = 'gk.empty-set-marker' as const;
+
+export type { ExcludedRemote } from '../extensions/refs/pills.js';
+export { getExcludedRemotes } from '../extensions/refs/pills.js';
+export { hasDirtyCounts } from '../rows/wip.js';
 export type GraphPinnedRef = GraphRefOptData & { sha?: string };
 
 /** Opaque product/provider identifier; the renderer only uses it to select known optional glyphs. */

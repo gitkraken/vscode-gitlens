@@ -1,8 +1,8 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import { colorForColumn, contrastColor, withAlpha } from '@gitkraken/commit-graph/lanes/colors.js';
 import { relativeTime } from '@gitkraken/commit-graph/time.js';
-import * as l10n from '@vscode/l10n';
 import type { TemplateResult } from 'lit';
 import { html, nothing } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
@@ -113,6 +113,7 @@ export interface RefPillHooks {
 	 *  the menu's lifetime, no ancestry-chain highlight, and jump-sha-qualified so the WIP-row proxy pill
 	 *  and the real pill it mirrors stay distinguishable. */
 	getContextPinnedRefKey?: () => string | undefined;
+	menuItemIdPrefix?: string;
 }
 
 // Map the structured commit refs to the pill's view model, ALREADY in display order. A plain
@@ -831,19 +832,6 @@ function renderOnePill(
 	const issueChip = issueMeta != null ? renderIssueChip(issueMeta.item, issueMeta.ref, false) : nothing;
 	const issueChipExpanded = issueMeta != null ? renderIssueChip(issueMeta.item, issueMeta.ref, true) : nothing;
 
-	// Icon and label form a shrinkable group so a long branch name truncates. The +N badge sits
-	// outside the truncating group with flex-shrink:0 — the name ellipsises but the badge stays.
-	// When the pill is shrunk to its icon, hovering reveals the full name (+ the +N badge, on the pill
-	// carrying it) via an absolutely-positioned overlay (`-expand`) that sits ON TOP of the message
-	// (no reflow — the in-flow box is untouched). The overlay renders for EVERY pill so its own ref's
-	// name always expands on hover; the popover (on the last pill) lists the refs that don't fit.
-	//
-	// The WIP-row pill is a PROXY for the HEAD branch pill shown on the WIP row: `data-jump-sha` makes a click
-	// JUMP to the HEAD tip (scroll + select) via the same `gl-jump-to-commit` path the WIP details header's
-	// jump button uses — onClick handles it early (jump + stopPropagation), so the pill navigates to the branch WITHOUT pinning
-	// or opening its sheet. That makes the NAME half a jump zone in its own right, so it takes the same lit-up
-	// band + "Jump to …" tooltip the upstream/merge-target segments carry — otherwise the pill's largest zone
-	// was the only one that never signalled where it goes. Tooltip wording mirrors the overview bar's legs.
 	const nameJump = rowMarker?.jumpSha != null;
 	const nameTip = nameJump ? l10n.t('Jump to HEAD ({0})', ref.name) : undefined;
 	// The overlay copy's name zone needs the same wrapper to hang that band on (the resting pill has `-main`);
@@ -863,6 +851,7 @@ function renderOnePill(
 		aria-label=${describeRef(ref, hooks)}
 		aria-haspopup=${options.hasPopover ? 'menu' : nothing}
 		data-jump-sha=${rowMarker?.jumpSha ?? nothing}
+		data-ref-id=${ref.id ?? nothing}
 		data-ref-name=${ref.name}
 		data-ref-key=${refPillKey(ref)}
 		data-ref-kind=${ref.kind}
@@ -1235,12 +1224,11 @@ function renderPopoverRefRow(
 ): TemplateResult {
 	const isHead = parsed.current === true;
 	const describe = describeRef(parsed, hooks);
+	const menuItemId = `${hooks?.menuItemIdPrefix ?? 'ref-menuitem-'}${refPillKey(parsed)}`;
 	// Same split/combine treatment as the primary pill: in-sync upstream folds in (cloud + sync), an
 	// out-of-sync counterpart shows ahead/behind + a jump button.
 	const upstreamSegment =
-		fromSha != null
-			? renderUpstreamSegment(parsed, fromSha, hooks, upstreamOnRow, `ref-menuitem-${refPillKey(parsed)}-jump`)
-			: nothing;
+		fromSha != null ? renderUpstreamSegment(parsed, fromSha, hooks, upstreamOnRow, `${menuItemId}-jump`) : nothing;
 
 	// A find hit normally wins the primary slot outright (`sortRowRefs`' find tier), but not when it's an
 	// in-sync remote carried by its local — then the match lists here instead, and without this the ref you
@@ -1251,8 +1239,9 @@ function renderPopoverRefRow(
 		class="gl-graph__ref-popover-row${isFindHit ? ' gl-graph__ref-popover-row--find-hit' : ''}"
 		style=${cspStyleMap(refStyle(color, isHead, 'row'))}
 		role="menuitem"
-		id=${`ref-menuitem-${refPillKey(parsed)}`}
+		id=${menuItemId}
 		aria-label=${edgePinned === true ? l10n.t('{0} · Pinned to Edge', describe) : describe}
+		data-ref-id=${parsed.id ?? nothing}
 		data-ref-name=${parsed.name}
 		data-ref-key=${refPillKey(parsed)}
 		data-ref-kind=${parsed.kind}

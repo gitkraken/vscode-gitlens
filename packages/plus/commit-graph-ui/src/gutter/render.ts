@@ -31,7 +31,7 @@ import { buildRasterImageData, svgToDataUri, wavyFilterParams } from './raster.j
  * same way — it's a single reference shared by every row (not a per-row closure).
  */
 
-const BACKGROUND = 'hsl(var(--background))';
+const BACKGROUND = 'var(--gl-graph-background)';
 // Base radius the avatar/stash-icon nodes are DRAWN at (so the shared circular clipPath + the avatar
 // image work); the node group is then scaled to the mode's target radius. 8 → a 16px base node.
 const nodeAvatarRadius = 8;
@@ -263,8 +263,6 @@ function renderIdentityNode(
 	const { rowHeight } = metrics;
 	const nodeX = nodeXFor(row, metrics);
 	const r = nodeAvatarRadius;
-	// Drawn at the fixed base radius; the group scales to the avatar target radius for the current
-	// row height, so the image + clipPath + ring scale together.
 	const scale = nodeRadiusFor('avatar', rowHeight) / nodeAvatarRadius;
 	const useImage = nodeStyle.avatars && nodeStyle.avatarUrl != null && nodeStyle.avatarUrl.length > 0;
 	const inner = useImage
@@ -275,18 +273,13 @@ function renderIdentityNode(
 				data-avatar-email=${nodeStyle.avatarEmail ?? nothing}
 				@error=${nodeStyle.onAvatarError}
 			/>`
-		: // Pre-rendered initials dot (see initialsDotUri): a decoded bitmap composited on scroll instead of a
-			// per-paint stroked <text>. No @error (data URIs don't fail) and no data-avatar-email (not a real avatar).
-			svg`<image
+		: svg`<image
 				x=${-r} y=${-r} width=${r * 2} height=${r * 2}
 				href=${initialsDotUri(nodeStyle.initials, color)}
 			/>`;
-	// Outer g positions the node; the inner `commit-dot-identity` g scales up on hover to close the
-	// background-masked gap to the lane line (same treatment as the dot nodes). A lane-colored ring
-	// frames the avatar/initials.
 	return svg`<g class="commit-dot-glow" transform="translate(${nodeX}, ${nodeY}) scale(${scale})">
 		<circle class="gl-graph__node-carve" cx="0" cy="0" r=${r + laneGap / scale} fill=${BACKGROUND} />
-		<g class="commit-dot-identity">
+		<g class="gl-graph__node-content commit-dot-identity">
 			${inner}
 			<circle class="commit-dot" cx="0" cy="0" r=${r} fill="none" stroke=${color} stroke-width="1.5" />
 		</g>
@@ -302,7 +295,7 @@ function renderStashIconNode(nodeX: number, nodeY: number, color: string, rowHei
 	const m = r + laneGap / scale;
 	return svg`<g class="commit-dot-glow" transform="translate(${nodeX}, ${nodeY}) scale(${scale})">
 		<rect class="gl-graph__node-carve" x=${-m} y=${-m} width=${m * 2} height=${m * 2} rx="2" fill=${BACKGROUND} />
-		<g class="commit-dot-identity">
+		<g class="gl-graph__node-content commit-dot-identity">
 			<rect x=${-r} y=${-r} width=${r * 2} height=${r * 2} rx="2" fill=${color} />
 			<text class="gl-graph__node-stash-glyph" x="0" y="0" text-anchor="middle" dominant-baseline="central">
 				${stashGlyph}
@@ -318,18 +311,15 @@ function renderStashIconNode(nodeX: number, nodeY: number, color: string, rowHei
 // stroke widths, hatch) lives in `.gl-graph__node-stash-*` classes; only the lane color is dynamic.
 function renderStashSquareNode(nodeX: number, nodeY: number, color: string): SVGTemplateResult {
 	const sr = nodeRadiusRef;
-	// Drawn at the fixed base half-size; the group scales to the fixed dot radius so the box + hatch +
-	// clipPath scale together.
 	const scale = nodeRadiusFor('compact') / nodeRadiusRef;
 	const m = sr + laneGap / scale;
-	// Hatch lines parallel to the "/" diagonal (constant x+y = k), clipped to the square.
 	const hatch = [-6, -3, 0, 3, 6].map(
 		k =>
 			svg`<line class="gl-graph__node-stash-line" x1=${-sr} y1=${k + sr} x2=${sr} y2=${k - sr} stroke=${color} />`,
 	);
 	return svg`<g class="commit-dot-glow" transform="translate(${nodeX}, ${nodeY}) scale(${scale})">
 		<rect class="gl-graph__node-carve" x=${-m} y=${-m} width=${m * 2} height=${m * 2} rx="1.5" fill=${BACKGROUND} />
-		<g class="commit-dot commit-dot-stash">
+		<g class="gl-graph__node-content commit-dot commit-dot-stash">
 			<rect class="gl-graph__node-stash-box" x=${-sr} y=${-sr} width=${sr * 2} height=${sr * 2} rx="1"
 				fill=${color} stroke=${color} />
 			<g class="gl-graph__node-stash-hatch" clip-path="url(#graph-stash-clip)">${hatch}</g>
@@ -352,15 +342,9 @@ function renderNode(
 	const nodeX = nodeXFor(row, metrics);
 
 	const mode = nodeStyle?.mode ?? 'compact';
-	// Fixed node radius per mode (no longer tracks lane spacing; avatars step up on tall rows — the
-	// fall-through dot shapes track it so WIP/merge/stash stay sized with their neighbors). The
-	// bg-mask (r + laneGap) carves the 1px gap to the lane line above/below. `rowHeight` here is always
-	// the BASE row height (see `nodeRadiusFor`'s own doc) — never the quantized row's total span.
 	const r = nodeRadiusFor(mode, rowHeight);
 
-	// Avatar/letter mode → identity node for authored rows; stash → square w/ glyph (no author); workdir
-	// always falls through to its dotted circle below.
-	// (Check `nodeStyle?.mode === 'avatar'` directly so TS narrows `nodeStyle` for renderIdentityNode.)
+	// KEEP: test `nodeStyle?.mode` itself, not `mode`, so TS narrows `nodeStyle` for renderIdentityNode.
 	if (nodeStyle?.mode === 'avatar') {
 		if (isStash) {
 			return renderStashIconNode(nodeX, nodeY, nodeColor, rowHeight);
@@ -370,47 +354,32 @@ function renderNode(
 		}
 	}
 
-	// Dot shapes — dot mode, avatar mode shrunk below the floor, or always for workdir/stash/merge.
-	// Kinds differ by SHAPE only at the same radius: WIP a dotted circle, stash a hatched square, merge
-	// a hollow ring.
 	if (isWorkdir) {
-		// Dotted circle in the lane color — the GitKraken working-tree node. The dotted-outline styling
-		// (background fill, stroke width/cap/dash) lives in `.gl-graph__node-outline`; the bg-mask keeps
-		// the 1px gap to the lane line above/below. A DIRTY working tree adds a small solid center dot
-		// (with a ~2px gap inside the ring); a clean tree is just the empty dotted ring.
 		const wipR = wipRingRadius(mode, rowHeight);
-		// Dirty WIP: a small solid center dot. Sized a touch smaller than the ring's inner edge so a
-		// clear gap rings it (the row gradient shows in the gap); derived from `wipR` so the interior
-		// gap stays balanced when the ring is trimmed. Clean WIP: no center — just the ring.
 		const wipDirty = nodeStyle?.wipState === 'dirty' || nodeStyle?.wipState === 'dirty-stale';
 		const wipDot = wipDirty
-			? svg`<circle class="gl-graph__node-wip-dirty ${nodeStyle?.wipState === 'dirty-stale' ? 'is-stale' : ''}" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, wipR - 3.5)} fill=${nodeColor} />`
+			? svg`<circle class="gl-graph__node-content gl-graph__node-wip-dirty ${nodeStyle?.wipState === 'dirty-stale' ? 'is-stale' : ''}" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, wipR - 3.5)} fill=${nodeColor} />`
 			: nothing;
-		// No background-mask circle here (unlike the other nodes): the WIP ring's interior is left
-		// transparent (`.gl-graph__node-outline` fill: none) so the row's gradient shines through the
-		// middle. The WIP node is always a lane tip, so the only lane line is the one descending below it.
+		// KEEP: no carve here, so the row's gradient shows through the WIP ring.
 		return svg`<g class="commit-dot-glow">
-			<circle class="commit-dot gl-graph__node-outline" cx=${nodeX} cy=${nodeY} r=${wipR} stroke=${nodeColor} />
+			<circle class="gl-graph__node-content commit-dot gl-graph__node-outline" cx=${nodeX} cy=${nodeY} r=${wipR} stroke=${nodeColor} />
 			${wipDot}
 		</g>`;
 	}
 	if (isStash) {
-		// Solid lane-colored square cross-hatched with diagonal lines — the GitKraken stash node.
 		return renderStashSquareNode(nodeX, nodeY, nodeColor);
 	}
 	if (isMerge) {
-		// Hollow ring inside the bg-mask gap; the center pip scales with the node.
 		return svg`<g class="commit-dot-glow">
 			<circle class="gl-graph__node-carve" cx=${nodeX} cy=${nodeY} r=${r + laneGap} fill=${BACKGROUND} />
-			<circle class="commit-dot commit-dot-hollow" cx=${nodeX} cy=${nodeY} r=${r}
+			<circle class="gl-graph__node-content commit-dot commit-dot-hollow" cx=${nodeX} cy=${nodeY} r=${r}
 				fill=${BACKGROUND} stroke=${nodeColor} stroke-width="2" />
-			<circle cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, r * 0.32)} fill=${nodeColor} />
+			<circle class="gl-graph__node-content" cx=${nodeX} cy=${nodeY} r=${Math.max(1.5, r * 0.32)} fill=${nodeColor} />
 		</g>`;
 	}
-	// Standard commit: flat filled dot inside the bg-mask gap; on hover the dot scales up to fill it.
 	return svg`<g class="commit-dot-glow">
 		<circle class="gl-graph__node-carve" cx=${nodeX} cy=${nodeY} r=${r + laneGap} fill=${BACKGROUND} />
-		<circle class="commit-dot commit-dot-solid" cx=${nodeX} cy=${nodeY} r=${r} fill=${nodeColor} />
+		<circle class="gl-graph__node-content commit-dot commit-dot-solid" cx=${nodeX} cy=${nodeY} r=${r} fill=${nodeColor} />
 	</g>`;
 }
 

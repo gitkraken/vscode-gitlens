@@ -2,9 +2,10 @@ import type WaPopup from '@awesome.me/webawesome/dist/components/popup/popup.js'
 import * as l10n from '@vscode/l10n';
 import type { CSSResultGroup } from 'lit';
 import { css, html, LitElement } from 'lit';
-import { customElement, property, query, state } from 'lit/decorators.js';
+import { property, query, state } from 'lit/decorators.js';
 import { ifDefined } from 'lit/directives/if-defined.js';
 import { parseDuration, waitForEvent } from '@gitlens/utils/dom.js';
+import { customElementIfFree } from '../../customElementIfFree.js';
 import { GlElement, observe } from '../element.js';
 import { scrollableBase } from '../styles/lit/base.css.js';
 import { elevatedSurface } from '../styles/lit/elevation.css.js';
@@ -163,7 +164,7 @@ function parseResizeHandles(value: string | undefined): ResizeHandle[] {
  * @fires gl-popover-after-hide - Fired after the popover is hidden
  */
 
-@customElement('gl-popover')
+@customElementIfFree('gl-popover')
 export class GlPopover extends GlElement {
 	static override shadowRootOptions: ShadowRootInit = {
 		...LitElement.shadowRootOptions,

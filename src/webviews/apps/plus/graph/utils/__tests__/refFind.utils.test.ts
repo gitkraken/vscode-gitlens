@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import type { emptySetMarker } from '@gitkraken/commit-graph-ui/scope/filtering.js';
+import type { includeNoRefsKey } from '@gitkraken/commit-graph-ui/contracts/state.js';
 import { createWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import type { GraphRefOptData, GraphScope, GraphWipRow, GraphWipRowsById } from '../../../../../plus/graph/protocol.js';
 import type { RefFindCandidate, RefFindMatch } from '../refFind.utils.js';
@@ -185,12 +185,11 @@ suite('buildRefFindCandidates', () => {
 	});
 
 	test('an include filter holding only the empty-set marker admits nothing', () => {
-		// `{ [emptySetMarker]: … }` means "filtering applied, zero matches" — distinct from `{}`.
 		const candidates = buildRefFindCandidates(
 			{ branches: [branch('main', 'a')] },
 			{
 				includeOnlyRefs: {
-					['gk.empty-set-marker' satisfies typeof emptySetMarker]: {} as unknown as GraphRefOptData,
+					['gk.empty-set-marker' satisfies typeof includeNoRefsKey]: {} as unknown as GraphRefOptData,
 				},
 			},
 		);

@@ -7,6 +7,8 @@ import {
 	toParsedRefs,
 } from './refs/adornmentProvider.js';
 
+export { refPillKey } from './refs/pills.js';
+
 export const refsExtension: CommitGraphRefsExtension = Object.freeze({
 	createProvider: createRefAdornmentProvider,
 	toParsedRefs: toParsedRefs,

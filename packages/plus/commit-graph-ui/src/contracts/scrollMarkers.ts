@@ -1,7 +1,7 @@
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
 import type { ReactiveControllerHost, TemplateResult } from 'lit';
 import type { GraphCommitView } from '../rows/commit.js';
-import type { WipRowInfo } from '../rows/wip.js';
+import type { WipRowInfo } from './rows.js';
 import type {
 	GraphDownstreams,
 	GraphExcludeRefs,

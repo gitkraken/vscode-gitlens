@@ -1,11 +1,12 @@
 import type { CSSResultGroup } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import { when } from 'lit/directives/when.js';
+import { customElementIfFree } from '../../customElementIfFree.js';
 import { baseStyles } from './pill.css.js';
 import '../codeIcon.js';
 
-@customElement('gl-tracking-pill')
+@customElementIfFree('gl-tracking-pill')
 export class GlTrackingPill extends LitElement {
 	static override styles: CSSResultGroup[] = [
 		baseStyles,

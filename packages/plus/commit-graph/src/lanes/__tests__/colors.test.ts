@@ -33,6 +33,13 @@ suite('colors — lane palette', () => {
 		assert.strictEqual(colorForColumn(0), LANE_PALETTE[0]);
 	});
 
+	test('setLanePalette treats an empty list as unset, so every lane still has a color', () => {
+		setLanePalette(distinctPalette());
+		assert.strictEqual(setLanePalette([]), true);
+		assert.strictEqual(colorForColumn(0), LANE_PALETTE[0]);
+		assert.strictEqual(colorForColumn(3), LANE_PALETTE[3]);
+	});
+
 	test('setLanePalette returns false when the resolved palette is unchanged', () => {
 		assert.strictEqual(setLanePalette(undefined), false); // already the default
 		assert.strictEqual(setLanePalette([...LANE_PALETTE]), false); // element-wise identical

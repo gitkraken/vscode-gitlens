@@ -1,48 +1,90 @@
 /* Tokens only — no inherited properties (font/color/background) on the element itself: a host loads this
    alongside its own page styling, and painting the element would override it (in GitLens the graph docks
    into the sidebar/panel, whose background is not the editor's). Surfaces that need a fill paint one from
-   these tokens in `surface.css`. */
+   these tokens in `surface.css`.
+   Each fallback restates the package default rather than leaving it to `graph.css`: a `var()` naming a missing
+   variable makes the whole declaration invalid instead of letting the earlier declaration through. */
 gl-commit-graph {
-	--gl-graph-foreground: var(--vscode-foreground, hsl(var(--foreground)));
-	--color-ui-foreground: var(--vscode-foreground, hsl(var(--foreground)));
-	--gl-graph-background: var(--vscode-editor-background, hsl(var(--background)));
+	--gl-graph-foreground: var(--vscode-foreground, light-dark(hsl(240 10% 10%), hsl(0 0% 95%)));
+	--color-ui-foreground: var(--vscode-foreground, var(--gl-graph-foreground));
+	--gl-graph-background: var(--vscode-editor-background, light-dark(hsl(0 0% 100%), hsl(240 6% 10%)));
 	--gl-graph-font-family: var(--vscode-editor-font-family, system-ui, sans-serif);
-	--gl-graph-muted-foreground: var(--vscode-descriptionForeground, hsl(var(--muted-foreground)));
-	--gl-graph-focus: var(--vscode-focusBorder, hsl(var(--brand)));
+	--gl-graph-muted-foreground: var(--vscode-descriptionForeground, light-dark(hsl(240 5% 40%), hsl(240 5% 65%)));
+	--gl-graph-focus: var(--vscode-focusBorder, light-dark(hsl(217 91% 50%), hsl(217 91% 60%)));
+	--gl-graph-accent: var(
+		--vscode-button-background,
+		var(--vscode-focusBorder, var(--vscode-textLink-foreground, var(--gl-graph-focus)))
+	);
 	--gl-graph-icon-foreground: var(--vscode-icon-foreground, var(--gl-graph-foreground));
-	--gl-graph-selection: var(--vscode-list-activeSelectionBackground, hsl(var(--brand) / 24%));
+	--gl-graph-selection: var(
+		--vscode-list-activeSelectionBackground,
+		color-mix(in oklab, var(--gl-graph-accent) 24%, transparent)
+	);
 	--gl-graph-selection-foreground: var(--vscode-list-activeSelectionForeground, var(--gl-graph-foreground));
-	--gl-graph-selection-inactive: var(--vscode-list-inactiveSelectionBackground, hsl(var(--brand) / 14%));
+	--gl-graph-selection-inactive: var(
+		--vscode-list-inactiveSelectionBackground,
+		color-mix(in oklab, var(--gl-graph-accent) 14%, transparent)
+	);
 	--gl-graph-selection-inactive-foreground: var(
 		--vscode-list-inactiveSelectionForeground,
 		var(--gl-graph-foreground)
 	);
-	--gl-graph-hover: var(--vscode-list-hoverBackground, hsl(var(--foreground) / 8%));
+	--gl-graph-hover: var(
+		--vscode-list-hoverBackground,
+		color-mix(in oklab, var(--gl-graph-foreground) 8%, transparent)
+	);
 	--gl-graph-focus-outline: var(--vscode-list-focusOutline, var(--gl-graph-focus));
-	--gl-graph-inactive-focus-outline: var(--vscode-list-inactiveFocusOutline, hsl(var(--brand) / 65%));
-	--gl-graph-elevated-background: var(--vscode-editorWidget-background, hsl(var(--secondary)));
-	--gl-graph-elevated-border: var(--vscode-editorWidget-border, hsl(var(--border)));
-	--gl-graph-border: var(--vscode-widget-border, hsl(var(--border)));
+	--gl-graph-inactive-focus-outline: var(
+		--vscode-list-inactiveFocusOutline,
+		color-mix(in oklab, var(--gl-graph-accent) 65%, transparent)
+	);
+	--gl-graph-elevated-background: var(--vscode-editorWidget-background, light-dark(hsl(240 5% 94%), hsl(240 4% 16%)));
+	--gl-graph-elevated-border: var(--vscode-editorWidget-border, var(--gl-graph-border));
+	--gl-graph-border: var(
+		--vscode-widget-border,
+		var(
+			--vscode-editorHoverWidget-border,
+			var(--vscode-editorWidget-border, light-dark(hsl(240 6% 85%), hsl(240 5% 26%)))
+		)
+	);
 	--gl-graph-shadow: var(--vscode-widget-shadow, rgb(0 0 0 / 35%));
 	--gl-graph-toolbar-hover: var(--vscode-toolbar-hoverBackground, var(--gl-graph-hover));
 	--gl-graph-code-background: var(--vscode-textCodeBlock-background, var(--gl-graph-elevated-background));
-	--gl-graph-link: var(--vscode-textLink-foreground, hsl(var(--brand)));
-	--gl-graph-link-active: var(--vscode-textLink-activeForeground, hsl(var(--brand) / 85%));
-	--gl-graph-button-background: var(--vscode-button-background, hsl(var(--brand)));
+	--gl-graph-link: var(--vscode-textLink-foreground, var(--gl-graph-accent));
+	--gl-graph-link-active: var(
+		--vscode-textLink-activeForeground,
+		color-mix(in oklab, var(--gl-graph-accent) 85%, transparent)
+	);
+	--gl-graph-button-background: var(--vscode-button-background, var(--gl-graph-accent));
 	--gl-graph-button-foreground: var(--vscode-button-foreground, white);
-	--gl-graph-button-hover: var(--vscode-button-hoverBackground, hsl(var(--brand) / 85%));
-	--gl-graph-scrollbar-background: var(--vscode-scrollbarSlider-background, hsl(var(--foreground) / 18%));
-	--gl-graph-scrollbar-hover-background: var(--vscode-scrollbarSlider-hoverBackground, hsl(var(--foreground) / 28%));
+	--gl-graph-button-hover: var(
+		--vscode-button-hoverBackground,
+		color-mix(in oklab, var(--gl-graph-accent) 85%, transparent)
+	);
+	--gl-graph-scrollbar-background: var(
+		--vscode-scrollbarSlider-background,
+		color-mix(in oklab, var(--gl-graph-foreground) 18%, transparent)
+	);
+	--gl-graph-scrollbar-hover-background: var(
+		--vscode-scrollbarSlider-hoverBackground,
+		color-mix(in oklab, var(--gl-graph-foreground) 28%, transparent)
+	);
 	--gl-graph-scrollbar-active-background: var(
 		--vscode-scrollbarSlider-activeBackground,
-		hsl(var(--foreground) / 38%)
+		color-mix(in oklab, var(--gl-graph-foreground) 38%, transparent)
 	);
 	--gl-graph-sash-hover-border: var(--vscode-sash-hoverBorder, var(--gl-graph-focus));
 	--gl-graph-purple: var(--vscode-charts-purple, #a371f7);
 	--gl-graph-added-foreground: var(--vscode-gitDecoration-addedResourceForeground, #3fb950);
 	--gl-graph-deleted-foreground: var(--vscode-gitDecoration-deletedResourceForeground, #f85149);
-	--gl-graph-search-match-background: var(--vscode-editor-findMatchHighlightBackground, hsl(var(--brand) / 55%));
-	--gl-graph-range-highlight-background: var(--vscode-editor-rangeHighlightBackground, hsl(var(--brand) / 20%));
+	--gl-graph-search-match-background: var(
+		--vscode-editor-findMatchHighlightBackground,
+		color-mix(in oklab, var(--gl-graph-accent) 55%, transparent)
+	);
+	--gl-graph-range-highlight-background: var(
+		--vscode-editor-rangeHighlightBackground,
+		color-mix(in oklab, var(--gl-graph-accent) 20%, transparent)
+	);
 	--gl-graph-range-highlight-border: var(--vscode-editor-rangeHighlightBorder, transparent);
 	--gl-graph-pr-open-color: var(--vscode-gitlens-openPullRequestIconColor, #3fb950);
 	--gl-graph-pr-merged-color: var(--vscode-gitlens-mergedPullRequestIconColor, #a371f7);

@@ -1,4 +1,4 @@
-import * as l10n from '@vscode/l10n';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import type { ReactiveController, ReactiveControllerHost, TemplateResult } from 'lit';
 import { html } from 'lit';
 import type { Ref } from 'lit/directives/ref.js';

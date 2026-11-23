@@ -1,8 +1,9 @@
 import * as l10n from '@vscode/l10n';
 import type { CSSResult, TemplateResult } from 'lit';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
+import { customElementIfFree } from '../customElementIfFree.js';
 import { localizedContent } from '../localizedContent.js';
 import './codeIcon.js';
 import './overlays/tooltip.js';
@@ -53,7 +54,7 @@ const statToSymbol: readonly ['added' | 'modified' | 'removed', [string, string]
 	['removed', ['-', 'remove']],
 ]);
 
-@customElement('commit-stats')
+@customElementIfFree('commit-stats')
 export class CommitStats extends LitElement {
 	static override styles: CSSResult = css`
 		:host {

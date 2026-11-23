@@ -147,6 +147,21 @@ export function unitThresholdMs(unit: Intl.RelativeTimeFormatUnit): number {
 	return unitThresholds[unit] ?? 0;
 }
 
+export function msUntilFromNowChanges(date: number, now: number): number | undefined {
+	const elapsed = now - date;
+	if (!Number.isFinite(elapsed) || elapsed < 0) return undefined;
+
+	let largerUnitThreshold = Infinity;
+	for (const [, threshold, divisor] of relativeUnitThresholds) {
+		if (elapsed >= threshold || threshold === 1000) {
+			return Math.min((Math.floor(elapsed / divisor) + 1) * divisor, largerUnitThreshold) - elapsed;
+		}
+
+		largerUnitThreshold = threshold;
+	}
+	return undefined;
+}
+
 // fromNow keeps its OWN single-pass loop (not routed through fromNowUnit) — one iteration, no
 // intermediate {unit,value} object allocation on this hot formatting path; fromNowUnit below iterates
 // the SAME `relativeUnitThresholds` array, so the two classifications can't drift apart. `now` defaults

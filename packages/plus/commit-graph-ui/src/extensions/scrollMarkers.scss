@@ -1,6 +1,7 @@
 gl-commit-graph {
 	.gl-graph__scroll-markers {
 		position: absolute;
+		top: var(--gl-graph-header-height, 2.4rem);
 		right: 0;
 		bottom: 0;
 		z-index: 6;

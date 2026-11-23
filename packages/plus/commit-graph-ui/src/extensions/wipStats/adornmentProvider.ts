@@ -1,6 +1,6 @@
 import type { RowAdornment, RowAdornmentProvider } from '@gitkraken/commit-graph/engine/adornments.js';
 import type { ProcessedGraphRow, Sha } from '@gitkraken/commit-graph/engine/types.js';
-import * as l10n from '@vscode/l10n';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import type { TemplateResult } from 'lit';
 import { html } from 'lit';
 import type { StyleInfo } from '@gitlens/components/cspStyleMap.directive.js';

@@ -4,7 +4,7 @@ GitLens follows VS Code's display language. English is the source language and t
 
 ## Authoring messages
 
-Host-only code imports `{ l10n }` from `vscode`. Webviews and reusable packages import `* as l10n` from `@vscode/l10n`. Use literal, complete messages and pass changing data as arguments:
+Host-only code imports `{ l10n }` from `vscode`. Webviews and reusable packages import `* as l10n` from `@vscode/l10n`, except the commit graph packages: `@gitkraken/commit-graph` and `@gitkraken/commit-graph-ui` import it from `@gitkraken/commit-graph/l10n.js` (relatively inside the engine), a stand-in with the same `t` forms that a non-VS Code host can point at its own translator. The lint rules and the catalog extractor read it as `@vscode/l10n`. Use literal, complete messages and pass changing data as arguments:
 
 ```ts
 l10n.t('Compare {0} with {1}', leftBranch, rightBranch);
@@ -59,7 +59,7 @@ The locale key is the English source key exactly — for a commented runtime mes
 
 VS Code loads the host's bundle from the manifest's `l10n` directory. Both host webpack entries initialize `@vscode/l10n` from that native bundle before importing the extension, so shared package labels follow the same language without importing `vscode` into those packages. The common webview controller embeds that selected bundle as base64 metadata and escapes the document language attribute. Each webpack app entry runs `shared/localization.ts` before loading the app, so module-level labels and custom-element initialization see the correct bundle. This requires no extra RPC handshake, URI fetch or filesystem access and works with remote and browser extension hosts.
 
-Standalone consumers of the reusable graph packages configure `@vscode/l10n` before importing UI modules if they want translated strings. Without configuration the runtime uses the English messages. These packages do not depend on the VS Code extension API.
+Standalone consumers of the reusable graph packages translate them with `setGraphLocalizer` from `@gitkraken/commit-graph-ui/localization.js`, before or after mounting, and check their translations against the package's `l10n/messages.json` catalog (see the package README's "Localization" section). Without a localizer the graph delegates to `@vscode/l10n`, so it shows English unless that is configured. These packages do not depend on the VS Code extension API.
 
 ## Provenance and references
 

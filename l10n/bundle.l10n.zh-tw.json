@@ -1166,6 +1166,7 @@
 	"Commit message (Ctrl+Enter to commit)": "認可資訊（Ctrl+Enter 認可）",
 	"Commit message (⌘Enter to commit)": "認可資訊（⌘Enter 認可）",
 	"Commit message for changes by {author}": "{author} 的變更的認可資訊",
+	"Commit not loaded yet.": "認可尚未載入。",
 	"Commit on 1 branch: {name}": "認可位於 1 個分支：{name}",
 	"Commit on 1 remote branch: {name}": "認可位於 1 個遠端分支：{name}",
 	"Commit on 1 tag: {name}": "認可位於 1 個標籤：{name}",

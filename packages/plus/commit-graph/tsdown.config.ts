@@ -20,7 +20,6 @@ export default defineConfig({
 	fixedExtension: false,
 	outputOptions: { preserveModules: true, preserveModulesRoot: 'src' },
 	copy: [
-		{ from: 'src/theme.css', to: 'dist' },
 		{ from: '../../../LICENSE', to: '.' },
 		{ from: '../../../LICENSE.plus', to: '.' },
 	],

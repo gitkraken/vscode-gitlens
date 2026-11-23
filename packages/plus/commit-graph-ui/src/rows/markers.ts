@@ -1,6 +1,6 @@
 import type { ProcessedGraphRow } from '@gitkraken/commit-graph/engine/types.js';
+import * as l10n from '@gitkraken/commit-graph/l10n.js';
 import { isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
-import * as l10n from '@vscode/l10n';
 
 /**
  * RowMarker ("where am I") vocabulary shared by the left-edge rail (on-row indicator) and the ref
@@ -94,7 +94,9 @@ export const rowMarkerRoleSpecs: readonly {
 		// Filled, matching the ref pills' worktree glyph and the WIP stats pill's leading icon — one
 		// worktree mark across the graph's pill vocabulary.
 		icon: 'gl-worktree-filled',
-		label: l10n.t('Worktree'),
+		get label() {
+			return l10n.t('Worktree');
+		},
 		// Empty by default — `rowMarkerRolesTooltip` fills in `Worktree (<name>)` from its `wipName`
 		// param when one is given (the row's own message is now the same bare "Working Changes" for
 		// every worktree, so it no longer names it). Left blank here since it's the one role whose
@@ -106,35 +108,53 @@ export const rowMarkerRoleSpecs: readonly {
 		flag: rowMarkerHead,
 		icon: 'vm-active',
 		label: 'HEAD',
-		description: l10n.t('HEAD (Current Branch Tip)'),
+		get description() {
+			return l10n.t('HEAD (Current Branch Tip)');
+		},
 	},
 	{
 		role: 'upstream',
 		flag: rowMarkerUpstream,
 		icon: 'cloud',
-		label: l10n.t('Upstream'),
-		description: l10n.t('Upstream Tip'),
+		get label() {
+			return l10n.t('Upstream');
+		},
+		get description() {
+			return l10n.t('Upstream Tip');
+		},
 	},
 	{
 		role: 'focal',
 		flag: rowMarkerFocal,
 		icon: 'target',
-		label: l10n.t('Focus'),
-		description: l10n.t('Focus Branch Tip'),
+		get label() {
+			return l10n.t('Focus');
+		},
+		get description() {
+			return l10n.t('Focus Branch Tip');
+		},
 	},
 	{
 		role: 'target',
 		flag: rowMarkerTarget,
 		icon: 'gl-merge-target',
-		label: l10n.t('Target'),
-		description: l10n.t('Merge Target'),
+		get label() {
+			return l10n.t('Target');
+		},
+		get description() {
+			return l10n.t('Merge Target');
+		},
 	},
 	{
 		role: 'base',
 		flag: rowMarkerBase,
 		icon: 'git-merge',
-		label: l10n.t('Base'),
-		description: l10n.t('Fork Point (Base)'),
+		get label() {
+			return l10n.t('Base');
+		},
+		get description() {
+			return l10n.t('Fork Point (Base)');
+		},
 	},
 ];
 

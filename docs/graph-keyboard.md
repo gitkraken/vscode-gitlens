@@ -11,13 +11,15 @@ One `document` bubble-phase listener; it bails if a widget already called `preve
 
 | Scope           | Active when the event path contains…              | Scope guards                                                   |
 | --------------- | ------------------------------------------------- | -------------------------------------------------------------- |
-| `pillMenu`      | `.gl-graph__ref-pill`                             | —                                                              |
-| `rowControl`    | a row control (ref pill, sub-chip, action button) | —                                                              |
-| `rows`          | `.gl-graph__tree`                                 | rows loaded                                                    |
+| `pillMenu`      | `.gl-graph__ref-pill`                             | inside the registering `gl-commit-graph`                       |
+| `rowControl`    | a row control (ref pill, sub-chip, action button) | inside the registering `gl-commit-graph`                       |
+| `rows`          | `.gl-graph__tree`                                 | inside the registering `gl-commit-graph`; rows loaded          |
 | `tree`          | `gl-tree-view` (any filterable tree)              | —                                                              |
 | `sidebarFilter` | `.filter-input`                                   | —                                                              |
 | `webview`       | always                                            | not a text entry; no **open** `<dialog>` in the path           |
 | `webviewGlobal` | always                                            | no open `<dialog>` only — **deliberately no text-entry guard** |
+
+The three graph scopes are registered by `gl-commit-graph` itself on whatever dispatcher it is handed through its `keymap` property. A host that hands it none (a standalone embedding) gets a private dispatcher per element, attached while the element is connected, carrying the same bindings and Escape stack but none of the webview scopes — see the package README's "Keyboard" section.
 
 A binding's `run()` may return `false` — the key falls to the next candidate, then to the platform default. Chord matching is exhaustive (all four modifiers always compared), `KeyA–Z`/`Digit0–9` tokens match `e.code` (layout-independent, numpad excluded), and `mod` resolves to Cmd on macOS / Ctrl elsewhere.
 

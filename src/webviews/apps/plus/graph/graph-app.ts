@@ -1,4 +1,4 @@
-import type { GraphKeymapScope } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
+import type { GraphOpenBranchDetail } from '@gitkraken/commit-graph-ui/contracts/events.js';
 import { getCommitDateFromRow } from '@gitkraken/commit-graph-ui/rows/rows.js';
 import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
 import { createWipRowId, getWipRowWorktreePath, isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
@@ -99,7 +99,8 @@ import type { GraphNotificationsState } from './graphNotificationsState.js';
 import { createGraphNotificationsState, graphNotificationsContext } from './graphNotificationsState.js';
 import type { GlGraphHover } from './hover/graphHover.js';
 import { JumpToastController } from './jumpToastController.js';
-import { createGraphKeymapDispatcher } from './keymap/graphKeymap.js';
+import type { GraphKeymapScope } from './keymap/graphKeymap.js';
+import { createGraphKeymapDispatcher, toGraphElementKeymap } from './keymap/graphKeymap.js';
 import { registerGraphKeymap } from './keymap/registerKeymap.js';
 import type { GlGraphMinimapContainer, GraphMinimapConfigChangeEventDetail } from './minimap/minimap-container.js';
 import type {
@@ -352,6 +353,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	/** Document-level key dispatcher for the graph webview's shortcuts. Scopes/bindings are registered
 	 *  in {@link connectedCallback}; {@link disconnectedCallback} tears everything down in one call. */
 	readonly keymap: KeymapDispatcher<GraphKeymapScope> = createGraphKeymapDispatcher(isMac);
+	private readonly graphElementKeymap = toGraphElementKeymap(this.keymap);
 
 	/** The `shortcuts` config object last applied to {@link keymap} — {@link applyShortcutsConfig}
 	 *  compares by identity against `this.graphState.config?.shortcuts` and re-applies only when the
@@ -2196,7 +2198,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			<div
 				class="graph__graph-pane-body"
 				@gl-graph-kanban-open-session=${this.handleKanbanOpenSession}
-				@gl-graph-open-branch=${this.handleOpenBranchSheet}
+				@gl-graph-openbranch=${this.handleOpenBranchSheet}
 			>
 				${when(
 					this.graphState.config?.sidebar,
@@ -2258,16 +2260,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	/** Branch/tag pill focus → open/close the branch sheet in the details panel, mirroring the pill's
 	 *  pinned state (`detail.open`). Opening ensures the pane is visible. */
-	private handleOpenBranchSheet = (
-		e: CustomEvent<{
-			name?: string;
-			refType?: string;
-			remote?: string | null;
-			sha?: string | null;
-			context?: string;
-			open?: boolean;
-		}>,
-	): void => {
+	private handleOpenBranchSheet = (e: CustomEvent<GraphOpenBranchDetail>): void => {
 		if (e.detail.open === false) {
 			// Retires a BRANCH open still waiting on the panel to mount, as well as closing a mounted
 			// one — a close arriving during that wait would otherwise be a no-op and the sheet would
@@ -2280,14 +2273,13 @@ export class GraphApp extends SignalWatcher(LitElement) {
 			this.detailsPanelEl?.closeBranchSheet();
 			return;
 		}
-		if (e.detail.name == null) return;
 
 		const ref: BranchSheetRef = {
 			name: e.detail.name,
-			refType: e.detail.refType ?? 'head',
-			remote: e.detail.remote ?? null,
+			refType: e.detail.refType,
+			remote: e.detail.remote,
 			sha: e.detail.sha ?? null,
-			context: e.detail.context,
+			context: e.detail.vscodeContext,
 		};
 		void this.withDetailsPanel(panel => panel.openBranchSheet(ref), 'request-mode', 'branch');
 	};
@@ -2974,19 +2966,19 @@ export class GraphApp extends SignalWatcher(LitElement) {
 				<gl-graph-health-banner @gl-graph-show-git-health=${this.handleShowGitHealth}></gl-graph-health-banner>
 				<gl-graph-wrapper
 					.anchorShas=${this.activeAnchorShas}
-					.keymap=${this.keymap}
+					.keymap=${this.graphElementKeymap}
 					.rowMarkerMergeTarget=${this.graphState.rowMarkerMergeTarget}
-					@gl-graph-change-column-mode=${this.handleGraphChangeColumnMode}
+					@gl-graph-changecolumnmode=${this.handleGraphChangeColumnMode}
 					@gl-graph-change-selection=${this.handleGraphSelectionChanged}
 					@gl-graph-change-visible-days=${this.handleGraphVisibleDaysChanged}
-					@gl-graph-copy-request=${this.handleGraphCopyRequest}
-					@gl-graph-enable-changes-column=${this.handleGraphEnableChangesColumn}
-					@gl-graph-filter-column=${this.handleGraphFilterColumn}
+					@gl-graph-copyrequest=${this.handleGraphCopyRequest}
+					@gl-graph-enablechangescolumn=${this.handleGraphEnableChangesColumn}
+					@gl-graph-filtercolumn=${this.handleGraphFilterColumn}
 					@gl-graph-mouse-leave=${this.handleGraphMouseLeave}
 					@gl-graph-scope-to-branch=${this.handleScopeToBranchFromHeader}
 					@gl-graph-navigation-failed=${this.jumpToast.onNavigationFailed}
 					@gl-graph-navigation-loading=${this.jumpToast.onNavigationLoading}
-					@gl-graph-edge-search=${this.jumpToast.onEdgeSearch}
+					@gl-graph-edgesearch=${this.jumpToast.onEdgeSearch}
 					@gl-graph-row-context-menu=${this.handleGraphRowContextMenu}
 					@gl-graph-row-double-click=${this.handleGraphRowDoubleClick}
 					@gl-graph-row-hover=${this.handleGraphRowHover}
@@ -4548,9 +4540,7 @@ export class GraphApp extends SignalWatcher(LitElement) {
 		this.graphState.wipStateById = next;
 	}
 
-	// The Changes header mode picker's pick — a dedicated host write (not the columns persist, which drops
-	// echoed `mode`), keeping the mode host-authoritative. Mirrors `gl-graph-filter-column`'s route.
-	private handleGraphChangeColumnMode(e: CustomEventType<'gl-graph-change-column-mode'>): void {
+	private handleGraphChangeColumnMode(e: CustomEventType<'gl-graph-changecolumnmode'>): void {
 		const services = this.services;
 		if (services == null) return;
 
@@ -4558,14 +4548,14 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	}
 
 	// The dormant Changes column's one-time opt-in — a dedicated consent write (`graph.changesColumn.enabled`).
-	private handleGraphEnableChangesColumn(_e: CustomEventType<'gl-graph-enable-changes-column'>): void {
+	private handleGraphEnableChangesColumn(_e: CustomEventType<'gl-graph-enablechangescolumn'>): void {
 		const services = this.services;
 		if (services == null) return;
 
 		notifyService(services.columns, 'enable changes column', svc => svc.enableChangesColumn());
 	}
 
-	private handleGraphFilterColumn(e: CustomEventType<'gl-graph-filter-column'>) {
+	private handleGraphFilterColumn(e: CustomEventType<'gl-graph-filtercolumn'>) {
 		const header = this.graphHeader;
 		if (header == null) return;
 
@@ -4594,8 +4584,10 @@ export class GraphApp extends SignalWatcher(LitElement) {
 	 *  `data-vscode-context` string (same format the right-click menu uses) and we forward it to the
 	 *  existing `gitlens.graph.copy` command, which already prefers `worktreePath` and newline-joins a
 	 *  multi-selection — no new command needed. */
-	private async handleGraphCopyRequest(e: CustomEventType<'gl-graph-copy-request'>): Promise<void> {
-		const { context, selectionContexts } = e.detail;
+	private async handleGraphCopyRequest(e: CustomEventType<'gl-graph-copyrequest'>): Promise<void> {
+		const { vscodeContext: context, vscodeSelectionContexts: selectionContexts } = e.detail;
+		if (context == null) return;
+
 		let item: GraphItemContext | undefined;
 		try {
 			item = context != null ? (JSON.parse(context) as GraphItemContext) : undefined;

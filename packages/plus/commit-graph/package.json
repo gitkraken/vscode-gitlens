@@ -38,8 +38,7 @@
 		"./*.js": {
 			"types": "./dist/*.d.ts",
 			"default": "./dist/*.js"
-		},
-		"./theme.css": "./dist/theme.css"
+		}
 	},
 	"files": [
 		"dist",
@@ -54,7 +53,6 @@
 		"build": "tsdown",
 		"check": "tsc -p tsconfig.json && oxlint --type-aware --type-check -c ../../../.oxlintrc.json .",
 		"clean": "pnpx rimraf --glob dist LICENSE LICENSE.plus *.tgz",
-		"lint:css": "stylelint src/theme.css",
 		"prepack": "pnpm run build",
 		"test": "mocha --require ../../../scripts/tsxTsconfig.cjs --require tsx --ui tdd --timeout 30000 \"src/**/__tests__/**/*.test.ts\"",
 		"verify:package": "node scripts/verify-package.mjs"

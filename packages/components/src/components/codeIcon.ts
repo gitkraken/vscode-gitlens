@@ -1,6 +1,7 @@
 import type { CSSResult } from 'lit';
 import { css, LitElement, unsafeCSS } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { property } from 'lit/decorators.js';
+import { customElementIfFree } from '../customElementIfFree.js';
 import { iconMap as codiconsMap } from './icons/codiconsMap.js';
 import { iconMap as gliconsMap } from './icons/gliconsMap.js';
 
@@ -23,7 +24,7 @@ function generateIconStyles(...maps: [iconMap: Record<string, string>, prefix?: 
 	);
 }
 
-@customElement('code-icon')
+@customElementIfFree('code-icon')
 export class CodeIcon extends LitElement {
 	// prettier-ignore
 	static override styles: CSSResult = css`
