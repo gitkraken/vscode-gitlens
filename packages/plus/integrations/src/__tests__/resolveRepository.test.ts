@@ -765,14 +765,31 @@ suite('resolveRepository (#5438)', () => {
 				},
 			});
 
-		const result = await manager.resolveRepository({
+		for (const [host, explicitHost] of [
+			['ghe-a.example.com', undefined],
+			['ghe-a.example.com:443', 'https://ghe-a.example.com:443'],
+			['ghe-a.example.com', 'ghe-a.example.com:443'],
+		]) {
+			baseUrl = undefined;
+			const result = await manager.resolveRepository({
+				providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+				connectionId: 'ghe-a',
+				host: explicitHost,
+				remoteUrl: `https://${host}/org/repo.git`,
+			});
+
+			assert.equal(result.resolution.status, 'resolved', host);
+			assert.equal(baseUrl, 'https://ghe-a.example.com/api/v3', host);
+		}
+
+		baseUrl = undefined;
+		const wrongPort = await manager.resolveRepository({
 			providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
 			connectionId: 'ghe-a',
-			remoteUrl: 'https://ghe-a.example.com/org/repo.git',
+			remoteUrl: 'https://ghe-a.example.com:8443/org/repo.git',
 		});
-
-		assert.equal(result.resolution.status, 'resolved');
-		assert.equal(baseUrl, 'https://ghe-a.example.com/api/v3');
+		assert.equal(wrongPort.resolution.status, 'host-mismatch');
+		assert.equal(baseUrl, undefined);
 
 		manager.dispose();
 	});

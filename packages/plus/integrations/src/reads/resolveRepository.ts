@@ -63,8 +63,8 @@ export async function resolveRepository(
 	const path = trimTrailingSlashes(parsedPath);
 	// An SSH remote's port belongs to its SSH daemon, not to the web authority a connection is keyed by.
 	const hostsMatch = getRemoteHostMatcher(scheme);
-	const parsedHost = hostFromDomain(parsedDomain);
-	const explicitHost = hostFromDomain(options.host);
+	const parsedHost = hostFromRemoteDomain(parsedDomain, scheme);
+	const explicitHost = hostFromRemoteDomain(options.host, scheme);
 	if (parsedHost != null && explicitHost != null && !hostsMatch(parsedHost, explicitHost)) {
 		return result('host-mismatch');
 	}
@@ -114,7 +114,7 @@ export async function resolveRepository(
 	// against some other host's account would, if that host has the same owner/repo, return a confidently
 	// wrong identity — and would seed the domain-keyed integration cache (never evicted before dispose) with
 	// an entry derived from repository data.
-	const urlHost = hostFromDomain(provider.domain);
+	const urlHost = hostFromRemoteDomain(provider.domain, scheme);
 	// Normalize BOTH sides before comparing: a stored connection domain is usually a full URL
 	// (`https://git.example.com`) while `urlHost` is already a bare host, so a raw compare would fail on
 	// scheme/trailing-slash alone and wrongly reject a correctly-configured connection.
@@ -324,6 +324,13 @@ function getForkInfo(repo: ProviderRepository): Pick<RepositoryIdentity, 'isFork
 			...(parent.project ? { project: parent.project } : {}),
 		},
 	};
+}
+
+function hostFromRemoteDomain(domain: string | undefined, scheme: string): string | undefined {
+	const value = domain?.trim();
+	if (!value || !isWebRemoteScheme(scheme) || value.includes('://')) return hostFromDomain(value);
+
+	return hostFromDomain(`${scheme}${value}`);
 }
 
 /** Whether `path` is `{x}/_git/{repo}`, the Azure repository path the remote parser reads without a project segment. */
