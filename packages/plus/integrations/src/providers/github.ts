@@ -1761,6 +1761,7 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 				}
 				return { ok: false, reason: 'no-connection' };
 			}
+
 			if (result.ok) {
 				const current =
 					operation === 'read' ? await isSessionCurrent() : await isSessionCurrent().catch(() => false);
