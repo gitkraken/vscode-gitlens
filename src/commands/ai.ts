@@ -50,7 +50,9 @@ export type SwitchAIModelCommandArgs = Source & { scope?: AIModelScope };
 @command()
 export class SwitchAIModelCommand extends GlCommandBase {
 	constructor(private readonly container: Container) {
-		super(['gitlens.ai.switchProvider', 'gitlens.ai.switchProvider:scm'], ['gitlens.switchAIModel']);
+		super(['gitlens.ai.switchProvider', 'gitlens.ai.switchProvider:scm'], ['gitlens.switchAIModel'], {
+			returnResult: true,
+		});
 	}
 
 	protected override preExecute(context: CommandContext, args?: SwitchAIModelCommandArgs): Promise<void> {
