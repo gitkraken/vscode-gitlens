@@ -139,6 +139,9 @@ import {
 import type { GitHubTokenInfo } from './token.js';
 
 const emptyPagedResult: PagedResult<any> = Object.freeze({ values: [] });
+type EnqueuePullRequestResponse = {
+	enqueuePullRequest: { mergeQueueEntry: GitHubMergeQueueEntry | null } | null;
+};
 /**
  * What an issue-search cursor records when the caller asked for no ordering at all.
  *
@@ -3829,9 +3832,10 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		input: GitHubPullRequestWriteTarget,
+		onUnauthorized: () => void,
 	): Promise<PullRequestWriteTargetResult> {
 		return resolveGitHubPullRequestWriteTarget(input, (query, variables) =>
-			this.writeGraphql(provider, token, query, variables),
+			this.writeGraphql(provider, token, query, variables, onUnauthorized),
 		);
 	}
 
@@ -3839,9 +3843,10 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		input: GitHubPullRequestCreateTarget,
+		onUnauthorized: () => void,
 	): Promise<PullRequestCreateCapabilityResult> {
 		return getGitHubPullRequestCreateCapability(input, (query, variables) =>
-			this.writeGraphql(provider, token, query, variables),
+			this.writeGraphql(provider, token, query, variables, onUnauthorized),
 		);
 	}
 
@@ -3850,11 +3855,14 @@ export class GitHubApi {
 		token: GitHubTokenInfo,
 		input: GitHubPullRequestWrite,
 		isSessionCurrent: () => Promise<boolean>,
+		onUnauthorized: () => void,
 	): Promise<PullRequestWriteResult> {
+		const request = <T>(query: string, variables: RequestParameters) =>
+			this.writeGraphql<T>(provider, token, query, variables, onUnauthorized);
 		return writeGitHubPullRequest(input, {
-			graphql: (query, variables) => this.writeGraphql(provider, token, query, variables),
+			graphql: request,
 			isSessionCurrent: isSessionCurrent,
-			enqueue: (nodeId, headSha) => this.enqueuePullRequest(provider, token, nodeId, headSha),
+			enqueue: (nodeId, headSha) => this.enqueuePullRequestForWrite(nodeId, headSha, request),
 		});
 	}
 
@@ -3863,19 +3871,27 @@ export class GitHubApi {
 		token: GitHubTokenInfo,
 		query: string,
 		variables: RequestParameters,
+		onUnauthorized?: () => void,
 	): Promise<T> {
-		return this.requestWithRetries(
-			() =>
-				this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
-					this.getDefaults(token.accessToken, graphql)<T>(query, {
-						...variables,
-						headers: { 'x-github-next-global-id': '1' },
-					}),
-				),
-			graphqlReadQueryRegex.test(query),
-			undefined,
-			undefined,
-		);
+		try {
+			return await this.requestWithRetries(
+				() =>
+					this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
+						this.getDefaults(token.accessToken, graphql)<T>(query, {
+							...variables,
+							headers: { 'x-github-next-global-id': '1' },
+						}),
+					),
+				graphqlReadQueryRegex.test(query),
+				undefined,
+				undefined,
+			);
+		} catch (ex) {
+			if (ex instanceof RequestError && ex.status === 401) {
+				onUnauthorized?.();
+			}
+			throw ex;
+		}
 	}
 
 	// Inflight dedupe: identical concurrent GraphQL requests share a single promise
@@ -6982,12 +6998,36 @@ export class GitHubApi {
 		const scope = getScopedLogger();
 		if (!isGitHubDotCom(options)) return { status: 'failed', reason: 'unsupported' };
 
-		interface QueryResult {
-			enqueuePullRequest: { mergeQueueEntry: GitHubMergeQueueEntry | null } | null;
-		}
-
 		try {
-			const query = `mutation enqueuePullRequest(
+			return await this.enqueuePullRequestCore(nodeId, expectedHeadSha, (query, variables) =>
+				this.graphql<EnqueuePullRequestResponse>(
+					provider,
+					token,
+					query,
+					{ ...variables, baseUrl: options?.baseUrl },
+					scope,
+					cancellation,
+				),
+			);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			const failure = toGitHubMergeQueueActionFailure(ex);
+			if (failure != null) {
+				scope?.warn(`GitHub refused to enqueue: ${failure.reason} (${failure.message})`);
+				return { status: 'failed', ...failure };
+			}
+
+			throw this.handleException(ex, provider, scope);
+		}
+	}
+
+	private async enqueuePullRequestCore(
+		nodeId: string,
+		expectedHeadSha: string,
+		request: (query: string, variables: RequestParameters) => Promise<EnqueuePullRequestResponse | undefined>,
+	): Promise<PullRequestMergeQueueActionResult> {
+		const query = `mutation enqueuePullRequest(
 	$id: ID!
 	$expectedHeadOid: GitObjectID!
 ) {
@@ -6998,22 +7038,23 @@ export class GitHubApi {
 	}
 }`;
 
-			const rsp = await this.graphql<QueryResult>(
-				provider,
-				token,
-				query,
-				{ id: nodeId, expectedHeadOid: expectedHeadSha, baseUrl: options?.baseUrl },
-				scope,
-				cancellation,
-			);
+		const rsp = await request(query, { id: nodeId, expectedHeadOid: expectedHeadSha });
 
-			const entry = rsp?.enqueuePullRequest?.mergeQueueEntry;
-			return { status: 'queued', entry: entry != null ? fromGitHubMergeQueueEntry(entry) : undefined };
+		const entry = rsp?.enqueuePullRequest?.mergeQueueEntry;
+		return { status: 'queued', entry: entry != null ? fromGitHubMergeQueueEntry(entry) : undefined };
+	}
+
+	private async enqueuePullRequestForWrite(
+		nodeId: string,
+		expectedHeadSha: string,
+		request: (query: string, variables: RequestParameters) => Promise<EnqueuePullRequestResponse | undefined>,
+	): Promise<PullRequestMergeQueueActionResult> {
+		try {
+			return await this.enqueuePullRequestCore(nodeId, expectedHeadSha, request);
 		} catch (ex) {
-			if (isCancellationError(ex)) throw ex;
-
 			const graphqlError = getGraphqlResponseError(ex);
-			const partial = (graphqlError?.data as QueryResult | undefined)?.enqueuePullRequest?.mergeQueueEntry;
+			const partial = (graphqlError?.data as EnqueuePullRequestResponse | undefined)?.enqueuePullRequest
+				?.mergeQueueEntry;
 			if (partial?.state != null && partial.enqueuedAt != null) {
 				return { status: 'queued', entry: fromGitHubMergeQueueEntry(partial) };
 			}
@@ -7025,12 +7066,11 @@ export class GitHubApi {
 			}
 
 			const failure = toGitHubMergeQueueActionFailure(ex);
-			if (failure != null) {
-				scope?.warn(`GitHub refused to enqueue: ${failure.reason} (${failure.message})`);
+			if (failure != null && failure.reason !== 'unknown') {
 				return { status: 'failed', ...failure };
 			}
 
-			throw this.handleException(ex, provider, scope);
+			throw ex;
 		}
 	}
 

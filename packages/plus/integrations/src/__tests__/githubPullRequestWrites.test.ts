@@ -1,9 +1,11 @@
 import * as assert from 'node:assert/strict';
 import { setImmediate } from 'node:timers/promises';
 import { suite, test } from 'mocha';
+import { Emitter } from '@gitlens/utils/event.js';
 import { microhash } from '@gitlens/utils/hash.js';
 import { defer } from '@gitlens/utils/promise.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationManager, PullRequestWriteOptions } from '../index.js';
 import { createIntegrationService } from '../integrationService.js';
@@ -78,6 +80,19 @@ type Call = {
 	canonicalIds: boolean;
 };
 
+function cloudToken(accessToken: string, connectionId = 'selected') {
+	return Response.json({
+		data: {
+			tokenId: connectionId,
+			accessToken: accessToken,
+			type: 'oauth',
+			scopes: 'repo',
+			domain: 'github.com',
+			expiresIn: 3600,
+		},
+	});
+}
+
 function branchRules(nodes: object[], endCursor?: string) {
 	return {
 		data: {
@@ -92,9 +107,10 @@ function branchRules(nodes: object[], endCursor?: string) {
 async function withManager(
 	respond: (call: Call, storeSelected: (token: string) => Promise<boolean>) => object | Promise<object>,
 	run: (fixture: {
-		manager: IntegrationManager;
+		manager: ReturnType<typeof createIntegrationService>;
 		calls: Call[];
 		runtime: ReturnType<typeof createFakeRuntime>;
+		storeSelected: (token: string) => Promise<boolean>;
 	}) => Promise<void>,
 	tokens: { primary: string; selected: string } = { primary: 'token-primary', selected: 'token-selected' },
 ) {
@@ -130,7 +146,12 @@ async function withManager(
 	};
 	const manager = createIntegrationService(runtime);
 	try {
-		await run({ manager: manager, calls: calls, runtime: runtime });
+		await run({
+			manager: manager,
+			calls: calls,
+			runtime: runtime,
+			storeSelected: token => storeSession('selected', token),
+		});
 	} finally {
 		manager.dispose();
 		configured.dispose();
@@ -283,11 +304,17 @@ suite('IntegrationManager GitHub pull request writes', () => {
 	});
 
 	test('distinguishes repository create access from an unknown viewer permission', async () => {
-		const permissions = ['WRITE', 'READ', null];
+		const repositories = [
+			repository,
+			{ ...repository, viewerPermission: 'READ' },
+			{ ...repository, viewerPermission: 'TRIAGE' },
+			{ ...repository, viewerPermission: null },
+			{ ...repository, isArchived: true },
+		];
 		await withManager(
-			() => ({ data: { repository: { ...repository, viewerPermission: permissions.shift() } } }),
+			() => ({ data: { repository: repositories.shift() } }),
 			async ({ manager, calls }) => {
-				for (const canCreate of [true, false, undefined]) {
+				for (const canCreate of [true, true, true, undefined, false]) {
 					assert.deepEqual(await manager.getPullRequestCreateCapability(repo), {
 						ok: true,
 						repositoryId: repository.id,
@@ -299,6 +326,27 @@ suite('IntegrationManager GitHub pull request writes', () => {
 			},
 		);
 	});
+
+	for (const viewerPermission of ['READ', 'TRIAGE']) {
+		test(`lets GitHub authorize creation from existing refs for a ${viewerPermission} viewer`, async () => {
+			await withManager(
+				({ query }) =>
+					query.startsWith('query')
+						? { data: { repository: { ...repository, viewerPermission: viewerPermission } } }
+						: { data: { change: { pullRequest: node } } },
+				async ({ manager, calls }) => {
+					assert.deepEqual(await manager.writePullRequest(operations[0].options), {
+						ok: true,
+						status: 'created',
+						pullRequest: snapshot,
+					});
+					assert.equal(calls.length, 2);
+					assert.match(calls[1].query, /\bcreatePullRequest\(/);
+					assert.equal(calls[1].authorization, 'token token-selected');
+				},
+			);
+		});
+	}
 
 	test('rejects a mutated repository name or PR identity without dispatch', async () => {
 		await withManager(
@@ -463,11 +511,524 @@ suite('IntegrationManager GitHub pull request writes', () => {
 		);
 	});
 
-	for (const { entry, expected } of [
-		{ entry: queueEntry, expected: { ok: true, status: 'queued', pullRequest: snapshot } },
-		{ entry: null, expected: { ok: false, reason: 'outcome-unknown' } },
+	for (const { where, run, status, reason } of [
+		{
+			where: 'repository capability read',
+			run: (manager: IntegrationManager) => manager.getPullRequestCreateCapability(repo),
+			status: 401,
+			reason: 'no-connection',
+		},
+		{
+			where: 'branch rules read',
+			run: (manager: IntegrationManager) => manager.resolvePullRequestWriteTarget(target),
+			status: 401,
+			reason: 'no-connection',
+		},
+		{
+			where: 'edit mutation',
+			run: (manager: IntegrationManager) => manager.writePullRequest(operations[1].options),
+			status: 401,
+			reason: 'no-connection',
+		},
+		{
+			where: 'enqueue mutation',
+			run: (manager: IntegrationManager) => manager.writePullRequest(enqueue),
+			status: 401,
+			reason: 'no-connection',
+		},
+		{
+			where: 'enqueue mutation',
+			run: (manager: IntegrationManager) => manager.writePullRequest(enqueue),
+			status: 403,
+			reason: 'forbidden',
+		},
 	]) {
-		test(`classifies a nested queue response error ${entry == null ? 'without' : 'with'} a receipt`, async () => {
+		test(`keeps HTTP ${status} from the ${where} scoped to the selected connection`, async () => {
+			await withManager(
+				({ query, authorization }) => {
+					if (query.startsWith('query PullRequestWriteTarget')) {
+						return { data: where === 'enqueue mutation' ? queueTarget : writeTarget };
+					}
+
+					if (
+						query.startsWith('query PullRequestCreateCapability') &&
+						authorization !== 'token token-selected'
+					) {
+						return { data: { repository: repository } };
+					}
+
+					return Response.json({ message: 'Provider refused this request' }, { status: status });
+				},
+				async ({ manager, runtime, calls }) => {
+					const backendPaths: string[] = [];
+					const prompts: string[] = [];
+					assert.ok(runtime.hooks);
+					runtime.hooks.onReauthenticationRequired = async message => {
+						prompts.push(message);
+						return false;
+					};
+					runtime.account.getAccount = async () => ({ id: 'test' });
+					runtime.account.fetchGkApi = async path => {
+						backendPaths.push(path);
+						const accessToken = path.endsWith('/refresh') ? 'token-refreshed' : 'token-selected';
+						return cloudToken(accessToken);
+					};
+
+					assert.deepEqual(await run(manager), { ok: false, reason: reason });
+					assert.deepEqual(backendPaths, []);
+					assert.equal(calls.at(-1)?.authorization, 'token token-selected');
+					const writes = calls.filter(call => call.query.startsWith('mutation')).length;
+
+					assert.equal(
+						(await manager.getPullRequestCreateCapability({ ...repo, connectionId: 'primary' })).ok,
+						true,
+					);
+					assert.deepEqual(backendPaths, []);
+					const next = await manager.getPullRequestCreateCapability(repo);
+					if (status === 401) {
+						assert.equal(next.ok, true);
+						assert.equal(calls.at(-1)?.authorization, 'token token-refreshed');
+						assert.deepEqual(backendPaths, [
+							'v1/provider-tokens/tokens/selected',
+							'v1/provider-tokens/tokens/selected/refresh',
+						]);
+					} else {
+						assert.deepEqual(next, { ok: false, reason: 'forbidden' });
+						assert.deepEqual(backendPaths, []);
+					}
+					assert.deepEqual(prompts, []);
+					assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, writes);
+				},
+			);
+		});
+	}
+
+	test('keeps a concurrent replacement when recovery finishes with an older credential', async () => {
+		const refreshStarted = defer<void>();
+		const finishRefresh = defer<void>();
+		let refreshes = 0;
+		await withManager(
+			({ query }) => {
+				if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+				if (query.startsWith('query')) return { data: { repository: repository } };
+
+				return Response.json({ message: 'Revoked credential' }, { status: 401 });
+			},
+			async ({ manager, runtime, calls, storeSelected }) => {
+				runtime.account.getAccount = async () => ({ id: 'test' });
+				runtime.account.fetchGkApi = async path => {
+					if (!path.endsWith('/refresh')) {
+						return cloudToken(refreshes === 0 ? 'token-selected' : 'concurrent-replacement');
+					}
+
+					if (++refreshes === 1) {
+						refreshStarted.fulfill();
+						await finishRefresh.promise;
+						return cloudToken('older-refresh-result');
+					}
+
+					return cloudToken('token-recovered');
+				};
+				assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'no-connection' });
+				const reading = manager.getPullRequestCreateCapability(repo);
+				await refreshStarted.promise;
+				try {
+					await storeSelected('concurrent-replacement');
+				} finally {
+					finishRefresh.fulfill();
+				}
+				assert.equal((await reading).ok, true);
+				assert.equal(calls.at(-1)?.authorization, 'token concurrent-replacement');
+				assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'no-connection' });
+				assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+				assert.equal(calls.at(-1)?.authorization, 'token token-recovered');
+				assert.equal(refreshes, 2);
+			},
+		);
+	});
+
+	test('ignores late unauthorized replies for a replaced credential', async () => {
+		await withManager(
+			async ({ authorization, query }, storeSelected) => {
+				if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+				if (authorization === 'token token-selected') {
+					await storeSelected('token-replaced');
+					return Response.json({ message: 'Revoked credential' }, { status: 401 });
+				}
+
+				return { data: { repository: repository } };
+			},
+			async ({ manager, runtime, calls }) => {
+				const backendPaths: string[] = [];
+				runtime.account.getAccount = async () => ({ id: 'test' });
+				runtime.account.fetchGkApi = async path => {
+					backendPaths.push(path);
+					return Response.json({});
+				};
+
+				assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'no-connection' });
+				assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+				assert.equal(calls.at(-1)?.authorization, 'token token-replaced');
+				assert.deepEqual(backendPaths, []);
+			},
+		);
+	});
+
+	for (const replacement of ['stored', 'cloud']) {
+		test(`preserves a ${replacement} replacement installed after a rejected write settles`, async () => {
+			await withManager(
+				({ query }) => {
+					if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+					if (query.startsWith('query')) return { data: { repository: repository } };
+
+					return Response.json({ message: 'Revoked credential' }, { status: 401 });
+				},
+				async ({ manager, runtime, calls, storeSelected }) => {
+					const backendPaths: string[] = [];
+					runtime.account.getAccount = async () => ({ id: 'test' });
+					runtime.account.fetchGkApi = async path => {
+						backendPaths.push(path);
+						return cloudToken('token-replaced');
+					};
+
+					assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'no-connection' });
+					if (replacement === 'stored') {
+						await storeSelected('token-replaced');
+					}
+					assert.deepEqual(backendPaths, []);
+					assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+					assert.equal(calls.at(-1)?.authorization, 'token token-replaced');
+					assert.deepEqual(
+						backendPaths,
+						replacement === 'cloud' ? ['v1/provider-tokens/tokens/selected'] : [],
+					);
+				},
+			);
+		});
+	}
+
+	test('keeps a recovered credential when connection sync resolves an older fetch', async () => {
+		const olderSelectedRead = defer<void>();
+		const primaryReconciliation = defer<void>();
+		const allowPrimaryResponse = defer<void>();
+		await withManager(
+			({ query }) => {
+				if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+				if (query.startsWith('query PullRequestCreateCapability')) return { data: { repository: repository } };
+
+				return Response.json({ message: 'Revoked credential' }, { status: 401 });
+			},
+			async ({ manager, runtime, calls }) => {
+				runtime.account.getAccount = async () => ({ id: 'test' });
+				const primary = {
+					tokenId: 'primary',
+					provider: 'github',
+					type: 'oauth',
+					domain: 'github.com',
+					accountName: 'primary',
+				};
+				const selected = { ...primary, tokenId: 'selected', accountName: 'selected' };
+				runtime.account.fetchGkApi = async path => {
+					switch (path) {
+						case 'v1/provider-tokens':
+							return Response.json({ data: [{ ...primary, secondaries: [selected] }] });
+						case 'v1/provider-tokens/github':
+							return cloudToken('token-primary', 'primary');
+						case 'v1/provider-tokens/tokens/primary':
+							primaryReconciliation.fulfill();
+							await allowPrimaryResponse.promise;
+							return cloudToken('token-primary', 'primary');
+						case 'v1/provider-tokens/tokens/selected':
+							olderSelectedRead.fulfill();
+							return cloudToken('token-selected');
+						case 'v1/provider-tokens/tokens/selected/refresh':
+							return cloudToken('token-recovered');
+						default:
+							assert.fail(`Unexpected callback path: ${path}`);
+					}
+				};
+
+				const sync = manager.refreshConnections();
+				try {
+					await Promise.all([olderSelectedRead.promise, primaryReconciliation.promise]);
+					assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'no-connection' });
+					assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+					assert.equal(calls.at(-1)?.authorization, 'token token-recovered');
+				} finally {
+					allowPrimaryResponse.fulfill();
+				}
+				await sync;
+				assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+				assert.equal(calls.at(-1)?.authorization, 'token token-recovered');
+			},
+		);
+	});
+
+	test('uses the recovered primary when a pending forced refetch returns the rejected credential', async () => {
+		const refetchStarted = defer<void>();
+		const finishRefetch = defer<void>();
+		let primaryToken = 'token-primary';
+		await withManager(
+			({ query }) => {
+				if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+				if (query.startsWith('query PullRequestCreateCapability')) return { data: { repository: repository } };
+
+				return Response.json({ message: 'Revoked credential' }, { status: 401 });
+			},
+			async ({ manager, runtime, calls }) => {
+				runtime.account.getAccount = async () => ({ id: 'test' });
+				runtime.account.fetchGkApi = async path => {
+					switch (path) {
+						case 'v1/provider-tokens':
+							return Response.json({
+								data: [{ provider: 'github', type: 'oauth', domain: 'github.com' }],
+							});
+						case 'v1/provider-tokens/github':
+							refetchStarted.fulfill();
+							await finishRefetch.promise;
+							return cloudToken('token-primary', 'primary');
+						case 'v1/provider-tokens/tokens/primary':
+							return cloudToken(primaryToken, 'primary');
+						case 'v1/provider-tokens/tokens/primary/refresh':
+							primaryToken = 'token-recovered';
+							return cloudToken(primaryToken, 'primary');
+						default:
+							assert.fail(`Unexpected callback path: ${path}`);
+					}
+				};
+				const primary = { ...repo, connectionId: 'primary' };
+				const sync = manager.refreshConnections();
+				try {
+					await refetchStarted.promise;
+					assert.deepEqual(await manager.writePullRequest({ ...enqueue, ...primary }), {
+						ok: false,
+						reason: 'no-connection',
+					});
+					assert.equal((await manager.getPullRequestCreateCapability(primary)).ok, true);
+				} finally {
+					finishRefetch.fulfill();
+				}
+				await sync;
+				assert.equal((await manager.getPullRequestCreateCapability(primary)).ok, true);
+				assert.equal(calls.at(-1)?.authorization, 'token token-recovered');
+			},
+		);
+	});
+
+	test('keeps the recovered credential after a selected force refresh returns a stale absence', async () => {
+		const refetchStarted = defer<void>();
+		const finishRefetch = defer<void>();
+		let selectedFetches = 0;
+		await withManager(
+			({ query }) => {
+				if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+				if (query.startsWith('query PullRequestCreateCapability')) return { data: { repository: repository } };
+				if (query.startsWith('query')) return { data: {} };
+
+				return Response.json({ message: 'Revoked credential' }, { status: 401 });
+			},
+			async ({ manager, runtime, calls }) => {
+				runtime.account.getAccount = async () => ({ id: 'test' });
+				runtime.account.fetchGkApi = async path => {
+					switch (path) {
+						case 'v1/provider-tokens/tokens/selected':
+							if (++selectedFetches === 1) {
+								refetchStarted.fulfill();
+								await finishRefetch.promise;
+								return Response.json({}, { status: 404 });
+							}
+							return cloudToken('token-selected');
+						case 'v1/provider-tokens/tokens/selected/refresh':
+							return cloudToken('token-recovered');
+						default:
+							assert.fail(`Unexpected callback path: ${path}`);
+					}
+				};
+				const list = manager.listPullRequestsPage({
+					providerId: repo.providerId,
+					connectionId: repo.connectionId,
+					forceSync: true,
+					repos: [{ namespace: repo.owner, name: repo.repo }],
+				});
+				try {
+					await refetchStarted.promise;
+					assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'no-connection' });
+					assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+				} finally {
+					finishRefetch.fulfill();
+				}
+				await list;
+				assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+				assert.equal(calls.at(-1)?.authorization, 'token token-recovered');
+				assert.equal(selectedFetches, 2);
+			},
+		);
+	});
+
+	test('resets strikes after a successful PR operation on the current primary credential', async () => {
+		let refused = true;
+		await withManager(
+			() =>
+				refused
+					? Response.json({ message: 'Revoked credential' }, { status: 401 })
+					: { data: { repository: repository } },
+			async ({ manager, runtime, calls }) => {
+				const primary = { ...repo, connectionId: 'primary' };
+				const github = await manager.get(GitCloudHostIntegrationId.GitHub);
+				assert.equal(await github.isConnected(), true);
+				runtime.account.getAccount = async () => ({ id: 'test' });
+				runtime.account.fetchGkApi = async () => cloudToken('token-primary', 'primary');
+				assert.deepEqual(await manager.getPullRequestCreateCapability(primary), {
+					ok: false,
+					reason: 'no-connection',
+				});
+				refused = false;
+				assert.equal((await manager.getPullRequestCreateCapability(primary)).ok, true);
+				assert.equal(await github.isConnected(), true);
+				for (let index = 0; index < 5; index++) {
+					refused = true;
+					assert.deepEqual(await manager.getPullRequestCreateCapability(primary), {
+						ok: false,
+						reason: 'no-connection',
+					});
+					refused = false;
+					assert.equal((await manager.getPullRequestCreateCapability(primary)).ok, true);
+				}
+				await setImmediate();
+				assert.equal(github.maybeConnected, true);
+				assert.ok(calls.every(call => call.authorization === 'token token-primary'));
+			},
+		);
+	});
+
+	test('returns the provider rate-limit outcome from the queue mutation', async () => {
+		await withManager(
+			({ query }) =>
+				query.startsWith('query')
+					? { data: queueTarget }
+					: { errors: [{ type: 'RATE_LIMITED', message: 'Request limit reached' }] },
+			async ({ manager, calls }) => {
+				assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: 'rate-limit' });
+				assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
+			},
+		);
+	});
+
+	for (const [type, reason] of [
+		['NOT_FOUND', 'not-found'],
+		['INSUFFICIENT_SCOPES', 'forbidden'],
+		['BAD_USER_INPUT', 'invalid-input'],
+		['UNPROCESSABLE', 'blocked'],
+	]) {
+		test(`preserves the definitive ${type} queue refusal`, async () => {
+			await withManager(
+				({ query }) =>
+					query.startsWith('query')
+						? { data: queueTarget }
+						: {
+								errors: [
+									{
+										type: type,
+										message: 'The queue request was refused',
+										path: ['enqueuePullRequest'],
+									},
+								],
+							},
+				async ({ manager, calls }) => {
+					assert.deepEqual(await manager.writePullRequest(enqueue), { ok: false, reason: reason });
+					assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
+				},
+			);
+		});
+	}
+
+	for (const superseded of [false, true]) {
+		test(
+			superseded
+				? 'skips a superseded custom recovery'
+				: 'recovers a custom connection using the host refresh flag',
+			async () => {
+				const probeStarted = defer<void>();
+				const finishProbe = defer<void>();
+				await withManager(
+					({ query }) => {
+						if (query.startsWith('query PullRequestWriteTarget')) return { data: queueTarget };
+						if (query.startsWith('query')) return { data: { repository: repository } };
+
+						return Response.json({ message: 'Revoked credential' }, { status: 401 });
+					},
+					async ({ runtime, manager, calls }) => {
+						const changes = new Emitter<void>();
+						const refreshed: string[] = [];
+						let token = 'custom-rejected';
+						let pauseNextRead = false;
+						assert.ok(runtime.hooks);
+						runtime.hooks.createAuthenticationProvider = async () => ({
+							onDidChange: changes.event,
+							getSession: async ({ connectionId }, options) => {
+								assert.equal(connectionId, 'selected');
+								if (options?.refreshRejectedToken) {
+									refreshed.push(connectionId);
+									token = 'custom-refreshed';
+								}
+								const session: ProviderAuthenticationSession = {
+									id: connectionId,
+									accessToken: token,
+									account: { id: 'custom-account', label: 'Custom account' },
+									scopes: ['repo'],
+									cloud: true,
+									type: 'oauth',
+									domain: 'github.com',
+								};
+								if (pauseNextRead) {
+									pauseNextRead = false;
+									probeStarted.fulfill();
+									await finishProbe.promise;
+								}
+								return session;
+							},
+							deleteSession: async () => {},
+							deleteAllSessions: async () => {},
+							dispose: () => changes.dispose(),
+						});
+						assert.deepEqual(await manager.writePullRequest(enqueue), {
+							ok: false,
+							reason: 'no-connection',
+						});
+						assert.deepEqual(refreshed, []);
+						if (superseded) {
+							pauseNextRead = true;
+							const pending = manager.getPullRequestCreateCapability(repo);
+							await probeStarted.promise;
+							try {
+								token = 'custom-replacement';
+								assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+							} finally {
+								finishProbe.fulfill();
+							}
+							assert.deepEqual(await pending, { ok: false, reason: 'no-connection' });
+							assert.equal(calls.at(-1)?.authorization, 'token custom-replacement');
+							assert.deepEqual(refreshed, []);
+							assert.deepEqual(await manager.writePullRequest(enqueue), {
+								ok: false,
+								reason: 'no-connection',
+							});
+						}
+						assert.equal((await manager.getPullRequestCreateCapability(repo)).ok, true);
+						assert.equal(calls.at(-1)?.authorization, 'token custom-refreshed');
+						assert.deepEqual(refreshed, ['selected']);
+					},
+				);
+			},
+		);
+	}
+
+	for (const { entry, error, expected } of [
+		{ entry: queueEntry, error: 'FORBIDDEN', expected: { ok: true, status: 'queued', pullRequest: snapshot } },
+		{ entry: queueEntry, error: 'RATE_LIMITED', expected: { ok: true, status: 'queued', pullRequest: snapshot } },
+		{ entry: null, error: 'FORBIDDEN', expected: { ok: false, reason: 'outcome-unknown' } },
+	]) {
+		test(`classifies nested ${error} in a queue response ${entry == null ? 'without' : 'with'} a receipt`, async () => {
 			await withManager(
 				({ query }) =>
 					query.startsWith('query')
@@ -476,7 +1037,7 @@ suite('IntegrationManager GitHub pull request writes', () => {
 								data: { enqueuePullRequest: { mergeQueueEntry: entry } },
 								errors: [
 									{
-										type: 'FORBIDDEN',
+										type: error,
 										message: 'refused nested field',
 										path: ['enqueuePullRequest', 'mergeQueueEntry', 'mergeQueue', 'url'],
 									},

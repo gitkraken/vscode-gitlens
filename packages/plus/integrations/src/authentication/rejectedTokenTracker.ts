@@ -18,17 +18,31 @@
  * or removes the stored tokens; a connection that is simply working never reaches here at all.
  */
 export class RejectedTokenTracker {
-	private readonly _rejections = new Map<string, 'armed' | 'spent'>();
+	private readonly _rejections = new Map<string, 'armed' | 'spent' | { accessToken: string; claimed: boolean }>();
 
 	/**
 	 * Whether an operation on `connectionId` must force a cloud refresh of a token known to be refused. A session
 	 * lookup that throws must still spend the rejection so a later operation does not ask the cloud again.
 	 */
-	claimRefresh(connectionId: string): boolean {
-		if (this._rejections.get(connectionId) !== 'armed') return false;
+	claimRefresh(connectionId: string): boolean | ((accessToken: string | undefined) => boolean) {
+		const rejection = this._rejections.get(connectionId);
+		if (rejection == null || rejection === 'spent') return false;
 
-		this._rejections.set(connectionId, 'spent');
-		return true;
+		if (rejection === 'armed') {
+			this._rejections.set(connectionId, 'spent');
+			return true;
+		}
+
+		if (rejection.claimed) return false;
+
+		rejection.claimed = true;
+		return accessToken => {
+			if (this._rejections.get(connectionId) !== rejection) return false;
+			if (rejection.accessToken === accessToken) return true;
+
+			this._rejections.delete(connectionId);
+			return false;
+		};
 	}
 
 	/**
@@ -37,10 +51,13 @@ export class RejectedTokenTracker {
 	 * refused after the refresh is not self-healing, and only the failure budget (the primary's) ends in a reconnect
 	 * prompt.
 	 */
-	recordRejection(connectionId: string): boolean {
+	recordRejection(connectionId: string, accessToken?: string): boolean {
 		if (this._rejections.has(connectionId)) return false;
 
-		this._rejections.set(connectionId, 'armed');
+		this._rejections.set(
+			connectionId,
+			accessToken == null ? 'armed' : { accessToken: accessToken, claimed: false },
+		);
 		return true;
 	}
 

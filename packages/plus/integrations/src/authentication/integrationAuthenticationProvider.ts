@@ -1,3 +1,4 @@
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
@@ -47,23 +48,29 @@ export interface IntegrationAuthenticationSessionDescriptor {
  * fetch that failed transiently (a GK API 429 or 5xx) left the connection with no token at all, and every read
  * until the next good sync reported it as gone (gitkraken/kepler#3546).
  */
-export type GetSessionOptions =
-	| {
-			createIfNeeded?: boolean;
-			forceNewSession?: boolean;
-			sync?: never;
-			refetch?: never;
-			refreshRejectedToken?: boolean;
-			source?: Sources;
-	  }
-	| {
-			createIfNeeded?: never;
-			forceNewSession?: never;
-			sync: boolean;
-			refetch?: boolean;
-			refreshRejectedToken?: boolean;
-			source?: Sources;
-	  };
+type RejectedTokenRefreshOptions = {
+	refreshRejectedToken?: boolean;
+	/** A captured rejection only applies while the session still carries the credential GitHub refused. */
+	isRejectedToken?: (accessToken: string | undefined) => boolean;
+};
+
+export type GetSessionOptions = RejectedTokenRefreshOptions &
+	(
+		| {
+				createIfNeeded?: boolean;
+				forceNewSession?: boolean;
+				sync?: never;
+				refetch?: never;
+				source?: Sources;
+		  }
+		| {
+				createIfNeeded?: never;
+				forceNewSession?: never;
+				sync: boolean;
+				refetch?: boolean;
+				source?: Sources;
+		  }
+	);
 
 /**
  * What {@link IntegrationAuthenticationProviderBase.getSession} passes down once it has decided the stored
@@ -82,7 +89,7 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	 */
 	deleteSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		options?: { preserveConfigured?: boolean },
+		options?: { preserveConfigured?: boolean; signOutMark?: number },
 	): Promise<void>;
 	deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	/**
@@ -120,7 +127,7 @@ abstract class IntegrationAuthenticationProviderBase<
 	@trace()
 	async deleteSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		options?: { preserveConfigured?: boolean },
+		options?: { preserveConfigured?: boolean; signOutMark?: number },
 	): Promise<void> {
 		const domain = isSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
@@ -130,14 +137,14 @@ abstract class IntegrationAuthenticationProviderBase<
 		// Scope the descriptor to cloud so resolveConnectionId targets the cloud variant's id: this is a
 		// cloud-only delete, and a mixed local+cloud connection whose local descriptor is primary would
 		// otherwise resolve the local id and leave the cloud secret intact.
-		await this.configuredIntegrationService.deleteStoredSessions(
+		const deleted = await this.configuredIntegrationService.deleteStoredSessions(
 			this.authProviderId,
 			{ ...descriptor, cloud: true },
 			true,
-			{ preserveConfigured: options?.preserveConfigured ?? true },
+			{ preserveConfigured: options?.preserveConfigured ?? true, signOutMark: options?.signOutMark },
 		);
 
-		if (configured?.length) {
+		if (deleted && configured?.length) {
 			this.fireChange();
 		}
 	}
@@ -218,29 +225,42 @@ abstract class IntegrationAuthenticationProviderBase<
 		// A rejected token has to re-resolve even when the stored session looks perfectly healthy: that is
 		// the whole point — the provider refused it while its expiry still says valid. Without this the
 		// stored session short-circuits here and the refresh below is never reached.
-		const refreshRejectedToken = options?.refreshRejectedToken === true && session != null;
+		const scopedRecovery = options?.isRejectedToken?.(session?.accessToken) === true;
+		const refreshRejectedToken = scopedRecovery || (options?.refreshRejectedToken === true && session != null);
 		if (session == null || isExpiredSession || refreshRejectedToken) {
 			session = await this.getNewSession(descriptor, {
 				...options,
 				refreshIfExpired: isExpiredSession,
 				refreshRejectedToken: refreshRejectedToken,
+				isRejectedToken: scopedRecovery ? options?.isRejectedToken : undefined,
 			});
-			// Stored only when no sign-out landed since the mark (checked and written under the storage lock): a token
-			// read or fetched across a disconnect, a reauthentication or the connection's removal is not reconnected.
 			if (
-				session != null &&
-				!(await this.configuredIntegrationService.storeSession(this.authProviderId, session, {
-					signOutMark: signOutMark,
-				}))
+				session == null &&
+				options?.refetch &&
+				refetched != null &&
+				this.configuredIntegrationService.isSessionRetiredSince(this.authProviderId, refetched, signOutMark)
 			) {
-				session = undefined;
+				throw new CancellationError();
 			}
 
 			if (session != null) {
-				// The replacement belongs to a different connection (the cloud's primary moved to another
-				// account), so it was stored beside the one it replaces rather than over it. Drop the old token
-				// as the up-front delete used to, or an unscoped read would keep resolving it until the next sync.
-				if (refetched?.id != null && refetched.id !== session.id) {
+				const stored = await this.configuredIntegrationService.storeSession(this.authProviderId, session, {
+					signOutMark: signOutMark,
+					expectedStoredAccessToken: scopedRecovery ? previousToken : undefined,
+				});
+				if (!stored) {
+					// A disconnect leaves no credential here. A recovery can leave a replacement for this same
+					// connection, which a forced sync must not interpret as a disconnect and delete.
+					session = await this.configuredIntegrationService.getStoredSession(this.authProviderId, {
+						...descriptor,
+						connectionId: session.id,
+						cloud: session.cloud,
+					});
+					options?.isRejectedToken?.(session?.accessToken);
+				} else if (refetched?.id != null && refetched.id !== session.id) {
+					// The replacement belongs to a different connection (the cloud's primary moved to another
+					// account), so it was stored beside the one it replaces rather than over it. Drop the old token
+					// as the up-front delete used to, or an unscoped read would keep resolving it until the next sync.
 					await this.configuredIntegrationService.deleteStoredSessions(
 						this.authProviderId,
 						{ ...descriptor, connectionId: refetched.id, cloud: true },
@@ -307,7 +327,7 @@ export class CloudIntegrationAuthenticationProvider<
 			options?.createIfNeeded ||
 			options?.forceNewSession ||
 			options?.sync
-				? await this.getCloudSession(descriptor, { refreshRejectedToken: options?.refreshRejectedToken })
+				? await this.getCloudSession(descriptor, options)
 				: undefined;
 
 		const shouldCreateSession = options?.createIfNeeded && session == null;
@@ -344,7 +364,7 @@ export class CloudIntegrationAuthenticationProvider<
 
 	private async getCloudSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		options?: { refreshRejectedToken?: boolean },
+		options?: RejectedTokenRefreshOptions,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		const loggedIn = (await this.authenticationService.ctx.account.getAccount()) != null;
 		if (!loggedIn) return undefined;
@@ -389,6 +409,7 @@ export class CloudIntegrationAuthenticationProvider<
 
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
 		if (isForAnotherHost(session)) return undefined;
+		if (options?.isRejectedToken != null && session?.id != null && session.id !== connectionId) return undefined;
 
 		// GitHub, the cloud self-managed hosts, and Trello return `expiresIn: 0` for a token that never
 		// expires; left as 0 the session would be built with `expiresAt = now` and rejected as expired on the
@@ -403,13 +424,20 @@ export class CloudIntegrationAuthenticationProvider<
 		// `expiresIn` stays high and the doomed token is re-sent on every read. `refreshRejectedToken` is
 		// the observed counterpart: the caller saw the provider reject this exact token, so refresh it
 		// regardless of what its expiry claims.
-		if (session != null && (session.expiresIn < 60 || options?.refreshRejectedToken)) {
+		if (
+			session != null &&
+			(session.expiresIn < 60 ||
+				(options?.refreshRejectedToken && (options.isRejectedToken?.(session.accessToken) ?? true)))
+		) {
 			session = await cloudIntegrations.getConnectionSession(
 				this.authProviderId,
 				session.accessToken,
 				connectionId,
 			);
 			if (isForAnotherHost(session)) return undefined;
+			if (options?.isRejectedToken != null && session?.id != null && session.id !== connectionId) {
+				return undefined;
+			}
 		}
 
 		if (!session) return undefined;

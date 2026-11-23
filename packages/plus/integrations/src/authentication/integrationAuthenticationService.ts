@@ -80,6 +80,10 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.ensureProvider(providerId);
 	}
 
+	getSignOutMark(): number {
+		return this.configuredIntegrationService.getSignOutMark();
+	}
+
 	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */
 	getPrimaryConnectionId(providerId: IntegrationIds, descriptor: IntegrationAuthenticationSessionDescriptor): string {
 		return this.configuredIntegrationService.resolveConnectionId(providerId, descriptor);
