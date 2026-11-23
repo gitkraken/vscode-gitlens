@@ -124,3 +124,11 @@ gl-commit-graph {
 	--editor-font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Consolas, monospace);
 	--font-size: var(--vscode-font-size, 12px);
 }
+
+gl-graph-overview-bar {
+	--gl-graph-overview-bar-font-family: var(--vscode-font-family, system-ui, sans-serif);
+	--gl-graph-foreground: var(--vscode-foreground, light-dark(hsl(240 10% 10%), hsl(0 0% 95%)));
+	--gl-graph-focus: var(--vscode-focusBorder, light-dark(hsl(217 91% 50%), hsl(217 91% 60%)));
+	--gl-graph-overview-bar-border: var(--vscode-panel-border, var(--color-foreground--25));
+	--gl-graph-overview-bar-wip: var(--vscode-gitlens-graphScrollMarkerWipColor, #f472b6);
+}

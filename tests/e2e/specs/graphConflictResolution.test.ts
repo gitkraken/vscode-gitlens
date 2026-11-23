@@ -64,13 +64,6 @@ async function getGraphState(webview: FrameLocator): Promise<GraphStateInfo | nu
 	return JSON.parse(json) as GraphStateInfo | null;
 }
 
-/**
- * WIP context that carries `+hasConflicts`. Two elements can carry it: the overview bar's WIP pill
- * (host-serialized, so selection-independent) and the WIP details header's overflow chip. This
- * fixture only ever sees the second — `gitlens.graph.overviewBar.visibility` defaults to `dirtyWorktrees`
- * and the fixture repo has exactly one, so the bar never renders (measured: 0 in the DOM). That is why
- * `openGraphWithConflict` has to put the WIP row in the selection before gating on this.
- */
 function wipConflictContext(webview: FrameLocator) {
 	return webview.locator('[data-vscode-context*="+hasConflicts"]');
 }

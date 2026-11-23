@@ -1,9 +1,13 @@
-gl-commit-graph {
+gl-commit-graph,
+gl-graph-overview-bar {
 	--gl-font-sm: 1.1rem;
 	--gl-font-md: 1.2rem;
 	--gl-border-width: 1px;
+	--gl-radius-xs: 0.2rem;
 	--gl-radius-sm: 0.3rem;
 	--gl-space-4: 0.4rem;
+	--gl-space-6: 0.6rem;
+	--gl-space-8: 0.8rem;
 	--gl-duration-x-fast: 50ms;
 	--gl-duration-fast: 100ms;
 	--gl-duration-medium: 200ms;
@@ -66,10 +70,9 @@ gl-commit-graph {
 	--gl-agent-ended-color: #3fb950;
 }
 
-gl-commit-graph {
-	font-family: var(--gl-graph-font-family, system-ui, sans-serif);
+gl-commit-graph,
+gl-graph-overview-bar {
 	color: var(--gl-graph-foreground);
-	background: var(--gl-graph-background);
 	--gl-graph-foreground: light-dark(hsl(240 10% 10%), hsl(0 0% 95%));
 	--gl-graph-background: light-dark(hsl(0 0% 100%), hsl(240 6% 10%));
 	--gl-graph-muted-foreground: light-dark(hsl(240 5% 40%), hsl(240 5% 65%));
@@ -79,7 +82,8 @@ gl-commit-graph {
 	--gl-graph-accent: var(--gl-graph-focus);
 }
 
-gl-commit-graph {
+gl-commit-graph,
+gl-graph-overview-bar {
 	--gl-graph-font-family: system-ui, sans-serif;
 	--gl-graph-icon-foreground: var(--gl-graph-foreground);
 	--gl-graph-selection: color-mix(in oklab, var(--gl-graph-accent) 24%, transparent);
@@ -117,4 +121,14 @@ gl-commit-graph {
 	--gl-graph-operation-ready-color: #3fb950;
 	--gl-graph-operation-ready-foreground: #06150a;
 	--gl-graph-contrast-outline-width: 0px;
+}
+
+gl-commit-graph {
+	font-family: var(--gl-graph-font-family, system-ui, sans-serif);
+	background: var(--gl-graph-background);
+}
+
+/* KEEP: outranks the bar's own :host font, so it must honor the bar's font token. */
+gl-graph-overview-bar {
+	font-family: var(--gl-graph-overview-bar-font-family, var(--gl-graph-font-family, system-ui, sans-serif));
 }

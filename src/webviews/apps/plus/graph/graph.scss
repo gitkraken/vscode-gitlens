@@ -14,6 +14,11 @@
 // `documentElement.style` on every theme change.
 @include meta.load-css('../../../../../packages/plus/commit-graph-ui/src/themes/vscode.css');
 
+gl-graph-overview-bar {
+	--gl-graph-overview-bar-background: var(--gl-color-surface-base);
+	--gl-graph-overview-bar-border: var(--gl-color-divider-base);
+}
+
 gl-commit-graph {
 	.gl-graph__message,
 	.gl-graph__avatar--initials,

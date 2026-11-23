@@ -1,6 +1,12 @@
 import type { GraphOpenBranchDetail } from '@gitkraken/commit-graph-ui/contracts/events.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/contracts/state.js';
+import type {
+	GlGraphOverviewBar,
+	OverviewBarHoverContent,
+	OverviewBarItem,
+} from '@gitkraken/commit-graph-ui/overviewBar.js';
+import { registerOverviewBarElement } from '@gitkraken/commit-graph-ui/overviewBar.js';
 import { getCommitDateFromRow } from '@gitkraken/commit-graph-ui/rows/rows.js';
-import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
 import { createWipRowId, getWipRowWorktreePath, isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { SignalWatcher } from '@lit-labs/signals';
 import { consume, ContextProvider, provide } from '@lit/context';
@@ -141,6 +147,8 @@ import './sidebar/sidebar-panel.js';
 import '../../shared/components/button.js';
 import '@gitlens/components/components/codeIcon.js';
 import '../../shared/components/overlays/drag-shift-overlay.js';
+import './components/gl-branch-hover.js';
+import './components/gl-graph-coachmark.js';
 import './components/gl-graph-details-panel.js';
 import './components/gl-graph-feedback-dialog.js';
 import './components/gl-graph-health-banner.js';
@@ -148,9 +156,10 @@ import './components/gl-graph-preview-banner.js';
 import './components/gl-graph-jump-toast.js';
 import './components/gl-graph-kanban.js';
 import './components/gl-graph-keyboard-shortcuts.js';
-import './components/gl-graph-overview-bar.js';
 import './components/gl-graph-timeline.js';
 import './components/gl-graph-visualizations.js';
+
+registerOverviewBarElement();
 
 const sidebarDefaultPct = 20;
 const sidebarMinPct = 15;
@@ -765,6 +774,27 @@ export class GraphApp extends SignalWatcher(LitElement) {
 
 	@query('gl-graph-feedback-dialog')
 	private readonly feedbackDialogEl: GlGraphFeedbackDialog | undefined;
+
+	@query('gl-graph-overview-bar')
+	private readonly overviewBarEl: GlGraphOverviewBar | undefined;
+
+	private readonly getOverviewBarPills = (): HTMLElement | undefined => this.overviewBarEl?.pillsElement;
+
+	private readonly renderOverviewBarHover = (barItem: OverviewBarItem, open: boolean): OverviewBarHoverContent => {
+		const item = this.overviewBar.items.find(i => i.id === barItem.id);
+		if (item == null) return nothing;
+
+		return html`<gl-branch-hover
+			surface="wip-bar"
+			.branchId=${item.branchId}
+			.fallbackBranch=${item.branchModel}
+			.label=${item.branchName}
+			.worktreePath=${item.repoPath}
+			.wip=${item.wip}
+			.wipDetails=${this.graphState.config?.showWorktreeWipStats !== false}
+			.open=${open}
+		></gl-branch-hover>`;
+	};
 
 	/** One-shot file/folder scope pushed into the embedded timeline (Visual History) by a graph
 	 *  context-menu action. Cleared once `gl-graph-timeline` reports it applied. */
@@ -2948,17 +2978,31 @@ export class GraphApp extends SignalWatcher(LitElement) {
 						? html`
 								<gl-graph-overview-bar
 									.items=${overviewItems}
-									.selectedId=${selectedWipId}
+									.selectedId=${this.overviewBar.pendingSelectId ?? selectedWipId}
 									.statsOnHover=${this.graphState.config?.showWorktreeWipStats !== false}
-									?graph-ready=${this.coachMarksEligible}
-									?follow-terminal-revealed=${this._followTerminalRevealed}
-									@gl-graph-overview-bar-jump=${this.overviewBar.onJump}
-									@gl-graph-overview-bar-select=${this.overviewBar.onSelect}
-									@gl-graph-overview-bar-focus=${this.overviewBar.onFocus}
-									@gl-graph-overview-bar-stats-needed=${this.overviewBar.onStatsNeeded}
+									.renderHover=${this.renderOverviewBarHover}
+									@gl-graph-overviewjump=${this.overviewBar.onJump}
+									@gl-graph-overviewselect=${this.overviewBar.onSelect}
+									@gl-graph-overviewfocus=${this.overviewBar.onFocus}
+									@gl-graph-overviewstatsneeded=${this.overviewBar.onStatsNeeded}
 									@gl-graph-show-pr-sheet=${this.handleShowPrSheet}
 									@gl-coachmark-action=${this.handleCoachMarkAction}
-								></gl-graph-overview-bar>
+								>
+									<gl-graph-coachmark
+										slot="start"
+										mark="overviewBar"
+										placement="bottom-start"
+										.anchor=${this.getOverviewBarPills}
+										?auto-show=${this.coachMarksEligible}
+									></gl-graph-coachmark>
+									<gl-graph-coachmark
+										slot="start"
+										mark="followTerminal"
+										placement="bottom-start"
+										.anchor=${this.getOverviewBarPills}
+										?auto-show=${this._followTerminalRevealed && this.coachMarksEligible}
+									></gl-graph-coachmark>
+								</gl-graph-overview-bar>
 							`
 						: nothing
 				}

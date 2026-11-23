@@ -16,6 +16,7 @@
 	"type": "module",
 	"sideEffects": [
 		"./dist/register.js",
+		"./dist/overviewBar.js",
 		"./dist/components/components/codeIcon.js",
 		"./dist/components/components/commitStats.js",
 		"./dist/components/components/wipStats.js",
@@ -37,6 +38,10 @@
 		"./register.js": {
 			"types": "./dist/register.d.ts",
 			"default": "./dist/register.js"
+		},
+		"./overviewBar.js": {
+			"types": "./dist/overviewBar.d.ts",
+			"default": "./dist/overviewBar.js"
 		},
 		"./profile.js": {
 			"types": "./dist/profile.d.ts",

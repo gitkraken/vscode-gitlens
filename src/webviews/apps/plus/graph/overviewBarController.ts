@@ -1,4 +1,11 @@
-import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/rows/wip.js';
+import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/contracts/state.js';
+import type {
+	OverviewBarFocusDetail,
+	OverviewBarItem,
+	OverviewBarJumpDetail,
+	OverviewBarSelectDetail,
+	OverviewBarStatsNeededDetail,
+} from '@gitkraken/commit-graph-ui/overviewBar.js';
 import { createWipRowId, isPrimaryWipRowId } from '@gitkraken/commit-graph/wip/identity.js';
 import { computed, signal } from '@lit-labs/signals';
 import type { ReactiveController, ReactiveControllerHost } from 'lit';
@@ -7,16 +14,11 @@ import { areEqual } from '@gitlens/utils/object.js';
 import { basename } from '@gitlens/utils/path.js';
 import type { GraphFiltersService } from '../../../plus/graph/graphService.js';
 import type { GraphScopeOrigin, GraphScopeSource, State } from '../../../plus/graph/protocol.js';
+import type { OverviewBranch, OverviewBranchWip } from '../../../shared/overviewBranches.js';
 import { noop } from '../../shared/actions/rpc.js';
 import { matchAgentSessionsForWorktree } from '../../shared/agentUtils.js';
 import { HeldActionController } from '../../shared/controllers/held-action.js';
-import type {
-	OverviewBarFocusDetail,
-	OverviewBarItem,
-	OverviewBarJumpDetail,
-	OverviewBarSelectDetail,
-	OverviewBarStatsNeededDetail,
-} from './components/gl-graph-overview-bar.js';
+import { providerIconName } from '../../shared/git-utils.js';
 import { pickWipRowAgentStatus } from './components/wipRowAgentStatus.js';
 import type { AppState } from './context.js';
 import type { GlGraphWrapper } from './graph-wrapper/graph-wrapper.js';
@@ -36,6 +38,11 @@ const overviewBarClockTickMs = 60_000;
 /** A typical OS double-click interval — how long pill interactions wait to see whether a second
  *  click lands. */
 const overviewBarDblClickGraceMs = 300;
+
+export type GraphOverviewBarItem = OverviewBarItem & {
+	branchModel?: OverviewBranch;
+	wip?: OverviewBranchWip;
+};
 
 /** Extract the user-visible branch name from a ref id of the form `{repoPath}|heads/{name}`. */
 function branchNameFromRef(branchRef: string | undefined): string | undefined {
@@ -103,6 +110,18 @@ export class OverviewBarController implements ReactiveController {
 	/** A pill click's select, held for the double-click grace window — see {@link onSelect}. */
 	private readonly _select: HeldActionController;
 
+	private _pendingSelectId: string | undefined;
+	get pendingSelectId(): string | undefined {
+		return this._pendingSelectId;
+	}
+
+	private setPendingSelectId(id: string | undefined): void {
+		if (this._pendingSelectId === id) return;
+
+		this._pendingSelectId = id;
+		this._host.requestUpdate();
+	}
+
 	constructor(controllerHost: ReactiveControllerHost, deps: OverviewBarHostDeps) {
 		this._host = controllerHost;
 		this.deps = deps;
@@ -122,6 +141,7 @@ export class OverviewBarController implements ReactiveController {
 			this._clockTimer = undefined;
 		}
 		this._select.cancel();
+		this._pendingSelectId = undefined;
 	}
 
 	/** A row-marker-leg jump: reveal + select a HEAD / upstream / merge-target tip. Deliberately just
@@ -137,7 +157,11 @@ export class OverviewBarController implements ReactiveController {
 
 	onSelect = (e: CustomEvent<OverviewBarSelectDetail>): void => {
 		const detail = e.detail;
-		this._select.hold(() => void this.selectItem(detail));
+		this.setPendingSelectId(detail.id);
+		this._select.hold(() => {
+			this.setPendingSelectId(undefined);
+			void this.selectItem(detail);
+		});
 	};
 
 	/** Double-click on an overview-bar pill — focus (scope) the graph on its worktree's branch, or
@@ -146,6 +170,10 @@ export class OverviewBarController implements ReactiveController {
 	onFocus = (e: CustomEvent<OverviewBarFocusDetail>): void => {
 		// The double-click supersedes its own clicks' held select — the scope owns positioning now.
 		this._select.cancel();
+		this.setPendingSelectId(undefined);
+		const repoPath = e.detail.repoPath;
+		if (repoPath == null) return;
+
 		const gs = this.deps.graphState();
 
 		// Which verb a SECONDARY pill's double-click performs — the same setting and semantics as the
@@ -159,10 +187,10 @@ export class OverviewBarController implements ReactiveController {
 		const doubleClickAction = gs.config?.doubleClickWorktreeAction ?? 'scope';
 		// Home, not the repo's DEFAULT worktree: in a window opened on a worktree the default worktree is an
 		// ordinary scope target, and home is the worktree the window was opened on (see `isHomeWorktree`).
-		const isHome = isHomeWorktree(e.detail.repoPath, gs.homeRepositoryPath);
+		const isHome = isHomeWorktree(repoPath, gs.homeRepositoryPath);
 		const origin: GraphScopeOrigin | undefined =
 			!e.detail.isPrimary && !isHome && doubleClickAction === 'scope'
-				? { kind: 'worktree', path: e.detail.repoPath }
+				? { kind: 'worktree', path: repoPath }
 				: undefined;
 
 		// The pill IS its worktree's WIP row, so it declares that row as the gesture's target: a Scope from
@@ -174,20 +202,20 @@ export class OverviewBarController implements ReactiveController {
 			// PRIMARY pill even under Scope — and that pill is exactly where "click again to exit" must
 			// keep working.
 			verb: doubleClickAction,
-			worktreePath: e.detail.repoPath,
+			worktreePath: repoPath,
 			scope: gs.scope,
 			perspectivePath: gs.worktreePerspective?.path,
 			homeRepositoryPath: gs.homeRepositoryPath,
 			scopeBehaviorIncludesFocus: (gs.config?.scopeBehavior ?? 'scopeAndFocus') !== 'scope',
-			targetRowId: createWipRowId(e.detail.repoPath),
+			targetRowId: createWipRowId(repoPath),
 		});
 
 		// Set SYNCHRONOUSLY, before the focus pipeline below — the header tint + pill must reflect the
 		// worktree instantly, not after `scopeToBranchByName`'s anchor IPC settles.
-		applyWorktreeGestureOutcome(gs, outcome, e.detail.branch, this.deps.followRowAfterRebind);
+		applyWorktreeGestureOutcome(gs, outcome, e.detail.branchName, this.deps.followRowAfterRebind);
 
 		if (outcome.focus) {
-			void this.deps.scopeToBranchByName(e.detail.branch, undefined, {
+			void this.deps.scopeToBranchByName(e.detail.branchName, undefined, {
 				source: 'wip-row',
 				origin: outcome.origin,
 			});
@@ -201,6 +229,8 @@ export class OverviewBarController implements ReactiveController {
 	 *  option) leaves focus on the pill, matching today's behavior. */
 	async selectItem(detail: OverviewBarSelectDetail, options?: { returnFocusToGraph?: boolean }): Promise<void> {
 		const { id, repoPath } = detail;
+		if (repoPath == null) return;
+
 		// Bar is a global WIP affordance; clicking it always lands the user in graph mode
 		// so the corresponding WIP row is visible (matches the stated user intent: "select that
 		// WIP row in the graph and reveal the WIP details panel").
@@ -377,7 +407,7 @@ export class OverviewBarController implements ReactiveController {
 
 	/** Last array produced by {@link _overviewBarItemsSignal}, kept ONLY for per-item identity
 	 *  preservation — see the computed. */
-	private _overviewBarItemsCache: readonly OverviewBarItem[] = [];
+	private _overviewBarItemsCache: readonly GraphOverviewBarItem[] = [];
 
 	/** The overview/WIP bar's items, computed over the signals it actually reads (repo selection,
 	 *  config visibility, WIP topology/status, branch state, merge target, agent sessions) instead of
@@ -392,16 +422,6 @@ export class OverviewBarController implements ReactiveController {
 		const next = this.buildItems(Date.now());
 		const prev = this._overviewBarItemsCache;
 
-		// Preserve identity PER ITEM, not just for the whole array: reuse each prior item object whose
-		// content is unchanged. Without this, one pill changing (e.g. another worktree's agent tick)
-		// reallocates the whole array, handing every OTHER pill's already-open hover a fresh `.wip`
-		// reference — which churns that hover's settle timer every unrelated tick. `areEqual` is a deep
-		// compare, so it covers the nested `wip` and `row marker` payloads too. Content-compared, not
-		// identity-compared: nothing in an OverviewBarItem is derived from the clock between threshold
-		// crossings, so equal content really means "nothing changed" (an earlier cut carried a sub-minute
-		// `lastActivity` number that would have defeated this on every tick while an agent worked —
-		// precisely when the bar is busiest; the row-marker legs are shas + counts, so they hold that
-		// property).
 		const prevById = new Map(prev.map(item => [item.id, item]));
 		const merged = next.map(item => {
 			const prior = prevById.get(item.id);
@@ -416,7 +436,7 @@ export class OverviewBarController implements ReactiveController {
 	});
 
 	/** Read during the host's render so `SignalWatcher` subscribes to the underlying signals. */
-	get items(): readonly OverviewBarItem[] {
+	get items(): readonly GraphOverviewBarItem[] {
 		return this._overviewBarItemsSignal.get();
 	}
 
@@ -449,7 +469,7 @@ export class OverviewBarController implements ReactiveController {
 	 *  working changes or unpushed commits. Agent state is resolved per-worktree via the
 	 *  session-by-worktree index. `now` is passed in by the caller (the computed) so the wall-clock
 	 *  read stays next to the tick subscription that keeps it honest. */
-	private buildItems(now: number): readonly OverviewBarItem[] {
+	private buildItems(now: number): readonly GraphOverviewBarItem[] {
 		const gs = this.deps.graphState();
 		const fallbackRepoPath = this.deps.fallbackRepoPath();
 		if (fallbackRepoPath == null) return [];
@@ -514,56 +534,47 @@ export class OverviewBarController implements ReactiveController {
 			return { agent: status.category, agentCount: status.sessions.length };
 		};
 
-		const items: OverviewBarItem[] = [];
+		const items: GraphOverviewBarItem[] = [];
 
-		// Primary worktree's WIP — always the first entry when the bar renders, even when the primary is
-		// clean (no changes / unpushed / agent): it's the row-marker anchor, carrying the current branch's
-		// HEAD / upstream / merge-target jumps, and it stays put as secondaries come and go. Its hot state
-		// is computed independent of the graph's filters; WorkDirStats are FILE counts (added/modified/
-		// deleted files). A detached HEAD falls back to the worktree basename. Unpushed comes free from
-		// `branchState.ahead` (tracked branch); a primary on a local-only branch is intentionally NOT
-		// probed — those commits are already visible in the main graph, unlike a hidden secondary's.
 		const primaryWipRowId = this.deps.primaryWipRowId();
 		const primary = primaryWipRowId != null ? gs.wipStateById?.[primaryWipRowId] : undefined;
 		const primaryStats = primary?.workDirStats;
 		const primaryDirty = hasDirtyCounts(primaryStats);
-		const primaryAhead = gs.branchState?.ahead ?? 0;
+		const primaryWip: OverviewBranchWip = {
+			hasChanges: primaryDirty,
+			...(primaryStats != null && primaryDirty
+				? {
+						workingTreeState: {
+							added: primaryStats.added,
+							changed: primaryStats.modified,
+							deleted: primaryStats.deleted,
+						},
+					}
+				: {}),
+			...(primary?.pausedOpStatus != null ? { pausedOpStatus: primary.pausedOpStatus } : {}),
+			...(primary?.hasConflicts === true ? { hasConflicts: true } : {}),
+		};
 		items.push({
 			id: uncommitted,
-			branch: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
+			branchName: gs.branch?.name ?? primaryFallbackLabel(fallbackRepoPath),
 			repoPath: fallbackRepoPath,
 			hasWorkingChanges: primaryDirty,
 			// The current branch is always `active` in the overview, so the hover resolves it from there and
 			// needs no `branchModel` fallback.
 			branchId: gs.branch?.id,
-			// HEAD leg ← the host-supplied current-branch tip (reactive); upstream leg ← the `upstreamSha`
-			// scalar (jumps even to an unpushed/unloaded upstream tip); merge-target leg ← the client-pulled
-			// `rowMarkerMergeTarget` (async, absent on the default branch / detached).
-			headSha: gs.branch?.sha,
+			tipSha: gs.branch?.sha,
 			upstreamSha: gs.branchState?.upstreamSha,
 			upstreamName: gs.branchState?.upstream,
-			providerIcon: gs.branchState?.provider?.icon,
-			targetSha: gs.rowMarkerMergeTarget?.sha,
-			targetName: gs.rowMarkerMergeTarget?.name,
-			ahead: primaryAhead,
-			wip: {
-				hasChanges: primaryDirty,
-				...(primaryStats != null && primaryDirty
-					? {
-							workingTreeState: {
-								added: primaryStats.added,
-								changed: primaryStats.modified,
-								deleted: primaryStats.deleted,
-							},
-						}
-					: {}),
-				...(primary?.pausedOpStatus != null ? { pausedOpStatus: primary.pausedOpStatus } : {}),
-				...(primary?.hasConflicts === true ? { hasConflicts: true } : {}),
-			},
-			...(primaryAhead > 0 ? { hasUnpushed: true } : {}),
+			upstreamIcon: providerIconName(gs.branchState?.provider?.icon),
+			target:
+				gs.rowMarkerMergeTarget != null
+					? { sha: gs.rowMarkerMergeTarget.sha, name: gs.rowMarkerMergeTarget.name }
+					: undefined,
+			wip: primaryWip,
+			statsLoaded: primaryWip.workingTreeState != null,
 			...pickAgent(fallbackRepoPath),
 			isPrimary: true,
-			context: serializeWipContext(
+			vscodeContext: serializeWipContext(
 				fallbackRepoPath,
 				false,
 				primary?.hasConflicts ?? false,
@@ -574,9 +585,26 @@ export class OverviewBarController implements ReactiveController {
 		for (const { sha, meta, state, dirty } of secondaries) {
 			const stats = state?.workDirStats;
 			const unpushed = state?.hasUnpushed === true;
+			const wip: OverviewBranchWip = {
+				hasChanges: dirty,
+				...(stats != null
+					? {
+							workingTreeState: {
+								added: stats.added,
+								changed: stats.modified,
+								deleted: stats.deleted,
+							},
+						}
+					: state?.workDirStatsStale === false
+						? { statsUnavailable: true }
+						: {}),
+				...(unpushed && state?.ahead == null ? { hasUnpublishedCommits: true } : {}),
+				...(state?.pausedOpStatus != null ? { pausedOpStatus: state.pausedOpStatus } : {}),
+				...(state?.hasConflicts === true ? { hasConflicts: true } : {}),
+			};
 			items.push({
 				id: sha,
-				branch: branchNameFromRef(meta.branchRef) ?? meta.label,
+				branchName: branchNameFromRef(meta.branchRef) ?? meta.label,
 				repoPath: meta.repoPath,
 				hasWorkingChanges: dirty,
 				hasUnpushed: unpushed,
@@ -585,39 +613,11 @@ export class OverviewBarController implements ReactiveController {
 				// lands in `state.overview` when the worktree is open or its last commit is recent — without
 				// it, a dirty worktree on an older branch would hover with nothing to show.
 				branchModel: meta.branch,
-				// A secondary worktree gets NO row-marker legs (and so no `ahead`): its WIP row already sits ON
-				// its branch tip, so a "jump to branch" is pointless (only the primary can be far from HEAD);
-				// upstream/merge-target tips would also cost a git call per worktree on load. Its unpushed
-				// commits ride the pill's `↑` indicator instead, which an `ahead` here would suppress (that
-				// suppression exists for the primary, whose upstream leg names the remote). Clicking the pill
-				// selects its WIP row; the counts themselves live in the hover.
-				wip: {
-					hasChanges: dirty,
-					// Absent until the breakdown is fetched on hover — the pill renders from the dirty bit.
-					// `workDirStatsStale === false` with no `workDirStats` means a forced fetch settled without
-					// one (failed/cancelled), so flag it for the hover's terminal "Couldn't load changes"
-					// instead of leaving it stuck on "Loading changes…".
-					...(stats != null
-						? {
-								workingTreeState: {
-									added: stats.added,
-									changed: stats.modified,
-									deleted: stats.deleted,
-								},
-							}
-						: state?.workDirStatsStale === false
-							? { statsUnavailable: true }
-							: {}),
-					// A local-only branch has no upstream, so `gl-tracking-status` renders nothing and the
-					// hover would silently drop the fact that there's work to push. `ahead` is undefined for
-					// these (there's nothing to count against) — it's a presence bit only.
-					...(unpushed && state?.ahead == null ? { hasUnpublishedCommits: true } : {}),
-					...(state?.pausedOpStatus != null ? { pausedOpStatus: state.pausedOpStatus } : {}),
-					...(state?.hasConflicts === true ? { hasConflicts: true } : {}),
-				},
+				wip: wip,
+				statsLoaded: wip.workingTreeState != null,
 				...pickAgent(meta.repoPath),
 				isPrimary: false,
-				context: serializeWipContext(
+				vscodeContext: serializeWipContext(
 					meta.repoPath,
 					true,
 					state?.hasConflicts ?? false,
