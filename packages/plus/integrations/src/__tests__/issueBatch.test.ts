@@ -1385,6 +1385,51 @@ suite('IntegrationManager.getIssuesBatch (#5802)', () => {
 			manager.dispose();
 		});
 
+		test('GitHub: a 401 after another target of the same repository answered is the credential, through its recovery once', async () => {
+			const { manager, gh } = await connectedGitHub(createFakeRuntime());
+			const github = await apiClient(gh, 'github');
+			github.getIssuesBatch = (_p: unknown, _t: TokenWithInfo, coordinates: readonly Coordinate[]) =>
+				Promise.resolve(
+					coordinates.map(c =>
+						c.number === 1
+							? found(issue(c.number))
+							: failed(
+									new AuthenticationError(
+										{
+											providerId: GitCloudHostIntegrationId.GitHub,
+											microHash: undefined,
+											cloud: true,
+											type: 'oauth',
+											scopes: [],
+										},
+										AuthenticationErrorReason.Unauthorized,
+									),
+								),
+					),
+				);
+			(gh as unknown as { requestExceptionCount: number }).requestExceptionCount = 2;
+
+			const result = await manager.getIssuesBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [
+					{ key: 'found', owner: 'o', repo: 'a', number: 1 },
+					{ key: 'refused', owner: 'o', repo: 'a', number: 2 },
+					{ key: 'refused too', owner: 'o', repo: 'a', number: 3 },
+				],
+			});
+
+			assert.deepEqual(
+				result.items.map(i => i.key),
+				['found'],
+			);
+			assert.equal(result.fetchFailed, true);
+			assert.deepEqual(authWarnings(result), [{ scope: undefined, cause: undefined }]);
+			assert.equal(gh.connectionExpired, true, 'the refused credential expires the session');
+			assert.equal(getRequestExceptionCount(gh), 2, 'handled once, and the budget is not reset');
+
+			manager.dispose();
+		});
+
 		test('GitHub: a target refused while another answered is scoped to its repository, with no probe to make', async () => {
 			const { manager, gh } = await connectedGitHub(createFakeRuntime());
 			const github = await apiClient(gh, 'github');
