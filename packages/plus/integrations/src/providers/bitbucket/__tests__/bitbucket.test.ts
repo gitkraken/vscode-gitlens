@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { createFakeRuntime } from '../../../__tests__/fakeRuntime.js';
-import { connectedBitbucket, primarySession } from '../../../__tests__/sweepHelpers.js';
+import { connectedBitbucket, connectedBitbucketServer, primarySession } from '../../../__tests__/sweepHelpers.js';
 import { GitSelfManagedHostIntegrationId } from '../../../constants.js';
 import { createIntegrationService } from '../../../integrationService.js';
 import type { ApiClients } from '../../apiClients.js';
@@ -547,5 +547,60 @@ suite('BitbucketIntegration.getPullRequestForCommit', () => {
 		} finally {
 			manager.dispose();
 		}
+	});
+});
+
+suite('BitbucketServerIntegration.getPullRequestForCommit', () => {
+	const sha = 'a'.repeat(40);
+	const repo = { key: 'PROJ/r', owner: 'PROJ', name: 'r' };
+
+	function json(status: number, body: unknown): Response {
+		return new Response(JSON.stringify(body), { status: status, headers: { 'content-type': 'application/json' } });
+	}
+
+	async function lookUps(responses: readonly (() => Response)[]): Promise<{
+		invalidated: number[];
+		strikes: number;
+		expired: boolean | undefined;
+	}> {
+		const runtime = createFakeRuntime();
+		let respond = responses[0];
+		runtime.http.fetch = () => Promise.resolve(respond());
+		let invalidated = 0;
+		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+			loader({ invalidate: () => void invalidated++ } as never).value;
+		const { manager, integration } = await connectedBitbucketServer(runtime);
+		try {
+			const after: number[] = [];
+			for (const response of responses) {
+				respond = response;
+				assert.equal(await integration.getPullRequestForCommit(repo, sha), undefined);
+				after.push(invalidated);
+			}
+			const strikes = (integration as unknown as { requestExceptionCount: number }).requestExceptionCount;
+			return { invalidated: after, strikes: strikes, expired: integration.connectionExpired };
+		} finally {
+			manager.dispose();
+		}
+	}
+
+	test('a 503 or an answer without a list is not kept as a commit without one, while a 404 still answers none', async () => {
+		const { invalidated } = await lookUps([
+			() => json(503, { errors: [{ message: 'restarting' }] }),
+			() => json(200, {}),
+			() => json(200, { values: [] }),
+			() => json(404, { errors: [{ message: 'Commit not found' }] }),
+		]);
+
+		assert.deepEqual(invalidated, [1, 2, 2, 2], 'the failures are dropped from the cache; the answers are kept');
+	});
+
+	test("a repository's refusal costs the connection nothing and is not kept", async () => {
+		const forbidden = () => json(403, { errors: [{ message: 'You are not permitted to access this resource' }] });
+		const { invalidated, strikes, expired } = await lookUps([forbidden, forbidden, forbidden]);
+
+		assert.deepEqual(invalidated, [1, 2, 3]);
+		assert.equal(strikes, 0);
+		assert.notEqual(expired, true, 'the session is not expired');
 	});
 });

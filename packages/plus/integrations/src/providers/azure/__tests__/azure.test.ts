@@ -570,6 +570,70 @@ suite('AzureDevOpsIntegration.getPullRequest', () => {
 	});
 });
 
+suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
+	const sha = 'a'.repeat(40);
+	const repo = { key: 'org/proj/r', owner: 'org', name: 'proj/_git/r', project: 'proj' };
+
+	function json(status: number, body: unknown): Response {
+		return new Response(JSON.stringify(body), { status: status, headers: { 'content-type': 'application/json' } });
+	}
+
+	async function lookUps(responses: readonly (() => Response)[]): Promise<{
+		invalidated: number[];
+		strikes: number;
+		expired: boolean | undefined;
+	}> {
+		const runtime = createFakeRuntime();
+		let respond = responses[0];
+		runtime.http.fetch = input => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
+			return Promise.resolve(respond());
+		};
+		let invalidated = 0;
+		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+			loader({ invalidate: () => void invalidated++ } as never).value;
+		const { manager, azure } = await connectedAzure(runtime);
+		try {
+			const after: number[] = [];
+			for (const response of responses) {
+				respond = response;
+				assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
+				after.push(invalidated);
+			}
+			const strikes = (azure as unknown as { requestExceptionCount: number }).requestExceptionCount;
+			return { invalidated: after, strikes: strikes, expired: azure.connectionExpired };
+		} finally {
+			manager.dispose();
+		}
+	}
+
+	test('a failed query is not kept as a commit without a pull request, while a 404 still answers none', async () => {
+		const { invalidated } = await lookUps([
+			() => json(500, { message: 'boom' }),
+			() => json(404, { message: 'TF401019: The Git repository does not exist.' }),
+		]);
+
+		assert.deepEqual(invalidated, [1, 1]);
+	});
+
+	test('a query answer without the results of its query is a failure, while an empty result is none', async () => {
+		const { invalidated } = await lookUps([() => json(200, { results: [] }), () => json(200, { results: [{}] })]);
+
+		assert.deepEqual(invalidated, [1, 1]);
+	});
+
+	test("a repository's refusal costs the connection nothing and is not kept", async () => {
+		const forbidden = () => json(403, { message: 'TF401027: You need the Git GenericRead permission.' });
+		const { invalidated, strikes, expired } = await lookUps([forbidden, forbidden, forbidden]);
+
+		assert.deepEqual(invalidated, [1, 2, 3]);
+		assert.equal(strikes, 0);
+		assert.notEqual(expired, true, 'the session is not expired');
+	});
+});
+
 suite('AzureDevOpsIntegration.getPullRequestsForCommits fork lookups', () => {
 	const shas = Array.from({ length: 10 }, (_, i) => `a${(i + 1).toString(16).padStart(39, '0')}`);
 
