@@ -13,8 +13,8 @@ import type { Container } from '../../../container.js';
 import { getIconPathUris, isLightTheme } from '../../../system/-webview/vscode.js';
 import type { GlRepository } from '../../models/repository.js';
 
-// KEEP: the one host-side queued glyph; webviews get theirs from `getAutolinkIcon` (it can't be imported here)
-const queuedPullRequestIcon = 'clock';
+// KEEP: the one host-side queued GL glyph, prefixed per form; webviews get theirs from `getAutolinkIcon` (it can't be imported here)
+const queuedPullRequestIcon = 'pr-queued';
 
 export function getBranchIconPath(container: Container, branch: GitBranch | undefined): IconPath {
 	switch (branch?.status) {
@@ -72,7 +72,7 @@ export function getIssueOrPullRequestHtmlIcon(issue?: IssueOrPullRequest): strin
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#f85149' : '#cf222e'
 				};"></span>`;
 			case 'queued':
-				return `<span class="codicon codicon-${queuedPullRequestIcon}" style="color:${
+				return `<span class="glicon glicon-${queuedPullRequestIcon}" style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#d29922' : '#9a6700'
 				};"></span>`;
 			case 'opened':
@@ -116,7 +116,7 @@ export function getIssueOrPullRequestMarkdownIcon(issue?: IssueOrPullRequest): s
 			case 'queued':
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#d29922' : '#9a6700'
-				};">$(${queuedPullRequestIcon})</span>`;
+				};">$(gitlens-${queuedPullRequestIcon})</span>`;
 			case 'opened':
 				return `<span style="color:${
 					window.activeColorTheme.kind === ColorThemeKind.Dark ? '#3fb950' : '#1a7f37'
@@ -157,7 +157,7 @@ export function getIssueOrPullRequestThemeIcon(issue?: IssueOrPullRequest): Them
 				);
 			case 'queued':
 				return new ThemeIcon(
-					queuedPullRequestIcon,
+					`gitlens-${queuedPullRequestIcon}`,
 					new ThemeColor('gitlens.queuedPullRequestIconColor' satisfies Colors),
 				);
 			case 'opened':

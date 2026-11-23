@@ -47,7 +47,7 @@ export function getAutolinkIcon(
 			case 'closed':
 				return { icon: 'git-pull-request-closed', modifier: 'pr-closed' };
 			case 'queued':
-				return { icon: 'clock', modifier: 'pr-queued' };
+				return { icon: 'gl-pr-queued', modifier: 'pr-queued' };
 			default:
 				return isDraft
 					? { icon: 'git-pull-request-draft', modifier: 'pr-draft' }

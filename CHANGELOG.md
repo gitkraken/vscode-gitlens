@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Changed
 
-- Changes the icon for a pull request waiting in a merge queue to a clock, so it reads as queued at a glance in the _Commit Graph_, views, hovers, autolinks, and _Launchpad_ &mdash; the _Commit Graph_ pull request hover also shows when it was queued, and its accessible label says it's in the merge queue ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126))
+- Changes the icon for a pull request waiting in a merge queue to a pull request with a clock badge, so it reads as queued at a glance in the _Commit Graph_, views, hovers, autolinks, and _Launchpad_ &mdash; the _Commit Graph_ pull request hover also shows when it was queued, and its accessible label says it's in the merge queue ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126))
 - Improves editing of multi-line settings in the Settings editor &mdash; the AI custom instructions and the commit and stash tooltip formats now use a multi-line text box ([#1586](https://github.com/gitkraken/vscode-gitlens/issues/1586))
 - Adds high contrast light defaults for all of GitLens' theme colors &mdash; blame annotations, branch and file decorations, pull request and issue icons, _Commit Graph_ lanes and markers, and _Launchpad_ indicators now meet high contrast levels instead of reusing the light theme's colors ([#2119](https://github.com/gitkraken/vscode-gitlens/issues/2119))
 - Removes an unused inline script from the _Interactive Rebase Editor_ and _Cloud Patch_ details webviews, so their state is only ever embedded as encoded data ([#6201](https://github.com/gitkraken/vscode-gitlens/issues/6201))
