@@ -341,7 +341,7 @@ export class BranchTrackingStatusNode
 				collapsibleState = TreeItemCollapsibleState.None;
 				contextValue = this.root
 					? ContextValues.StatusMissingUpstream
-					: ContextValues.BranchStatusSameAsUpstream;
+					: ContextValues.BranchStatusMissingUpstream;
 				// The upstream's remote may itself be gone, so ask the repo rather than infer from the upstream
 				if (
 					remote != null ||
