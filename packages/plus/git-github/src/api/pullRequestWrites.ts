@@ -120,7 +120,7 @@ type WriteNode = PullRequestNode & {
 	isInMergeQueue: boolean;
 	isMergeQueueEnabled: boolean;
 	stack: { id: string } | null;
-	baseRef: { id: string; branchProtectionRule: { requiresLinearHistory: boolean } | null } | null;
+	baseRef: { id: string } | null;
 };
 
 type MergeRepository = RepositoryNode & {
@@ -295,7 +295,7 @@ async function resolveNode(
 					viewerCanUpdate viewerCanClose viewerCanReopen
 					isDraft isInMergeQueue isMergeQueueEnabled
 					stack { id }
-					baseRef { id branchProtectionRule { requiresLinearHistory } }
+					baseRef { id }
 				}
 			}
 		}`,
@@ -316,10 +316,14 @@ async function resolveNode(
 	return { ok: true, node: node, repository: repository };
 }
 
-async function readBranchRules(refId: string, graphql: GraphqlRequest): Promise<BranchRule[] | undefined> {
+async function readBranchRules(
+	refId: string,
+	graphql: GraphqlRequest,
+): Promise<{ rules: BranchRule[]; requiresLinearHistory: boolean } | undefined> {
 	type Response = {
 		node: {
 			id: string;
+			refUpdateRule: { requiresLinearHistory: boolean } | null;
 			rules: {
 				nodes: (BranchRule | null)[] | null;
 				pageInfo: { hasNextPage: boolean; endCursor: string | null };
@@ -328,6 +332,7 @@ async function readBranchRules(refId: string, graphql: GraphqlRequest): Promise<
 	};
 	const rules: BranchRule[] = [];
 	const seen = new Set<string>();
+	let requiresLinearHistory = false;
 	let cursor: string | undefined;
 	for (;;) {
 		const response = await graphql<Response>(
@@ -336,6 +341,9 @@ async function readBranchRules(refId: string, graphql: GraphqlRequest): Promise<
 					node(id: $id) {
 						... on Ref {
 							id
+							refUpdateRule {
+								requiresLinearHistory
+							}
 							rules(first: 100, after: $cursor) {
 								nodes {
 									type
@@ -356,8 +364,11 @@ async function readBranchRules(refId: string, graphql: GraphqlRequest): Promise<
 			`,
 			{ id: refId, cursor: cursor },
 		);
-		const page = response?.node?.rules;
-		if (response?.node?.id !== refId || page?.nodes == null) return undefined;
+		const ref = response?.node;
+		const page = ref?.rules;
+		if (ref?.id !== refId || page?.nodes == null) return undefined;
+
+		requiresLinearHistory ||= ref.refUpdateRule?.requiresLinearHistory === true;
 
 		for (const rule of page.nodes) {
 			if (rule == null) return undefined;
@@ -365,7 +376,7 @@ async function readBranchRules(refId: string, graphql: GraphqlRequest): Promise<
 			rules.push(rule);
 		}
 
-		if (!page.pageInfo.hasNextPage) return rules;
+		if (!page.pageInfo.hasNextPage) return { rules: rules, requiresLinearHistory: requiresLinearHistory };
 
 		const nextCursor = page.pageInfo.endCursor;
 		if (nextCursor == null || seen.has(nextCursor)) return undefined;
@@ -395,13 +406,13 @@ async function getMergeCapability(
 	if (node.isMergeQueueEnabled) return { kind: 'queue' };
 
 	try {
-		const rules = await readBranchRules(node.baseRef.id, graphql);
-		if (rules == null) return { kind: 'unavailable', reason: 'unknown' };
+		const branch = await readBranchRules(node.baseRef.id, graphql);
+		if (branch == null) return { kind: 'unavailable', reason: 'unknown' };
+
+		const { rules, requiresLinearHistory } = branch;
 		if (rules.some(rule => rule.type === 'MERGE_QUEUE')) return { kind: 'queue' };
 
-		const linearHistory =
-			node.baseRef.branchProtectionRule?.requiresLinearHistory ||
-			rules.some(rule => rule.type === 'REQUIRED_LINEAR_HISTORY');
+		const linearHistory = requiresLinearHistory || rules.some(rule => rule.type === 'REQUIRED_LINEAR_HISTORY');
 		const methods = mergeMethods.filter(method => {
 			const allowed =
 				method === 'merge'
