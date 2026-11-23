@@ -1333,10 +1333,10 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 					assert.equal(await azure.getDefaultBranch(repo), undefined);
 					assert.equal(await azure.getRepositoryMetadata(repo), undefined);
 					const misses = ['feature', 'sha', 'default branch', 'metadata'];
-					assert.deepEqual(invalidated(), kept ? [] : misses);
+					assert.deepEqual(invalidated(), kept ? ['sha'] : misses);
 					// A full path reads as parsed either way, its answer kept.
 					assert.equal((await azure.getPullRequestForBranch(descriptorFor(fullRemote), 'main'))?.id, '7');
-					assert.deepEqual(invalidated(), kept ? [] : misses);
+					assert.deepEqual(invalidated(), kept ? ['sha'] : misses);
 				} finally {
 					manager.dispose();
 				}

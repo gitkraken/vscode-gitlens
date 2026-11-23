@@ -28,7 +28,12 @@ async function readRoutes(
 	}
 
 	await api.getPullRequestForBranch(azureProvider, azureToken, owner, repo, value, { baseUrl: baseUrl });
-	await readWithDiscovery(api.getPullRequestForCommit(azureProvider, azureToken, owner, repo, value, baseUrl));
+	const commit = api.getPullRequestForCommit(azureProvider, azureToken, owner, repo, value, baseUrl);
+	if ([owner, project, repository].some(segment => segment === '.' || segment === '..')) {
+		await assert.rejects(commit, /Invalid Azure path segment/);
+	} else {
+		await commit;
+	}
 	await readWithDiscovery(
 		api.getIssueOrPullRequest(azureProvider, azureToken, owner, repo, value, {
 			baseUrl: baseUrl,
@@ -68,11 +73,14 @@ suite('Azure REST route encoding', () => {
 						if (discovery != null) return Promise.resolve(discovery);
 
 						requests.push({ url: new URL(input.toString()), init: init });
+						const pathname = new URL(input.toString()).pathname;
 						return Promise.resolve(
 							Response.json(
-								new URL(input.toString()).pathname.endsWith('/states')
+								pathname.endsWith('/states')
 									? { value: [{ name: 'Active', category: 'InProgress' }] }
-									: null,
+									: pathname.endsWith('/pullrequestquery')
+										? { results: [{}] }
+										: null,
 							),
 						);
 					},
