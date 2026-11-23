@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-11-23
+
 ### Added
 
 - Adds `intent: 'delete'` to `IntegrationManager.resolveIssueWriteTarget` for GitHub.com. The same read that validates the target also asks GitHub whether the connection may delete the issue, and answers `forbidden` when it may not, so a host can refuse before asking the user to confirm a deletion GitHub would reject. Without it the read is unchanged (plus/git-github, plus/integrations)
@@ -1388,7 +1390,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.42.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.44.0...HEAD
+[0.44.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.43.0...gitkraken:releases/core/v0.44.0
 [0.42.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.41.0...gitkraken:releases/core/v0.42.0
 [0.41.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.40.0...gitkraken:releases/core/v0.41.0
 [0.40.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.39.0...gitkraken:releases/core/v0.40.0
