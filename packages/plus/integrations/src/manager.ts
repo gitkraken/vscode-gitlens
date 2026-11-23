@@ -68,13 +68,20 @@ import type { Source } from './telemetry.js';
 
 type WriteConnection = { providerId: IntegrationIds; connectionId: string };
 
-export type IssueWriteOptions = WriteConnection & GitHubIssueWrite;
+type IssueWriteConnection = WriteConnection & {
+	/** Required for GitHub Enterprise Server. Must match the configured connection's host and port. */
+	domain?: string;
+	/** When provided, the exact credential for this operation must authenticate as this GitHub login. */
+	expectedLogin?: string;
+};
+
+export type IssueWriteOptions = IssueWriteConnection & GitHubIssueWrite;
 /**
  * `intent: 'delete'` also requires that the connection may delete the issue, so a host can refuse before asking
  * the user to confirm a deletion GitHub would reject.
  */
-export type IssueWriteTargetOptions = WriteConnection & GitHubIssueDelete & { intent?: 'delete' };
-export type IssueDeleteOptions = WriteConnection & GitHubIssueDelete;
+export type IssueWriteTargetOptions = IssueWriteConnection & GitHubIssueDelete & { intent?: 'delete' };
+export type IssueDeleteOptions = IssueWriteConnection & GitHubIssueDelete;
 /** The canonical node ID, and the issue as GitHub reports it now: where it lives, its URL, title and state. */
 export type IssueWriteTargetResult =
 	| { ok: true; nodeId: string; issue: Extract<IssueWriteResult, { ok: true }>['issue'] }

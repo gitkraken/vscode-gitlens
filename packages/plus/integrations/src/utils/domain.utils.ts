@@ -14,10 +14,20 @@ export function hostFromDomain(domain: string | undefined): string | undefined {
 	}
 
 	try {
-		return new URL(`https://${value}`).host || undefined;
+		const https = new URL(`https://${value}`);
+		return (https.port ? https.host : new URL(`http://${value}`).host) || undefined;
 	} catch {
 		return undefined;
 	}
+}
+
+export function matchesInstallationOrigin(domain: string, baseUrl: string | undefined): boolean {
+	const installation = baseUrl == null ? null : URL.parse(baseUrl);
+	if (installation?.protocol !== 'https:' && installation?.protocol !== 'http:') return false;
+
+	const value = domain.trim();
+	const target = URL.parse(/^[a-z][a-z\d+\-.]*:\/\//i.test(value) ? value : `${installation.protocol}//${value}`);
+	return target?.origin === installation.origin && !target.username && !target.password;
 }
 
 /** Multiple accounts on the same host are unambiguous; an unknown configured host is not. */

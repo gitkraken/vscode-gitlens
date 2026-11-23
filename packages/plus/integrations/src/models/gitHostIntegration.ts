@@ -91,7 +91,7 @@ import type {
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../reads/etag.js';
-import { areDomainsOnSameHost } from '../utils/domain.utils.js';
+import { matchesInstallationOrigin } from '../utils/domain.utils.js';
 import { getSelfManagedBaseUrl, isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type {
 	BatchSlot,
@@ -233,7 +233,7 @@ export abstract class GitHostIntegration<
 			session.baseUrl ?? (session.domain || this.domain),
 			session.protocol,
 		);
-		if (baseUrl == null || !areDomainsOnSameHost(baseUrl, this.domain)) {
+		if (baseUrl == null || !matchesInstallationOrigin(this.domain, baseUrl)) {
 			throw new Error('Invalid self-managed integration base URL');
 		}
 

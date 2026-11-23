@@ -85,7 +85,7 @@ import type { IntegrationKey, IntegrationResult, SearchMyPullRequestsOptions } f
 import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
-import type { GitHubIntegration } from './providers/github.js';
+import type { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github.js';
 import { providersMetadata } from './providers/metadata.js';
 import type {
 	IssueFilter,
@@ -148,8 +148,10 @@ import type {
 import type { Source } from './telemetry.js';
 import {
 	areDomainsOnSameHost,
+	baseUrlFromDomain,
 	getRemoteHostMatcher,
 	hostFromDomain,
+	matchesInstallationOrigin,
 	sameConfiguredBaseUrl,
 } from './utils/domain.utils.js';
 import {
@@ -334,6 +336,10 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 	}
 
 	get(id: GitCloudHostIntegrationId.GitHub): Promise<GitHubIntegration>;
+	get(
+		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+		domain: string,
+	): Promise<GitHubEnterpriseIntegration>;
 	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
 	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
 	get(
@@ -1611,15 +1617,64 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 			| (IssueDeleteOptions & { action: 'delete' })
 			| (IssueWriteTargetOptions & { action: 'resolve' }),
 	): Promise<IssueWriteResult> {
-		const { providerId, connectionId } = options;
-		if (providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
+		const { providerId, connectionId, domain, expectedLogin } = options;
+		const enterprise = providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		if (!enterprise && providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
 		if (typeof connectionId !== 'string' || !connectionId.trim()) return { ok: false, reason: 'invalid-input' };
-		if (!this.getConfigured(providerId).some(connection => connection.id === connectionId)) {
-			return { ok: false, reason: 'no-connection' };
+
+		if (
+			expectedLogin !== undefined &&
+			(typeof expectedLogin !== 'string' || !expectedLogin || expectedLogin !== expectedLogin.trim())
+		) {
+			return { ok: false, reason: 'invalid-input' };
 		}
 
-		const integration = await this.get(providerId).catch(() => undefined);
-		return integration != null ? integration.mutateIssue(connectionId, options) : { ok: false, reason: 'unknown' };
+		const host = typeof domain === 'string' ? hostFromDomain(domain) : undefined;
+		if (
+			enterprise
+				? !host || host === 'github.com' || host === 'api.github.com'
+				: domain != null &&
+					(typeof domain !== 'string' || !matchesInstallationOrigin(domain, 'https://github.com'))
+		) {
+			return { ok: false, reason: 'invalid-input' };
+		}
+
+		const connection = this.getConfigured(providerId).find(c => c.id === connectionId);
+		if (connection == null) return { ok: false, reason: 'no-connection' };
+
+		const configuredDomain = connection.baseUrl ?? connection.domain;
+		let installationOrigin: string | undefined;
+		if (enterprise) {
+			const stored =
+				connection.baseUrl == null && configuredDomain != null
+					? await this.configuredIntegrationService
+							.peekStoredSession(providerId, connectionId, connection.cloud, configuredDomain)
+							.catch(() => undefined)
+					: undefined;
+			const base = baseUrlFromDomain(
+				connection.baseUrl ?? stored?.baseUrl ?? stored?.domain ?? configuredDomain,
+				stored?.protocol,
+			);
+			if (typeof domain !== 'string' || base == null || !matchesInstallationOrigin(domain, base)) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			installationOrigin = new URL(base).origin;
+		}
+
+		const integration = await (
+			providerId === GitCloudHostIntegrationId.GitHub
+				? this.get(providerId)
+				: configuredDomain != null
+					? this.get(providerId, configuredDomain)
+					: Promise.resolve(undefined)
+		).catch(() => undefined);
+		return integration != null
+			? integration.mutateIssue(connectionId, options, {
+					expectedLogin: expectedLogin,
+					installationOrigin: installationOrigin,
+				})
+			: { ok: false, reason: 'unknown', ...(enterprise ? { mutationDispatched: false } : {}) };
 	}
 
 	async resolvePullRequestWriteTarget(options: PullRequestWriteTargetOptions): Promise<PullRequestWriteTargetResult> {

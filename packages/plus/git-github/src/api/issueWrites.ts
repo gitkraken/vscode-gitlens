@@ -41,6 +41,8 @@ export type IssueWriteResult =
 				| 'invalid-input'
 				| 'rate-limit'
 				| 'unknown';
+			/** An unconfirmed result that failed before the mutation could be sent. */
+			mutationDispatched?: false;
 	  };
 
 export type GitHubIssueMutation =
@@ -171,9 +173,16 @@ export function issueWriteFailure(ex: unknown): Extract<IssueWriteResult, { ok: 
 export async function mutateGitHubIssue(
 	input: GitHubIssueMutation,
 	graphql: GraphqlRequest,
+	{ origin, isSessionCurrent }: { origin?: string; isSessionCurrent?: () => Promise<boolean> },
 ): Promise<IssueWriteResult> {
+	let dispatched = false;
+	const mutate: GraphqlRequest = (query, variables) => {
+		dispatched = true;
+		return graphql(query, variables);
+	};
 	try {
 		const { owner, repo } = input;
+		const checkDelete = input.action === 'delete' || (input.action === 'resolve' && input.intent === 'delete');
 		const target =
 			input.action === 'create'
 				? await graphql<WriteTarget>(
@@ -189,7 +198,7 @@ export async function mutateGitHubIssue(
 						{ owner: owner, repo: repo },
 					)
 				: await graphql<WriteTarget>(
-						`query IssueWriteTarget($owner: String!, $repo: String!, $expectedNodeId: ID!, $checkDelete: Boolean!) {
+						`query IssueWriteTarget($owner: String!, $repo: String!, $expectedNodeId: ID!) {
 							repository(owner: $owner, name: $repo, followRenames: false) {
 								id hasIssuesEnabled isArchived
 							}
@@ -197,7 +206,7 @@ export async function mutateGitHubIssue(
 								__typename
 								... on Issue {
 									${issueFields}
-									viewerCanDelete @include(if: $checkDelete)
+									${checkDelete ? 'viewerCanDelete' : ''}
 								}
 							}
 						}`,
@@ -205,8 +214,6 @@ export async function mutateGitHubIssue(
 							owner: owner,
 							repo: repo,
 							expectedNodeId: input.expectedNodeId,
-							checkDelete:
-								input.action === 'delete' || (input.action === 'resolve' && input.intent === 'delete'),
 						},
 					);
 		const repository = target?.repository;
@@ -215,16 +222,27 @@ export async function mutateGitHubIssue(
 		if (!repository.hasIssuesEnabled) return { ok: false, reason: 'unsupported' };
 
 		if (input.action === 'create') {
-			return await writeIssue(graphql, 'createIssue', 'CreateIssueInput', {
-				repositoryId: repository.id,
-				title: input.title,
-				body: input.body,
-			});
+			if (isSessionCurrent != null && !(await isSessionCurrent())) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			return await writeIssue(
+				mutate,
+				'createIssue',
+				'CreateIssueInput',
+				{
+					repositoryId: repository.id,
+					title: input.title,
+					body: input.body,
+				},
+				origin,
+			);
 		}
 
 		const issue = target?.node;
 		if (
 			issue?.__typename !== 'Issue' ||
+			!isIssueOnInstallation(issue, origin) ||
 			issue.number !== input.number ||
 			issue.repository.id !== repository.id ||
 			issue.repository.owner.login.toLowerCase() !== owner.toLowerCase() ||
@@ -233,29 +251,42 @@ export async function mutateGitHubIssue(
 			return { ok: false, reason: 'not-found' };
 		}
 
+		if (checkDelete && issue.viewerCanDelete !== true) return { ok: false, reason: 'forbidden' };
+
+		if (input.action === 'resolve') return toIssueWriteResult(issue);
+
+		if (isSessionCurrent != null && !(await isSessionCurrent())) {
+			return { ok: false, reason: 'no-connection' };
+		}
+
 		switch (input.action) {
-			case 'resolve':
-				if (input.intent === 'delete' && issue.viewerCanDelete !== true) {
-					return { ok: false, reason: 'forbidden' };
-				}
-				return toIssueWriteResult(issue);
 			case 'edit':
-				return await writeIssue(graphql, 'updateIssue', 'UpdateIssueInput', {
-					id: issue.id,
-					title: input.title,
-					body: input.body,
-				});
+				return await writeIssue(
+					mutate,
+					'updateIssue',
+					'UpdateIssueInput',
+					{
+						id: issue.id,
+						title: input.title,
+						body: input.body,
+					},
+					origin,
+				);
 			case 'set-state':
 				return input.state === 'open'
-					? await writeIssue(graphql, 'reopenIssue', 'ReopenIssueInput', { issueId: issue.id })
-					: await writeIssue(graphql, 'closeIssue', 'CloseIssueInput', {
-							issueId: issue.id,
-							stateReason: input.reason === 'completed' ? 'COMPLETED' : 'NOT_PLANNED',
-						});
+					? await writeIssue(mutate, 'reopenIssue', 'ReopenIssueInput', { issueId: issue.id }, origin)
+					: await writeIssue(
+							mutate,
+							'closeIssue',
+							'CloseIssueInput',
+							{
+								issueId: issue.id,
+								stateReason: input.reason === 'completed' ? 'COMPLETED' : 'NOT_PLANNED',
+							},
+							origin,
+						);
 			case 'delete': {
-				if (issue.viewerCanDelete !== true) return { ok: false, reason: 'forbidden' };
-
-				const result = await graphql<{ deleteIssue: { repository: { id: string } | null } | null }>(
+				const result = await mutate<{ deleteIssue: { repository: { id: string } | null } | null }>(
 					`
 						mutation DeleteIssue($issueId: ID!) {
 							deleteIssue(input: { issueId: $issueId }) {
@@ -274,7 +305,32 @@ export async function mutateGitHubIssue(
 			}
 		}
 	} catch (ex) {
-		return issueWriteFailure(ex);
+		if (
+			origin != null &&
+			ex instanceof GraphqlResponseError &&
+			ex.data == null &&
+			ex.errors?.some(error => {
+				const code: unknown = error.extensions?.code;
+				return (
+					code === 'undefinedField' || code === 'argumentNotAccepted' || code === 'variableRequiresValidType'
+				);
+			})
+		) {
+			return { ok: false, reason: 'unsupported' };
+		}
+
+		if (
+			dispatched &&
+			ex instanceof GraphqlResponseError &&
+			ex.errors?.some(error => error.path != null && error.path.length > 1)
+		) {
+			return { ok: false, reason: 'unknown' };
+		}
+
+		const failure = issueWriteFailure(ex);
+		return origin != null && failure.reason === 'unknown' && !dispatched
+			? { ...failure, mutationDispatched: false }
+			: failure;
 	}
 }
 
@@ -283,6 +339,7 @@ async function writeIssue(
 	mutation: 'createIssue' | 'updateIssue' | 'closeIssue' | 'reopenIssue',
 	inputType: string,
 	input: Record<string, string | undefined>,
+	origin: string | undefined,
 ): Promise<IssueWriteResult> {
 	const result = await graphql<{ change: { issue: IssueNode | null } | null }>(
 		`mutation WriteIssue($input: ${inputType}!) {
@@ -290,7 +347,22 @@ async function writeIssue(
 		}`,
 		{ input: input },
 	);
-	return result?.change?.issue != null ? toIssueWriteResult(result.change.issue) : { ok: false, reason: 'unknown' };
+	const issue = result?.change?.issue;
+	return issue != null && isIssueOnInstallation(issue, origin)
+		? toIssueWriteResult(issue)
+		: { ok: false, reason: 'unknown' };
+}
+
+function isIssueOnInstallation(issue: IssueNode, origin: string | undefined): boolean {
+	if (origin == null) return true;
+
+	const url = typeof issue.url === 'string' ? URL.parse(issue.url) : null;
+	return (
+		url?.origin === origin &&
+		(url.protocol === 'https:' || url.protocol === 'http:') &&
+		!url.username &&
+		!url.password
+	);
 }
 
 function toIssueWriteResult(issue: IssueNode, deletedFromDifferentRepository = false): IssueWriteResult {

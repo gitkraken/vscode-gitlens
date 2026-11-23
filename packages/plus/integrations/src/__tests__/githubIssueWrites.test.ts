@@ -3,6 +3,7 @@ import { setImmediate } from 'node:timers/promises';
 import { suite, test } from 'mocha';
 import { microhash } from '@gitlens/utils/hash.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IssueWriteOptions } from '../index.js';
@@ -11,6 +12,13 @@ import { createFakeRuntime } from './fakeRuntime.js';
 
 const selected = { providerId: GitCloudHostIntegrationId.GitHub, connectionId: 'selected', owner: 'org', repo: 'repo' };
 const existing = { ...selected, number: 42, expectedNodeId: 'I_42' };
+const enterprise = {
+	...selected,
+	providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	connectionId: 'enterprise-selected',
+	domain: 'ghe.example.com:8443',
+};
+const enterpriseExisting = { ...enterprise, number: 42, expectedNodeId: 'I_42' };
 const issue = {
 	__typename: 'Issue',
 	id: 'I_42',
@@ -38,6 +46,8 @@ const snapshot = {
 async function setup(
 	respond: (query: string, authorization: string | null) => object | Response | Promise<object | Response>,
 	primaryToken = 'token-primary',
+	withEnterprise = false,
+	enterpriseUrl = `http://${enterprise.domain}`,
 ) {
 	const runtime = createFakeRuntime();
 	const configured = new ConfiguredIntegrationService(runtime);
@@ -53,11 +63,30 @@ async function setup(
 		});
 	}
 
+	if (withEnterprise) {
+		for (const [id, domain] of [
+			['enterprise-primary', enterpriseUrl],
+			[enterprise.connectionId, enterpriseUrl],
+			['other-installation', 'https://ghe-other.example.com'],
+		]) {
+			await configured.storeSession(enterprise.providerId, {
+				id: id,
+				accessToken: `token-${id}`,
+				account: { id: id, label: id },
+				scopes: ['repo'],
+				cloud: true,
+				type: 'oauth',
+				domain: domain,
+			});
+		}
+	}
+
 	configured.dispose();
 	const calls: {
 		url: string;
 		authorization: string | null;
 		nextGlobalId: string | null;
+		redirect: RequestInit['redirect'];
 		query: string;
 		variables: unknown;
 	}[] = [];
@@ -71,6 +100,7 @@ async function setup(
 			url: String(url),
 			authorization: authorization,
 			nextGlobalId: headers.get('x-github-next-global-id'),
+			redirect: init.redirect,
 			query: query.trimStart(),
 			variables: variables,
 		});
@@ -81,7 +111,7 @@ async function setup(
 		...runtime,
 		hooks: { ...runtime.hooks, ui: { onError: message => errors.push(message) } },
 	});
-	return { manager: manager, calls: calls, errors: errors };
+	return { manager: manager, calls: calls, errors: errors, runtime: runtime };
 }
 
 suite('IntegrationManager GitHub issue writes', () => {
@@ -151,7 +181,7 @@ suite('IntegrationManager GitHub issue writes', () => {
 					calls[0].variables,
 					options.action === 'create'
 						? { owner: 'org', repo: 'repo' }
-						: { owner: 'org', repo: 'repo', expectedNodeId: 'I_42', checkDelete: false },
+						: { owner: 'org', repo: 'repo', expectedNodeId: 'I_42' },
 				);
 				if (options.action !== 'create') {
 					assert.match(calls[0].query, /node\(id: \$expectedNodeId\)/);
@@ -184,7 +214,6 @@ suite('IntegrationManager GitHub issue writes', () => {
 				owner: 'org',
 				repo: 'repo',
 				expectedNodeId: 'I_42',
-				checkDelete: true,
 			});
 			assert.match(calls[1].query, /deleteIssue\(input: \{ issueId: \$issueId \}\)/);
 			assert.deepEqual(calls[1].variables, { issueId: 'I_42' });
@@ -212,7 +241,6 @@ suite('IntegrationManager GitHub issue writes', () => {
 				owner: 'org',
 				repo: 'repo',
 				expectedNodeId: expectedNodeId,
-				checkDelete: false,
 			});
 			assert.deepEqual(calls[1].variables, { input: { id: issue.id, title: 'Example' } });
 		} finally {
@@ -269,7 +297,6 @@ suite('IntegrationManager GitHub issue writes', () => {
 				owner: 'org',
 				repo: 'repo',
 				expectedNodeId: expectedNodeId,
-				checkDelete: false,
 			});
 		} finally {
 			manager.dispose();
@@ -292,10 +319,8 @@ suite('IntegrationManager GitHub issue writes', () => {
 			});
 			assert.equal(calls.length, 2);
 			assert.ok(calls.every(call => call.query.startsWith('query IssueWriteTarget')));
-			assert.deepEqual(
-				calls.map(call => (call.variables as { checkDelete: boolean }).checkDelete),
-				[true, false],
-			);
+			assert.match(calls[0].query, /viewerCanDelete/);
+			assert.doesNotMatch(calls[1].query, /viewerCanDelete/);
 			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...existing, intent: 'edit' } as never), {
 				ok: false,
 				reason: 'invalid-input',
@@ -340,7 +365,7 @@ suite('IntegrationManager GitHub issue writes', () => {
 			assert.deepEqual(
 				await manager.writeIssue({
 					...create,
-					providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+					providerId: GitSelfManagedHostIntegrationId.CloudGitLabSelfHosted,
 				}),
 				{
 					ok: false,
@@ -486,6 +511,339 @@ suite('IntegrationManager GitHub issue writes', () => {
 					reason: reason,
 				});
 				assert.equal(calls.length, 2);
+			} finally {
+				manager.dispose();
+			}
+		});
+	}
+});
+
+suite('IntegrationManager GitHub Enterprise issue writes', () => {
+	const enterpriseIssue = { ...issue, url: `http://${enterprise.domain}/Org/Repo/issues/42` };
+	const enterpriseTarget = { repository: repository, node: enterpriseIssue };
+
+	test('uses the selected installation and account through target resolution and all five mutations', async () => {
+		const { manager, calls } = await setup(
+			query => {
+				if (query.startsWith('query IssueWriteViewer')) {
+					return { data: { viewer: { login: 'EnterpriseUser' } } };
+				}
+
+				if (query.startsWith('query')) return { data: enterpriseTarget };
+				if (query.includes('deleteIssue')) {
+					return { data: { deleteIssue: { repository: { id: 'R_transferred' } } } };
+				}
+
+				return { data: { change: { issue: enterpriseIssue } } };
+			},
+			undefined,
+			true,
+		);
+		try {
+			const written = { ok: true, issue: { ...snapshot, url: enterpriseIssue.url } };
+			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...enterpriseExisting, intent: 'delete' }), {
+				...written,
+				nodeId: enterpriseIssue.id,
+			});
+			assert.match(calls[0].query, /viewerCanDelete/);
+			assert.deepEqual(await manager.writeIssue({ ...enterprise, action: 'create', title: 'Created' }), written);
+			assert.deepEqual(await manager.writeIssue({ ...enterpriseExisting, action: 'edit', body: '' }), written);
+			assert.deepEqual(
+				await manager.writeIssue({
+					...enterpriseExisting,
+					action: 'set-state',
+					state: 'closed',
+					reason: 'not_planned',
+				}),
+				written,
+			);
+			assert.deepEqual(
+				await manager.writeIssue({ ...enterpriseExisting, action: 'set-state', state: 'open' }),
+				written,
+			);
+			assert.deepEqual(await manager.deleteIssue({ ...enterpriseExisting, expectedLogin: 'enterpriseuser' }), {
+				...written,
+				deletedFromDifferentRepository: true,
+			});
+			assert.equal(calls.length, 12);
+			assert.match(calls.at(-3)!.query, /^query IssueWriteViewer/);
+			assert.ok(calls.every(call => call.url === `http://${enterprise.domain}/api/graphql`));
+			assert.ok(calls.every(call => call.authorization === 'token token-enterprise-selected'));
+			assert.ok(calls.every(call => call.redirect === 'error' && call.nextGlobalId == null));
+			assert.deepEqual(
+				calls.filter(call => call.query.startsWith('mutation')).map(call => call.variables),
+				[
+					{ input: { repositoryId: 'R_12', title: 'Created' } },
+					{ input: { id: 'I_42', body: '' } },
+					{ input: { issueId: 'I_42', stateReason: 'NOT_PLANNED' } },
+					{ input: { issueId: 'I_42' } },
+					{ issueId: 'I_42' },
+				],
+			);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('checks the approved login with the credential that would send the deletion', async () => {
+		const { manager, calls } = await setup(
+			query => {
+				assert.match(query, /^query IssueWriteViewer/);
+				return { data: { viewer: { login: 'different-user' } } };
+			},
+			undefined,
+			true,
+		);
+		try {
+			assert.deepEqual(await manager.deleteIssue({ ...enterpriseExisting, expectedLogin: 'approved-user' }), {
+				ok: false,
+				reason: 'no-connection',
+			});
+			assert.equal(calls.length, 1);
+			assert.equal(calls[0].authorization, 'token token-enterprise-selected');
+			assert.equal(calls[0].url, `http://${enterprise.domain}/api/graphql`);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('distinguishes a failed viewer check from an unconfirmed mutation', async () => {
+		const { manager, calls } = await setup(
+			query => {
+				assert.match(query, /^query IssueWriteViewer/);
+				return Response.json({ message: 'sensitive provider error' }, { status: 503 });
+			},
+			undefined,
+			true,
+		);
+		try {
+			assert.deepEqual(await manager.deleteIssue({ ...enterpriseExisting, expectedLogin: 'approved-user' }), {
+				ok: false,
+				reason: 'unknown',
+				mutationDispatched: false,
+			});
+			assert.ok(calls.length > 0);
+			assert.ok(calls.every(call => call.query.startsWith('query IssueWriteViewer')));
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('uses the configured scheme when interpreting a requested bare port', async () => {
+		const host = 'ghe-port.example.com';
+		const { manager, calls } = await setup(
+			() => assert.fail('No request should reach the HTTP installation'),
+			undefined,
+			true,
+			`http://${host}:80`,
+		);
+		try {
+			assert.deepEqual(await manager.deleteIssue({ ...enterpriseExisting, domain: `${host}:443` }), {
+				ok: false,
+				reason: 'no-connection',
+			});
+			assert.deepEqual(calls, []);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('keeps port 443 when the selected HTTP installation actually listens there', async () => {
+		const domain = 'ghe-port.example.com:443';
+		const url = `http://${domain}`;
+		const { manager, calls } = await setup(
+			() => ({ data: { ...enterpriseTarget, node: { ...enterpriseIssue, url: `${url}/Org/Repo/issues/42` } } }),
+			undefined,
+			true,
+			url,
+		);
+		try {
+			const resolved = await manager.resolveIssueWriteTarget({ ...enterpriseExisting, domain: domain });
+			assert.ok(resolved.ok);
+			assert.equal(calls[0].url, `${url}/api/graphql`);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('pins the effective HTTPS origin of a legacy connection with a default port', async () => {
+		const domain = 'ghe-port.example.com:443';
+		const url = 'https://ghe-port.example.com';
+		const { manager, calls } = await setup(
+			() => ({ data: { ...enterpriseTarget, node: { ...enterpriseIssue, url: `${url}/Org/Repo/issues/42` } } }),
+			undefined,
+			true,
+			`https://${domain}`,
+		);
+		try {
+			assert.deepEqual(
+				await manager.resolveIssueWriteTarget({ ...enterpriseExisting, domain: `http://${domain}` }),
+				{
+					ok: false,
+					reason: 'no-connection',
+				},
+			);
+			assert.equal(calls.length, 0);
+			assert.ok((await manager.resolveIssueWriteTarget({ ...enterpriseExisting, domain: domain })).ok);
+			assert.equal(calls[0].url, `${url}/api/graphql`);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	for (const change of ['replaced', 'restored', 'disposed']) {
+		test(`refuses a deletion when the selected credential is ${change} during the target check`, async () => {
+			const targetStarted = defer<void>();
+			const targetFinished = defer<void>();
+			const { manager, calls, runtime } = await setup(
+				async query => {
+					if (query.startsWith('query IssueWriteViewer')) return { data: { viewer: { login: 'approved' } } };
+
+					assert.match(query, /^query IssueWriteTarget/);
+					targetStarted.fulfill();
+					await targetFinished.promise;
+					return { data: enterpriseTarget };
+				},
+				undefined,
+				true,
+			);
+			const configured = new ConfiguredIntegrationService(runtime);
+			try {
+				const deleting = manager.deleteIssue({ ...enterpriseExisting, expectedLogin: 'approved' });
+				await targetStarted.promise;
+				if (change === 'disposed') {
+					manager.dispose();
+				} else {
+					const replaced = {
+						id: enterprise.connectionId,
+						accessToken: 'token-replacement',
+						domain: `http://${enterprise.domain}`,
+						account: { id: 'replacement', label: 'replacement' },
+						scopes: ['repo'],
+						cloud: true,
+						type: 'oauth',
+					};
+					await configured.storeSession(enterprise.providerId, { ...replaced, type: 'oauth' });
+					if (change === 'restored') {
+						await configured.storeSession(enterprise.providerId, {
+							...replaced,
+							accessToken: `token-${enterprise.connectionId}`,
+							account: { id: enterprise.connectionId, label: enterprise.connectionId },
+							type: 'oauth',
+						});
+					}
+				}
+				targetFinished.fulfill();
+				assert.deepEqual(await deleting, { ok: false, reason: 'no-connection' });
+				assert.equal(calls.length, 2);
+				assert.ok(calls.every(call => call.authorization === 'token token-enterprise-selected'));
+			} finally {
+				targetFinished.fulfill();
+				configured.dispose();
+				manager.dispose();
+			}
+		});
+	}
+
+	test('reports an uncertain outcome after an error reading a nested mutation receipt', async () => {
+		const { manager, calls } = await setup(
+			query =>
+				query.startsWith('query')
+					? { data: enterpriseTarget }
+					: {
+							data: { change: null },
+							errors: [
+								{
+									type: 'FORBIDDEN',
+									message: 'receipt inaccessible',
+									path: ['change', 'issue', 'repository'],
+								},
+							],
+						},
+			undefined,
+			true,
+		);
+		try {
+			assert.deepEqual(await manager.writeIssue({ ...enterprise, action: 'create', title: 'Example' }), {
+				ok: false,
+				reason: 'unknown',
+			});
+			assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('checks delete permission before confirmation without requiring it for ordinary target resolution', async () => {
+		const { manager, calls } = await setup(
+			() => ({ data: { ...enterpriseTarget, node: { ...enterpriseIssue, viewerCanDelete: false } } }),
+			undefined,
+			true,
+		);
+		try {
+			assert.deepEqual(await manager.resolveIssueWriteTarget({ ...enterpriseExisting, intent: 'delete' }), {
+				ok: false,
+				reason: 'forbidden',
+			});
+			assert.deepEqual(await manager.resolveIssueWriteTarget(enterpriseExisting), {
+				ok: true,
+				nodeId: enterpriseIssue.id,
+				issue: { ...snapshot, url: enterpriseIssue.url },
+			});
+			assert.equal(calls.length, 2);
+			assert.ok(calls.every(call => call.query.startsWith('query IssueWriteTarget')));
+			assert.match(calls[0].query, /viewerCanDelete/);
+			assert.doesNotMatch(calls[1].query, /viewerCanDelete/);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('refuses a mismatched account or host before dispatch even when cloud has the same repository', async () => {
+		const { manager, calls } = await setup(() => assert.fail('No GitHub request expected'), undefined, true);
+		try {
+			for (const target of [
+				{ ...enterpriseExisting, domain: 'ghe.example.com' },
+				{ ...enterpriseExisting, domain: 'ghe-other.example.com' },
+				{ ...enterpriseExisting, connectionId: selected.connectionId },
+			]) {
+				assert.deepEqual(await manager.deleteIssue(target), { ok: false, reason: 'no-connection' });
+			}
+
+			for (const target of [
+				{ ...enterpriseExisting, domain: undefined },
+				{ ...enterpriseExisting, domain: 'github.com' },
+				{ ...existing, domain: enterprise.domain },
+			]) {
+				assert.deepEqual(await manager.deleteIssue(target), { ok: false, reason: 'invalid-input' });
+			}
+
+			assert.equal(calls.length, 0);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	for (const [response, reason] of [
+		[{ data: writeTarget }, 'not-found'],
+		[
+			{
+				data: {
+					...enterpriseTarget,
+					node: { ...enterpriseIssue, repository: { ...issue.repository, name: 'renamed' } },
+				},
+			},
+			'not-found',
+		],
+		[{ data: { ...enterpriseTarget, node: { ...enterpriseIssue, viewerCanDelete: false } } }, 'forbidden'],
+		[{ errors: [{ message: 'sensitive upstream data', extensions: { code: 'undefinedField' } }] }, 'unsupported'],
+	] as const) {
+		test(`returns ${reason} from the enterprise preflight without dispatching a delete`, async () => {
+			const { manager, calls } = await setup(() => response, undefined, true);
+			try {
+				assert.deepEqual(await manager.deleteIssue(enterpriseExisting), { ok: false, reason: reason });
+				assert.equal(calls.length, 1);
+				assert.match(calls[0].query, /viewerCanDelete/);
 			} finally {
 				manager.dispose();
 			}

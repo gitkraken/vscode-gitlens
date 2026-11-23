@@ -3824,8 +3824,35 @@ export class GitHubApi {
 		provider: Provider,
 		token: GitHubTokenInfo,
 		input: GitHubIssueMutation,
+		options: {
+			baseUrl?: string;
+			isSessionCurrent?: () => Promise<boolean>;
+			onUnauthorized?: () => void;
+		},
 	): Promise<IssueWriteResult> {
-		return mutateGitHubIssue(input, (query, variables) => this.writeGraphql(provider, token, query, variables));
+		const { baseUrl, isSessionCurrent, onUnauthorized } = options;
+		return mutateGitHubIssue(
+			input,
+			(query, variables) => this.writeGraphql(provider, token, query, variables, onUnauthorized, baseUrl),
+			{ origin: baseUrl == null ? undefined : new URL(baseUrl).origin, isSessionCurrent: isSessionCurrent },
+		);
+	}
+
+	async getIssueWriteViewer(
+		provider: Provider,
+		token: GitHubTokenInfo,
+		baseUrl: string | undefined,
+		onUnauthorized: () => void,
+	): Promise<string | undefined> {
+		const result = await this.writeGraphql<{ viewer?: { login: string } }>(
+			provider,
+			token,
+			'query IssueWriteViewer { viewer { login } }',
+			{},
+			onUnauthorized,
+			baseUrl,
+		);
+		return result?.viewer?.login;
 	}
 
 	async resolvePullRequestWriteTarget(
@@ -3872,6 +3899,7 @@ export class GitHubApi {
 		query: string,
 		variables: RequestParameters,
 		onUnauthorized?: () => void,
+		baseUrl?: string,
 	): Promise<T> {
 		try {
 			return await this.requestWithRetries(
@@ -3879,7 +3907,9 @@ export class GitHubApi {
 					this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 						this.getDefaults(token.accessToken, graphql)<T>(query, {
 							...variables,
-							headers: { 'x-github-next-global-id': '1' },
+							...(baseUrl == null
+								? { headers: { 'x-github-next-global-id': '1' } }
+								: { baseUrl: baseUrl, request: { redirect: 'error' } }),
 						}),
 					),
 				graphqlReadQueryRegex.test(query),
