@@ -316,6 +316,25 @@ export function linearSyncedWithEtagKeys(links: readonly IssueSyncedWith[]): str
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
 
+function batchTargetRepository(target: BatchTarget): string | undefined {
+	if ('resourceId' in target) return undefined;
+
+	return [target.owner, target.project ?? '', target.repo].join('/').toLowerCase();
+}
+
+function isRefusedCredential(reason: unknown): reason is AuthenticationError {
+	return reason instanceof AuthenticationError && reason.reason !== AuthenticationErrorReason.Forbidden;
+}
+
+function findRefusedCredentialSlot<T>(
+	slots: readonly BatchSlot<T>[],
+): (PromiseRejectedResult & { reason: AuthenticationError }) | undefined {
+	return slots.find(
+		(slot): slot is PromiseRejectedResult & { reason: AuthenticationError } =>
+			slot.status === 'rejected' && slot.failure == null && isRefusedCredential(slot.reason),
+	);
+}
+
 /**
  * The scope a batch read records a refused target under. It is decided here rather than in the read, which has the
  * same targets, because naming the refusal's cause (`describeRefusal`) needs it too. Azure DevOps: the organization
@@ -1133,11 +1152,21 @@ export abstract class IntegrationBase<
 		options?: { keepOtherFailures?: boolean },
 	): Promise<BatchSlot<T>[]> {
 		const keepOtherFailures = options?.keepOtherFailures ?? false;
-		const failures = slots.map((slot, i) =>
-			slot.status === 'rejected' && slot.reason instanceof AuthenticationError
-				? toCollectionScopeFailure(batchTargetScope(this.id, targets[i]), slot.reason)
-				: undefined,
+		const answered = new Set(
+			slots.flatMap((slot, i) => (slot.status === 'fulfilled' ? [batchTargetRepository(targets[i])] : [])),
 		);
+		const credentialDied = slots.some((slot, i) => {
+			if (slot.status !== 'rejected' || !isRefusedCredential(slot.reason)) return false;
+
+			const repository = batchTargetRepository(targets[i]);
+			return repository != null && answered.has(repository);
+		});
+		const failures = slots.map((slot, i) => {
+			if (slot.status !== 'rejected' || !(slot.reason instanceof AuthenticationError)) return undefined;
+			if (credentialDied && isRefusedCredential(slot.reason)) return undefined;
+
+			return toCollectionScopeFailure(batchTargetScope(this.id, targets[i]), slot.reason);
+		});
 		const refused = failures.filter(f => f != null);
 		if (!refused.length) {
 			if (!keepOtherFailures) {
@@ -1171,6 +1200,22 @@ export abstract class IntegrationBase<
 			const failure = failures[i];
 			return slot.status === 'rejected' && failure != null ? { ...slot, failure: failure } : slot;
 		});
+	}
+
+	protected settleBatchCredential<T>(
+		syncReqUsecase: SyncReqUsecase,
+		settled: readonly BatchSlot<T>[],
+		options: { scope: ScopedLogger | undefined; connectionId: string | undefined; reset: boolean },
+	): void {
+		const refusal = findRefusedCredentialSlot(settled);
+		if (refusal != null) {
+			this.handleProviderException(syncReqUsecase, refusal.reason, {
+				scope: options.scope,
+				connectionId: options.connectionId,
+			});
+		} else if (options.reset) {
+			this.resetRequestExceptionCount(syncReqUsecase, options.connectionId);
+		}
 	}
 
 	/**

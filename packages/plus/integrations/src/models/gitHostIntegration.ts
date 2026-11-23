@@ -2329,7 +2329,11 @@ export abstract class GitHostIntegration<
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, issue => issue == null);
 
-			this.resetRequestExceptionCount('getIssuesBatch', connectionId);
+			this.settleBatchCredential('getIssuesBatch', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2397,7 +2401,11 @@ export abstract class GitHostIntegration<
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, pr => pr == null);
 
-			this.resetRequestExceptionCount('getPullRequestsBatch', connectionId);
+			this.settleBatchCredential('getPullRequestsBatch', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2450,7 +2458,11 @@ export abstract class GitHostIntegration<
 
 			const settled = await this.settleBatchRefusals(session, targets, slots);
 
-			this.resetRequestExceptionCount('getPullRequestCheckLogs', connectionId);
+			this.settleBatchCredential('getPullRequestCheckLogs', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2491,7 +2503,11 @@ export abstract class GitHostIntegration<
 
 			const settled = await this.settleBatchRefusals(session, targets, slots);
 
-			this.resetRequestExceptionCount('getPullRequestActivity', connectionId);
+			this.settleBatchCredential('getPullRequestActivity', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2546,9 +2562,11 @@ export abstract class GitHostIntegration<
 				keepOtherFailures: true,
 			});
 
-			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getIssuesEtagFields', connectionId);
-			}
+			this.settleBatchCredential('getIssuesEtagFields', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: settled.some(slot => slot.status === 'fulfilled'),
+			});
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleEtagCheckException('getIssuesEtagFields', ex, { scope: scope, connectionId: connectionId });
@@ -2604,9 +2622,11 @@ export abstract class GitHostIntegration<
 				keepOtherFailures: true,
 			});
 
-			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getPullRequestsEtagFields', connectionId);
-			}
+			this.settleBatchCredential('getPullRequestsEtagFields', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: settled.some(slot => slot.status === 'fulfilled'),
+			});
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleEtagCheckException('getPullRequestsEtagFields', ex, {
@@ -2684,7 +2704,11 @@ export abstract class GitHostIntegration<
 				found => found.pullRequests.length === 0 && !found.truncated,
 			);
 
-			this.resetRequestExceptionCount('getPullRequestsForBranches', connectionId);
+			this.settleBatchCredential('getPullRequestsForBranches', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
