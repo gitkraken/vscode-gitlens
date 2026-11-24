@@ -1,8 +1,14 @@
 import { GraphqlResponseError } from '@octokit/graphql';
-import type { RequestParameters } from '@octokit/types';
 import { AuthenticationError, AuthenticationErrorReason, RequestNotFoundError } from '@gitlens/git/errors.js';
 import type { PullRequestMergeMethod, PullRequestMergeQueueActionResult } from '@gitlens/git/models/pullRequest.js';
-import { issueWriteFailure } from './issueWrites.js';
+import type {
+	BranchPolicy,
+	BranchRule,
+	EnterprisePullRequestWriteOptions,
+	GraphqlRequest,
+} from './enterprisePullRequestMergePolicy.js';
+import { readEnterprisePullRequestMergePolicy } from './enterprisePullRequestMergePolicy.js';
+import { isGitHubWriteUrlOnInstallation, issueWriteFailure } from './issueWrites.js';
 
 type MergeMethod = `${PullRequestMergeMethod}`;
 export type GitHubPullRequestCreateTarget = { owner: string; repo: string };
@@ -44,6 +50,8 @@ export type PullRequestWriteFailure = {
 };
 
 export type PullRequestWriteSnapshot = {
+	/** The installation origin for GitHub Enterprise Server pull requests. */
+	domain?: string;
 	owner: string;
 	repo: string;
 	number: number;
@@ -80,6 +88,8 @@ export type PullRequestWriteResult =
 			ok: true;
 			status: 'created' | 'updated' | 'closed' | 'reopened' | 'merged' | 'queued';
 			pullRequest: PullRequestWriteSnapshot;
+			/** The result is confirmed, but its snapshot belongs to a replaced or disconnected credential. */
+			credentialChanged?: true;
 	  }
 	| PullRequestWriteFailure;
 
@@ -107,6 +117,7 @@ type PullRequestNode = {
 	mergedAt: string | null;
 	updatedAt: string;
 	headRefOid: string;
+	headRefName?: string;
 	baseRefName: string;
 	repository: RepositoryIdentity;
 };
@@ -117,9 +128,9 @@ type WriteNode = PullRequestNode & {
 	viewerCanClose: boolean;
 	viewerCanReopen: boolean;
 	isDraft: boolean;
-	isInMergeQueue: boolean;
-	isMergeQueueEnabled: boolean;
-	stack: { id: string } | null;
+	isInMergeQueue?: boolean;
+	isMergeQueueEnabled?: boolean;
+	stack?: { id: string } | null;
 	baseRef: { id: string } | null;
 };
 
@@ -127,15 +138,10 @@ type MergeRepository = RepositoryNode & {
 	mergeCommitAllowed: boolean;
 	squashMergeAllowed: boolean;
 	rebaseMergeAllowed: boolean;
-	viewerDefaultMergeMethod: string;
+	viewerDefaultMergeMethod?: string;
 };
 
 type ResolvedPullRequest = { ok: true; node: WriteNode; repository: MergeRepository };
-type GraphqlRequest = <T>(query: string, variables: RequestParameters) => Promise<T | undefined>;
-type BranchRule = {
-	type: string;
-	parameters: { allowedMergeMethods?: readonly Uppercase<MergeMethod>[] | null } | null;
-};
 
 const repositoryIdentity = 'id owner { login } name';
 const repositoryFields = `${repositoryIdentity} isArchived isDisabled isLocked viewerPermission`;
@@ -259,7 +265,7 @@ function sameRepository(a: GitHubPullRequestCreateTarget, b: RepositoryIdentity)
 	return a.owner.toLowerCase() === b.owner.login.toLowerCase() && a.repo.toLowerCase() === b.name.toLowerCase();
 }
 
-function toSnapshot(node: PullRequestNode): PullRequestWriteSnapshot {
+function toSnapshot(node: PullRequestNode, origin?: string): PullRequestWriteSnapshot {
 	const closedAt = node.state === 'MERGED' ? (node.mergedAt ?? node.closedAt) : node.closedAt;
 	return {
 		owner: node.repository.owner.login,
@@ -267,6 +273,7 @@ function toSnapshot(node: PullRequestNode): PullRequestWriteSnapshot {
 		number: node.number,
 		nodeId: node.id,
 		url: node.url,
+		...(origin != null && { domain: origin }),
 		title: node.title,
 		body: node.body,
 		state: node.state === 'OPEN' ? 'open' : node.state === 'CLOSED' ? 'closed' : 'merged',
@@ -280,22 +287,22 @@ function toSnapshot(node: PullRequestNode): PullRequestWriteSnapshot {
 async function resolveNode(
 	input: GitHubPullRequestWriteTarget,
 	graphql: GraphqlRequest,
+	origin?: string,
 ): Promise<ResolvedPullRequest | PullRequestWriteFailure> {
 	const { owner, repo, expectedNodeId, number } = input;
 	const result = await graphql<{ repository: MergeRepository | null; node: WriteNode | null }>(
 		`query PullRequestWriteTarget($owner: String!, $repo: String!, $expectedNodeId: ID!) {
 			repository(owner: $owner, name: $repo, followRenames: false) {
 				${repositoryFields}
-				mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed viewerDefaultMergeMethod
+				mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed ${origin == null ? 'viewerDefaultMergeMethod' : ''}
 			}
 			node(id: $expectedNodeId) {
 				__typename
 				... on PullRequest {
 					${pullRequestFields}
 					viewerCanUpdate viewerCanClose viewerCanReopen
-					isDraft isInMergeQueue isMergeQueueEnabled
-					stack { id }
-					baseRef { id }
+					isDraft baseRef { id }
+					${origin == null ? 'isInMergeQueue isMergeQueueEnabled stack { id }' : ''}
 				}
 			}
 		}`,
@@ -308,7 +315,9 @@ async function resolveNode(
 		!sameRepository(input, repository) ||
 		node?.__typename !== 'PullRequest' ||
 		node.number !== number ||
-		node.repository.id !== repository.id
+		node.repository.id !== repository.id ||
+		!sameRepository(input, node.repository) ||
+		!isGitHubWriteUrlOnInstallation(node.url, origin)
 	) {
 		return { ok: false, reason: 'not-found' };
 	}
@@ -316,10 +325,7 @@ async function resolveNode(
 	return { ok: true, node: node, repository: repository };
 }
 
-async function readBranchRules(
-	refId: string,
-	graphql: GraphqlRequest,
-): Promise<{ rules: BranchRule[]; requiresLinearHistory: boolean } | undefined> {
+async function readBranchRules(refId: string, graphql: GraphqlRequest): Promise<BranchPolicy | undefined> {
 	type Response = {
 		node: {
 			id: string;
@@ -387,9 +393,11 @@ async function readBranchRules(
 }
 
 async function getMergeCapability(
-	{ node, repository }: ResolvedPullRequest,
+	resolved: ResolvedPullRequest,
 	graphql: GraphqlRequest,
+	enterprise?: EnterprisePullRequestWriteOptions,
 ): Promise<MergeCapability> {
+	const { node, repository } = resolved;
 	if (
 		!isRepositoryWritable(repository) ||
 		node.state !== 'OPEN' ||
@@ -406,58 +414,74 @@ async function getMergeCapability(
 	if (node.isMergeQueueEnabled) return { kind: 'queue' };
 
 	try {
-		const branch = await readBranchRules(node.baseRef.id, graphql);
-		if (branch == null) return { kind: 'unavailable', reason: 'unknown' };
-
-		const { rules, requiresLinearHistory } = branch;
-		if (rules.some(rule => rule.type === 'MERGE_QUEUE')) return { kind: 'queue' };
-
-		const linearHistory = requiresLinearHistory || rules.some(rule => rule.type === 'REQUIRED_LINEAR_HISTORY');
-		const methods = mergeMethods.filter(method => {
-			const allowed =
-				method === 'merge'
-					? repository.mergeCommitAllowed && !linearHistory
-					: method === 'squash'
-						? repository.squashMergeAllowed
-						: repository.rebaseMergeAllowed;
-			return (
-				allowed &&
-				rules.every(rule => {
-					const permitted = rule.type === 'PULL_REQUEST' ? rule.parameters?.allowedMergeMethods : undefined;
-					return permitted == null || permitted.some(allowedMethod => allowedMethod.toLowerCase() === method);
-				})
+		if (enterprise != null) {
+			const policy = await readEnterprisePullRequestMergePolicy(
+				{ id: node.id, baseRef: node.baseRefName, baseRefId: node.baseRef.id },
+				{ owner: repository.owner.login, repo: repository.name },
+				graphql,
+				enterprise.readBranchRules,
 			);
-		});
-		if (methods.length === 0) return { kind: 'unavailable', reason: 'blocked' };
+			return 'kind' in policy ? policy : getDirectMergeCapability(repository, policy);
+		}
 
-		const preference = repository.viewerDefaultMergeMethod.toLowerCase();
-		const defaultMethod = methods.find(method => method === preference);
-		return { kind: 'direct', methods: methods, defaultMethod: defaultMethod };
+		const policy = await readBranchRules(node.baseRef.id, graphql);
+		if (policy == null) return { kind: 'unavailable', reason: 'unknown' };
+		if (policy.rules.some(rule => rule.type === 'MERGE_QUEUE')) return { kind: 'queue' };
+
+		return getDirectMergeCapability(repository, policy);
 	} catch (ex) {
 		return { kind: 'unavailable', reason: pullRequestWriteFailure(ex).reason };
 	}
 }
 
+function getDirectMergeCapability(
+	repository: MergeRepository,
+	{ rules, requiresLinearHistory }: BranchPolicy,
+): MergeCapability {
+	const linearHistory = requiresLinearHistory || rules.some(rule => rule.type === 'REQUIRED_LINEAR_HISTORY');
+	const methods = mergeMethods.filter(method => {
+		const allowed =
+			method === 'merge'
+				? repository.mergeCommitAllowed && !linearHistory
+				: method === 'squash'
+					? repository.squashMergeAllowed
+					: repository.rebaseMergeAllowed;
+		return (
+			allowed &&
+			rules.every(rule => {
+				const permitted = rule.type === 'PULL_REQUEST' ? rule.parameters?.allowedMergeMethods : undefined;
+				return permitted == null || permitted.some(allowedMethod => allowedMethod.toLowerCase() === method);
+			})
+		);
+	});
+	if (methods.length === 0) return { kind: 'unavailable', reason: 'blocked' };
+
+	const preference = repository.viewerDefaultMergeMethod?.toLowerCase();
+	const defaultMethod = methods.find(method => method === preference);
+	return { kind: 'direct', methods: methods, defaultMethod: defaultMethod };
+}
+
 export async function resolveGitHubPullRequestWriteTarget(
 	input: GitHubPullRequestWriteTarget,
 	graphql: GraphqlRequest,
+	enterprise?: EnterprisePullRequestWriteOptions,
 ): Promise<PullRequestWriteTargetResult> {
 	if (!isValidTarget(input)) return { ok: false, reason: 'invalid-input' };
 
 	try {
-		const resolved = await resolveNode(input, graphql);
+		const resolved = await resolveNode(input, graphql, enterprise?.origin);
 		if (!resolved.ok) return resolved;
 
 		const { node, repository } = resolved;
 		const writable = isRepositoryWritable(repository);
 		return {
 			ok: true,
-			pullRequest: toSnapshot(node),
+			pullRequest: toSnapshot(node, enterprise?.origin),
 			capabilities: {
 				edit: writable && node.viewerCanUpdate,
 				close: writable && node.state === 'OPEN' && node.viewerCanClose,
 				reopen: writable && node.state === 'CLOSED' && node.viewerCanReopen,
-				merge: await getMergeCapability(resolved, graphql),
+				merge: await getMergeCapability(resolved, graphql, enterprise),
 			},
 		};
 	} catch (ex) {
@@ -486,8 +510,6 @@ export async function getGitHubPullRequestCreateCapability(
 		return {
 			ok: true,
 			repositoryId: repository.id,
-			// A repository role only establishes read access. GitHub checks the chosen head branch and organization
-			// membership when the pull request is created.
 			canCreate: isRepositoryWritable(repository) && (repository.viewerPermission == null ? undefined : true),
 		};
 	} catch (ex) {
@@ -497,6 +519,7 @@ export async function getGitHubPullRequestCreateCapability(
 
 type WriteTransport = {
 	graphql: GraphqlRequest;
+	enterprise?: EnterprisePullRequestWriteOptions;
 	isSessionCurrent: () => Promise<boolean>;
 	enqueue: (nodeId: string, headSha: string) => Promise<PullRequestMergeQueueActionResult>;
 };
@@ -507,41 +530,70 @@ const mutations = {
 	closed: ['closePullRequest', 'ClosePullRequestInput'],
 	reopened: ['reopenPullRequest', 'ReopenPullRequestInput'],
 	merged: ['mergePullRequest', 'MergePullRequestInput'],
+	queued: ['enqueuePullRequest', 'EnqueuePullRequestInput'],
 } as const;
 
 async function sendMutation(
 	transport: WriteTransport,
 	status: keyof typeof mutations,
-	repositoryId: string,
+	repository: RepositoryIdentity,
 	values: Record<string, string | undefined>,
 	previous?: PullRequestNode,
 ): Promise<PullRequestWriteResult> {
 	if (!(await transport.isSessionCurrent())) return { ok: false, reason: 'no-connection' };
 
 	const [mutation, inputType] = mutations[status];
-	type Payload = { change: { pullRequest: PullRequestNode | null } | null };
-	let node: PullRequestNode | null | undefined;
+	const fields =
+		status === 'created' && transport.enterprise?.origin != null
+			? `${pullRequestFields} headRefName`
+			: pullRequestFields;
+	const pullRequest = `pullRequest { ${fields} }`;
+	const selection = status === 'queued' ? `mergeQueueEntry { id ${pullRequest} }` : pullRequest;
+	type Payload = {
+		change: {
+			pullRequest?: PullRequestNode | null;
+			mergeQueueEntry?: { id: string; pullRequest: PullRequestNode | null } | null;
+		} | null;
+	};
+	let payload: Payload | undefined;
+	let error: unknown;
 	try {
-		const response = await transport.graphql<Payload>(
+		payload = await transport.graphql<Payload>(
 			`mutation WritePullRequest($input: ${inputType}!) {
-				change: ${mutation}(input: $input) { pullRequest { ${pullRequestFields} } }
+				change: ${mutation}(input: $input) { ${selection} }
 			}`,
 			{ input: values },
 		);
-		node = response?.change?.pullRequest;
 	} catch (ex) {
+		error = ex;
 		if (ex instanceof GraphqlResponseError) {
-			node = (ex.data as Payload | undefined)?.change?.pullRequest;
-			if (node == null && ex.errors?.some(error => error.path?.[0] === 'change' && error.path.length > 1)) {
-				return { ok: false, reason: 'outcome-unknown' };
-			}
+			payload = ex.data as Payload | undefined;
+		}
+	}
+
+	const entry = payload?.change?.mergeQueueEntry;
+	const node =
+		status === 'queued'
+			? typeof entry?.id === 'string' && entry.id
+				? entry.pullRequest
+				: undefined
+			: payload?.change?.pullRequest;
+	if (node == null && error != null) {
+		if (
+			error instanceof GraphqlResponseError &&
+			error.errors?.some(item => item.path?.[0] === 'change' && item.path.length > 1)
+		) {
+			return { ok: false, reason: 'outcome-unknown' };
 		}
 
-		if (node == null) return pullRequestWriteFailure(ex, status === 'merged' ? 'merge' : 'write');
+		return pullRequestWriteFailure(
+			error,
+			status === 'merged' ? 'merge' : status === 'queued' ? 'enqueue' : 'write',
+		);
 	}
 
 	const expectedState =
-		status === 'created' || status === 'reopened'
+		status === 'created' || status === 'reopened' || status === 'queued'
 			? 'OPEN'
 			: status === 'closed'
 				? 'CLOSED'
@@ -549,7 +601,7 @@ async function sendMutation(
 					? 'MERGED'
 					: undefined;
 	if (
-		node?.repository?.id !== repositoryId ||
+		node?.repository?.id !== repository.id ||
 		(previous != null && (node.id !== previous.id || node.number !== previous.number)) ||
 		(expectedState != null && node.state !== expectedState) ||
 		typeof node.repository.owner?.login !== 'string' ||
@@ -561,12 +613,29 @@ async function sendMutation(
 		typeof node.body !== 'string' ||
 		typeof node.headRefOid !== 'string' ||
 		typeof node.baseRefName !== 'string' ||
+		!isGitHubWriteUrlOnInstallation(node.url, transport.enterprise?.origin) ||
 		(node.state !== 'OPEN' && node.state !== 'CLOSED' && node.state !== 'MERGED')
 	) {
 		return { ok: false, reason: 'outcome-unknown' };
 	}
 
-	return { ok: true, status: status, pullRequest: toSnapshot(node) };
+	if (transport.enterprise?.origin != null) {
+		if (
+			status === 'created' &&
+			(node.baseRefName !== values.baseRefName || node.headRefName !== values.headRefName)
+		) {
+			return { ok: false, reason: 'outcome-unknown' };
+		}
+		if (
+			(status === 'merged' || status === 'queued') &&
+			(node.baseRefName !== previous?.baseRefName ||
+				node.headRefOid.toLowerCase() !== previous.headRefOid.toLowerCase())
+		) {
+			return { ok: false, reason: 'outcome-unknown' };
+		}
+	}
+
+	return { ok: true, status: status, pullRequest: toSnapshot(node, transport.enterprise?.origin) };
 }
 
 async function createPullRequest(
@@ -601,7 +670,7 @@ async function createPullRequest(
 	if (!isRepositoryWritable(repository)) return { ok: false, reason: 'blocked' };
 	if (repository.base == null || repository.head == null) return { ok: false, reason: 'invalid-input' };
 
-	return sendMutation(transport, 'created', repository.id, {
+	return sendMutation(transport, 'created', repository, {
 		repositoryId: repository.id,
 		baseRefName: input.baseRef,
 		headRefName: input.headRef,
@@ -622,24 +691,52 @@ async function mergePullRequest(
 
 	if (node.baseRefName !== input.expectedBaseRef) return { ok: false, reason: 'base-changed' };
 
-	const capability = await getMergeCapability(resolved, transport.graphql);
+	const capability = await getMergeCapability(resolved, transport.graphql, transport.enterprise);
 	if (capability.kind === 'unavailable') return { ok: false, reason: capability.reason };
 
-	if (input.action === 'merge') {
-		if (capability.kind !== 'direct' || !capability.methods.includes(input.mergeMethod)) {
-			return { ok: false, reason: 'blocked' };
+	if (
+		input.action === 'merge'
+			? capability.kind !== 'direct' || !capability.methods.includes(input.mergeMethod)
+			: capability.kind !== 'queue'
+	) {
+		return { ok: false, reason: 'blocked' };
+	}
+
+	if (transport.enterprise?.origin != null) {
+		const current = await resolveNode(
+			{ ...input, expectedNodeId: node.id },
+			transport.graphql,
+			transport.enterprise.origin,
+		);
+		if (!current.ok) return current;
+		if (current.node.id !== node.id || current.repository.id !== repository.id) {
+			return { ok: false, reason: 'not-found' };
 		}
 
+		if (current.node.baseRefName !== input.expectedBaseRef || current.node.baseRef?.id !== node.baseRef?.id) {
+			return { ok: false, reason: 'base-changed' };
+		}
+		if (current.node.headRefOid.toLowerCase() !== input.expectedHeadSha.toLowerCase()) {
+			return { ok: false, reason: 'head-changed' };
+		}
+		if (current.node.state !== 'OPEN' || current.node.isDraft || !isRepositoryWritable(current.repository)) {
+			return { ok: false, reason: 'blocked' };
+		}
+	}
+
+	const values = { pullRequestId: node.id, expectedHeadOid: node.headRefOid };
+	if (input.action === 'merge') {
 		return sendMutation(
 			transport,
 			'merged',
-			repository.id,
-			{ pullRequestId: node.id, expectedHeadOid: node.headRefOid, mergeMethod: input.mergeMethod.toUpperCase() },
+			repository,
+			{ ...values, mergeMethod: input.mergeMethod.toUpperCase() },
 			node,
 		);
 	}
 
-	if (capability.kind !== 'queue') return { ok: false, reason: 'blocked' };
+	if (transport.enterprise?.origin != null) return sendMutation(transport, 'queued', repository, values, node);
+
 	if (!(await transport.isSessionCurrent())) return { ok: false, reason: 'no-connection' };
 
 	try {
@@ -671,12 +768,17 @@ export async function writeGitHubPullRequest(
 	input: GitHubPullRequestWrite,
 	transport: WriteTransport,
 ): Promise<PullRequestWriteResult> {
-	if (!isValidWrite(input)) return { ok: false, reason: 'invalid-input' };
+	if (
+		!isValidWrite(input) ||
+		(transport.enterprise?.origin != null && input.action === 'create' && input.expectedRepositoryId == null)
+	) {
+		return { ok: false, reason: 'invalid-input' };
+	}
 
 	try {
 		if (input.action === 'create') return await createPullRequest(input, transport);
 
-		const resolved = await resolveNode(input, transport.graphql);
+		const resolved = await resolveNode(input, transport.graphql, transport.enterprise?.origin);
 		if (!resolved.ok) return resolved;
 
 		const { node, repository } = resolved;
@@ -691,7 +793,7 @@ export async function writeGitHubPullRequest(
 			return await sendMutation(
 				transport,
 				'updated',
-				repository.id,
+				repository,
 				{ pullRequestId: node.id, title: input.title, body: input.body },
 				node,
 			);
@@ -704,7 +806,7 @@ export async function writeGitHubPullRequest(
 		return await sendMutation(
 			transport,
 			close ? 'closed' : 'reopened',
-			repository.id,
+			repository,
 			{ pullRequestId: node.id },
 			node,
 		);

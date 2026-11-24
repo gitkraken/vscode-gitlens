@@ -312,7 +312,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			let result: IssueWriteResult;
 			try {
 				if (expectedLogin !== undefined) {
-					const login = await api.getIssueWriteViewer(this, token, baseUrl, onUnauthorized);
+					const login = await api.getWriteViewer(this, token, baseUrl, onUnauthorized);
 					if (login?.toLowerCase() !== expectedLogin.toLowerCase()) {
 						return { ok: false, reason: 'no-connection' };
 					}
@@ -356,6 +356,134 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				failure.reason === 'unknown'
 				? { ...failure, mutationDispatched: false }
 				: failure;
+		}
+	}
+
+	async resolvePullRequestWriteTarget(
+		connectionId: string,
+		input: GitHubPullRequestWriteTarget,
+		scope: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<PullRequestWriteTargetResult> {
+		return this.withPullRequestWriteSession(connectionId, 'read', scope, (api, token, options) =>
+			api.resolvePullRequestWriteTarget(this, token, input, options.onUnauthorized, options.baseUrl),
+		);
+	}
+
+	async writePullRequest(
+		connectionId: string,
+		input: GitHubPullRequestWrite,
+		scope: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<PullRequestWriteResult> {
+		const result = await this.withPullRequestWriteSession(connectionId, 'write', scope, (api, token, options) =>
+			api.writePullRequest(this, token, input, options.isSessionCurrent, options.onUnauthorized, options.baseUrl),
+		);
+		if (
+			result.ok ||
+			result.reason === 'outcome-unknown' ||
+			(scope.installationOrigin == null && (input.action === 'merge' || input.action === 'enqueue'))
+		) {
+			const domain = scope.installationOrigin;
+			this.ctx.cache.deletePullRequests(domain == null ? undefined : { id: this.id, domain: domain });
+		}
+
+		return result;
+	}
+
+	async getPullRequestCreateCapability(
+		connectionId: string,
+		input: GitHubPullRequestCreateTarget,
+		scope: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<PullRequestCreateCapabilityResult> {
+		return this.withPullRequestWriteSession(connectionId, 'read', scope, (api, token, options) =>
+			api.getPullRequestCreateCapability(this, token, input, options.onUnauthorized, options.baseUrl),
+		);
+	}
+
+	private async withPullRequestWriteSession<T extends { ok: true } | PullRequestWriteFailure>(
+		connectionId: string,
+		operation: 'read' | 'write',
+		{ expectedLogin, installationOrigin }: { expectedLogin?: string; installationOrigin?: string },
+		run: (
+			api: GitHubApi,
+			token: GitHubTokenInfo,
+			options: {
+				baseUrl?: string;
+				onUnauthorized: () => void;
+				isSessionCurrent: () => Promise<boolean>;
+			},
+		) => Promise<T>,
+	): Promise<T | PullRequestWriteFailure> {
+		try {
+			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+
+			const api = await this.authenticationService.apis.github;
+			if (api == null) return { ok: false, reason: 'unsupported' };
+
+			const baseUrl = this.apiBaseUrlFor(session);
+			if ((baseUrl == null ? undefined : new URL(baseUrl).origin) !== installationOrigin) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			const isSessionCurrent =
+				baseUrl != null
+					? this.authenticationService.trackStoredSession(this.id, session)
+					: async () => {
+							const current = await this.resolveReadSessionOrThrow(connectionId, undefined);
+							return (
+								current != null &&
+								getSessionIdentity(current) === getSessionIdentity(session) &&
+								current.account?.id === session.account?.id
+							);
+						};
+			const token = toTokenWithInfo(this.id, session);
+			let unauthorized = false;
+			const onUnauthorized = () => {
+				unauthorized = true;
+			};
+
+			let result: T | PullRequestWriteFailure;
+			try {
+				if (expectedLogin !== undefined) {
+					if (!(await isSessionCurrent())) return { ok: false, reason: 'no-connection' };
+
+					const login = await api.getWriteViewer(this, token, baseUrl, onUnauthorized);
+					if (login?.toLowerCase() !== expectedLogin.toLowerCase() || !(await isSessionCurrent())) {
+						return { ok: false, reason: 'no-connection' };
+					}
+				}
+
+				result = await run(api, token, {
+					baseUrl: baseUrl,
+					onUnauthorized: onUnauthorized,
+					isSessionCurrent: isSessionCurrent,
+				});
+			} catch (ex) {
+				result = pullRequestWriteFailure(ex);
+			}
+
+			if (unauthorized) {
+				if (await isSessionCurrent().catch(() => false)) {
+					this.handleConnectionAuthenticationRejection(connectionId, true, session.accessToken);
+				}
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			if (result.ok) {
+				const current =
+					operation === 'read' ? await isSessionCurrent() : await isSessionCurrent().catch(() => false);
+				if (current) {
+					this.resetRequestExceptionCount('writePullRequest', connectionId);
+				} else if (operation === 'read') {
+					return { ok: false, reason: 'no-connection' };
+				} else if (baseUrl != null) {
+					return { ...result, credentialChanged: true };
+				}
+			}
+
+			return result;
+		} catch (ex) {
+			return pullRequestWriteFailure(ex);
 		}
 	}
 
@@ -1732,98 +1860,6 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 	readonly name: string = 'GitHub';
 	get domain(): string {
 		return metadata.domain;
-	}
-
-	async resolvePullRequestWriteTarget(
-		connectionId: string,
-		input: GitHubPullRequestWriteTarget,
-	): Promise<PullRequestWriteTargetResult> {
-		return this.withPullRequestWriteSession(connectionId, 'read', (api, token, onUnauthorized) =>
-			api.resolvePullRequestWriteTarget(this, token, input, onUnauthorized),
-		);
-	}
-
-	async writePullRequest(connectionId: string, input: GitHubPullRequestWrite): Promise<PullRequestWriteResult> {
-		const result = await this.withPullRequestWriteSession(
-			connectionId,
-			'write',
-			(api, token, onUnauthorized, isSessionCurrent) =>
-				api.writePullRequest(this, token, input, isSessionCurrent, onUnauthorized),
-		);
-		if (
-			result.ok ||
-			result.reason === 'outcome-unknown' ||
-			input.action === 'merge' ||
-			input.action === 'enqueue'
-		) {
-			this.ctx.cache.deletePullRequests();
-		}
-
-		return result;
-	}
-
-	async getPullRequestCreateCapability(
-		connectionId: string,
-		input: GitHubPullRequestCreateTarget,
-	): Promise<PullRequestCreateCapabilityResult> {
-		return this.withPullRequestWriteSession(connectionId, 'read', (api, token, onUnauthorized) =>
-			api.getPullRequestCreateCapability(this, token, input, onUnauthorized),
-		);
-	}
-
-	private async withPullRequestWriteSession<T extends { ok: true } | PullRequestWriteFailure>(
-		connectionId: string,
-		operation: 'read' | 'write',
-		run: (
-			api: GitHubApi,
-			token: GitHubTokenInfo,
-			onUnauthorized: () => void,
-			isSessionCurrent: () => Promise<boolean>,
-		) => Promise<T>,
-	): Promise<T | PullRequestWriteFailure> {
-		try {
-			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
-			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
-
-			const api = await this.authenticationService.apis.github;
-			if (api == null) return { ok: false, reason: 'unsupported' };
-
-			const identity = getSessionIdentity(session);
-			const accountId = session.account?.id;
-			const isSessionCurrent = async () => {
-				const current = await this.resolveReadSessionOrThrow(connectionId, undefined);
-				return current != null && getSessionIdentity(current) === identity && current.account?.id === accountId;
-			};
-			let unauthorized = false;
-			const result = await run(
-				api,
-				toTokenWithInfo(this.id, session),
-				() => {
-					unauthorized = true;
-				},
-				isSessionCurrent,
-			);
-			if (unauthorized) {
-				if (await isSessionCurrent().catch(() => false)) {
-					this.handleConnectionAuthenticationRejection(connectionId, true, session.accessToken);
-				}
-				return { ok: false, reason: 'no-connection' };
-			}
-
-			if (result.ok) {
-				const current =
-					operation === 'read' ? await isSessionCurrent() : await isSessionCurrent().catch(() => false);
-				if (current) {
-					this.resetRequestExceptionCount('writePullRequest', connectionId);
-				} else if (operation === 'read') {
-					return { ok: false, reason: 'no-connection' };
-				}
-			}
-
-			return result;
-		} catch (ex) {
-			return pullRequestWriteFailure(ex);
-		}
 	}
 
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string | undefined {

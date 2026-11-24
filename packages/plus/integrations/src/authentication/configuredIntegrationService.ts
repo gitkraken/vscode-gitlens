@@ -53,8 +53,8 @@ type IntegrationSessionChangeEvent = {
 	readonly previousDomain?: string;
 };
 
-type IssueWriteRetirements = { epoch: number; scopes: Map<string, number> };
-const issueWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], IssueWriteRetirements>();
+type StoredWriteRetirements = { epoch: number; scopes: Map<string, number> };
+const storedWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], StoredWriteRetirements>();
 
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
@@ -76,7 +76,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	private _signOutEpoch = 0;
 	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
 	private readonly _signOuts = new Map<string, number>();
-	private readonly _issueWriteRetirements: IssueWriteRetirements;
+	private readonly _storedWriteRetirements: StoredWriteRetirements;
 	private _disposed = false;
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
@@ -89,12 +89,12 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	constructor(private readonly ctx: IntegrationServiceContext) {
-		let retirements = issueWriteRetirements.get(ctx.storage);
+		let retirements = storedWriteRetirements.get(ctx.storage);
 		if (retirements == null) {
 			retirements = { epoch: 0, scopes: new Map() };
-			issueWriteRetirements.set(ctx.storage, retirements);
+			storedWriteRetirements.set(ctx.storage, retirements);
 		}
-		this._issueWriteRetirements = retirements;
+		this._storedWriteRetirements = retirements;
 	}
 
 	dispose(): void {
@@ -338,23 +338,23 @@ export class ConfiguredIntegrationService implements Disposable {
 
 	private retirePendingStores(scope: string): void {
 		this._signOuts.set(scope, ++this._signOutEpoch);
-		this.retireIssueWrites(scope);
+		this.retireStoredWrites(scope);
 	}
 
-	getIssueWriteMark(): number {
-		return this._issueWriteRetirements.epoch;
+	getStoredWriteMark(): number {
+		return this._storedWriteRetirements.epoch;
 	}
 
-	isIssueWriteRetiredSince(
+	isStoredWriteRetiredSince(
 		id: IntegrationIds,
 		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
 		mark: number,
 	): boolean {
-		return this._disposed || this.hasRetirement(this._issueWriteRetirements.scopes, id, session, mark);
+		return this._disposed || this.hasRetirement(this._storedWriteRetirements.scopes, id, session, mark);
 	}
 
-	private retireIssueWrites(scope: string): void {
-		const retirements = this._issueWriteRetirements;
+	private retireStoredWrites(scope: string): void {
+		const retirements = this._storedWriteRetirements;
 		retirements.scopes.set(scope, ++retirements.epoch);
 	}
 
@@ -408,7 +408,7 @@ export class ConfiguredIntegrationService implements Disposable {
 
 			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
 				if (previous != null) {
-					this.retireIssueWrites(`${id}|connection:${session.id}`);
+					this.retireStoredWrites(`${id}|connection:${session.id}`);
 				}
 
 				// Readers share this lock, so none can resolve the retired token after this synchronous fence.
@@ -582,7 +582,7 @@ export class ConfiguredIntegrationService implements Disposable {
 		cloud?: boolean,
 		options?: { preserveConfigured?: boolean },
 	): Promise<void> {
-		this.retireIssueWrites(`${id}|connection:${connectionId}`);
+		this.retireStoredWrites(`${id}|connection:${connectionId}`);
 		if (cloud == null || cloud === false) {
 			await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, connectionId));
 		}

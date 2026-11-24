@@ -87,9 +87,16 @@ export type IssueWriteTargetResult =
 	| { ok: true; nodeId: string; issue: Extract<IssueWriteResult, { ok: true }>['issue'] }
 	| Extract<IssueWriteResult, { ok: false }>;
 
-export type PullRequestWriteOptions = WriteConnection & GitHubPullRequestWrite;
-export type PullRequestWriteTargetOptions = WriteConnection & GitHubPullRequestWriteTarget;
-export type PullRequestCreateCapabilityOptions = WriteConnection & GitHubPullRequestCreateTarget;
+type PullRequestWriteConnection = WriteConnection & {
+	/** Required for GitHub Enterprise Server. The HTTP(S) origin of the configured installation. */
+	domain?: string;
+	/** Required for GitHub Enterprise Server. The login the selected credential must authenticate as. */
+	expectedLogin?: string;
+};
+
+export type PullRequestWriteOptions = PullRequestWriteConnection & GitHubPullRequestWrite;
+export type PullRequestWriteTargetOptions = PullRequestWriteConnection & GitHubPullRequestWriteTarget;
+export type PullRequestCreateCapabilityOptions = PullRequestWriteConnection & GitHubPullRequestCreateTarget;
 
 /** Neutral repository input accepted by repo-scoped provider reads. */
 export interface ProviderRepositoryInput {

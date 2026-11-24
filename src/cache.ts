@@ -8,7 +8,11 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { isPullRequestInMergeQueue } from '@gitlens/git/utils/pullRequest.utils.js';
 import type { IntegrationCacheDescriptor, IntegrationManagerCacheProvider } from '@gitlens/integrations/index.js';
-import { hostFromDomain, isSelfManagedHostIntegrationId } from '@gitlens/integrations/index.js';
+import {
+	GitSelfManagedHostIntegrationId,
+	hostFromDomain,
+	isSelfManagedHostIntegrationId,
+} from '@gitlens/integrations/index.js';
 import { isPromise } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { ResourceUsage, ResourceUsageMetric } from '@gitlens/utils/resourceUsage.js';
@@ -79,13 +83,13 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		this._cache.delete(`${cache}:${key}`);
 	}
 
-	/** Evicts every cached pull request — by branch, by sha, by id, and the pull request entries in the
-	 *  shared issue-or-pr caches (their keys carry a `pullrequest` type segment; issues stay). A merge
-	 *  invalidates more than the merged pull request alone — a stacked merge lands every layer below it
-	 *  and retargets every layer above — and no caller can name that full set, so the whole class of
-	 *  entries is the correct blast radius. Merges are rare; the cost is a refetch on next demand. */
-	deletePullRequests(): void {
+	deletePullRequests(scope?: { id: IntegrationCacheDescriptor['id']; domain: string }): void {
+		const prefix = scope == null ? undefined : pullRequestInstallationPrefix(scope);
+		if (prefix === '') return;
+
 		for (const key of this._cache.keys()) {
+			if (prefix != null && key.split(':', 3)[2]?.startsWith(prefix) !== true) continue;
+
 			if (
 				key.startsWith('prByBranch:') ||
 				key.startsWith('prsByBranchName:') ||
@@ -98,7 +102,7 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 
 			if (
 				(key.startsWith('issuesOrPrsById:') || key.startsWith('issuesOrPrsByIdAndRepo:')) &&
-				key.includes(`:${'pullrequest' satisfies IssueOrPullRequestType}`)
+				(prefix != null || key.includes(`:${'pullrequest' satisfies IssueOrPullRequestType}`))
 			) {
 				this._cache.delete(key);
 			}
@@ -181,13 +185,20 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		options?: ExpiryOptions,
 	): CacheResult<IssueOrPullRequest> {
 		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
+		const prefix = type !== 'issue' ? pullRequestInstallationPrefix(integration) : '';
 
 		if (resource == null) {
-			return this.get('issuesOrPrsById', `id:${id}:${key}:${type ?? 'unknown'}`, etag, cacheable, options);
+			return this.get(
+				'issuesOrPrsById',
+				`id:${prefix}${id}:${key}:${type ?? 'unknown'}`,
+				etag,
+				cacheable,
+				options,
+			);
 		}
 		return this.get(
 			'issuesOrPrsByIdAndRepo',
-			`id:${id}:${key}:${type ?? 'unknown'}:${JSON.stringify(resource)}}`,
+			`id:${prefix}${id}:${key}:${type ?? 'unknown'}:${JSON.stringify(resource)}}`,
 			etag,
 			cacheable,
 			options,
@@ -231,11 +242,12 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
 		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
+		const prefix = pullRequestInstallationPrefix(integration);
 
 		if (resource == null) {
 			return this.get(
 				'prsById',
-				`id:${id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}`,
+				`id:${prefix}${id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}`,
 				etag,
 				cacheable,
 				options,
@@ -243,7 +255,7 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		}
 		return this.get(
 			'prsById',
-			`id:${id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}`,
+			`id:${prefix}${id}:${key}:${'pullrequest' satisfies IssueOrPullRequestType}:${JSON.stringify(resource)}}`,
 			etag,
 			cacheable,
 			options,
@@ -258,12 +270,12 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
 		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
-		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
+		const prefix = pullRequestInstallationPrefix(integration);
 		return this.get(
 			'prByBranch',
-			`branch:${branch}:${key}`,
+			`branch:${prefix}${branch}:${key}`,
 			etag,
-			this.wrapPullRequestCacheable(cacheable, key, etag),
+			prefix ? cacheable : this.wrapPullRequestCacheable(cacheable, key, etag),
 			options,
 		);
 	}
@@ -276,7 +288,8 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest[]> {
 		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
-		return this.get('prsByBranchName', `branch:${branch}:${key}`, etag, cacheable, options);
+		const prefix = pullRequestInstallationPrefix(integration);
+		return this.get('prsByBranchName', `branch:${prefix}${branch}:${key}`, etag, cacheable, options);
 	}
 
 	getPullRequestForSha(
@@ -287,12 +300,12 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
 		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
-		// Wrap the cacheable so we can also add the result to the issuesOrPrsById cache
+		const prefix = pullRequestInstallationPrefix(integration);
 		return this.get(
 			'prsBySha',
-			`sha:${sha}:${key}`,
+			`sha:${prefix}${sha}:${key}`,
 			etag,
-			this.wrapPullRequestCacheable(cacheable, key, etag),
+			prefix ? cacheable : this.wrapPullRequestCacheable(cacheable, key, etag),
 			options,
 		);
 	}
@@ -313,7 +326,8 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		integration: IntegrationCacheDescriptor | undefined,
 	): PullRequest | undefined {
 		const { key } = this.getResourceKeyAndEtag(repo, integration);
-		return this.peek('prByBranch', `branch:${branch}:${key}`);
+		const prefix = pullRequestInstallationPrefix(integration);
+		return this.peek('prByBranch', `branch:${prefix}${branch}:${key}`);
 	}
 
 	peekPullRequestForSha(
@@ -322,7 +336,8 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		integration: IntegrationCacheDescriptor | undefined,
 	): PullRequest | undefined {
 		const { key } = this.getResourceKeyAndEtag(repo, integration);
-		return this.peek('prsBySha', `sha:${sha}:${key}`);
+		const prefix = pullRequestInstallationPrefix(integration);
+		return this.peek('prsBySha', `sha:${prefix}${sha}:${key}`);
 	}
 
 	peekIssue(
@@ -466,6 +481,15 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 	private getIntegrationCacheKey(integration: IntegrationCacheDescriptor): string {
 		return `${integration.id}:${integration.domain}`;
 	}
+}
+
+function pullRequestInstallationPrefix(
+	integration: Pick<IntegrationCacheDescriptor, 'id' | 'domain'> | undefined,
+): string {
+	if (integration?.id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) return '';
+
+	const host = hostFromDomain(integration.domain);
+	return host == null ? '' : `^${encodeURIComponent(host)}^`;
 }
 
 /**

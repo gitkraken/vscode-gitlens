@@ -525,7 +525,7 @@ suite('IntegrationManager GitHub Enterprise issue writes', () => {
 	test('uses the selected installation and account through target resolution and all five mutations', async () => {
 		const { manager, calls } = await setup(
 			query => {
-				if (query.startsWith('query IssueWriteViewer')) {
+				if (query.startsWith('query WriteViewer')) {
 					return { data: { viewer: { login: 'EnterpriseUser' } } };
 				}
 
@@ -566,7 +566,7 @@ suite('IntegrationManager GitHub Enterprise issue writes', () => {
 				deletedFromDifferentRepository: true,
 			});
 			assert.equal(calls.length, 12);
-			assert.match(calls.at(-3)!.query, /^query IssueWriteViewer/);
+			assert.match(calls.at(-3)!.query, /^query WriteViewer/);
 			assert.ok(calls.every(call => call.url === `http://${enterprise.domain}/api/graphql`));
 			assert.ok(calls.every(call => call.authorization === 'token token-enterprise-selected'));
 			assert.ok(calls.every(call => call.redirect === 'error' && call.nextGlobalId == null));
@@ -588,7 +588,7 @@ suite('IntegrationManager GitHub Enterprise issue writes', () => {
 	test('checks the approved login with the credential that would send the deletion', async () => {
 		const { manager, calls } = await setup(
 			query => {
-				assert.match(query, /^query IssueWriteViewer/);
+				assert.match(query, /^query WriteViewer/);
 				return { data: { viewer: { login: 'different-user' } } };
 			},
 			undefined,
@@ -610,7 +610,7 @@ suite('IntegrationManager GitHub Enterprise issue writes', () => {
 	test('distinguishes a failed viewer check from an unconfirmed mutation', async () => {
 		const { manager, calls } = await setup(
 			query => {
-				assert.match(query, /^query IssueWriteViewer/);
+				assert.match(query, /^query WriteViewer/);
 				return Response.json({ message: 'sensitive provider error' }, { status: 503 });
 			},
 			undefined,
@@ -623,7 +623,7 @@ suite('IntegrationManager GitHub Enterprise issue writes', () => {
 				mutationDispatched: false,
 			});
 			assert.ok(calls.length > 0);
-			assert.ok(calls.every(call => call.query.startsWith('query IssueWriteViewer')));
+			assert.ok(calls.every(call => call.query.startsWith('query WriteViewer')));
 		} finally {
 			manager.dispose();
 		}
@@ -697,7 +697,7 @@ suite('IntegrationManager GitHub Enterprise issue writes', () => {
 			const targetFinished = defer<void>();
 			const { manager, calls, runtime } = await setup(
 				async query => {
-					if (query.startsWith('query IssueWriteViewer')) return { data: { viewer: { login: 'approved' } } };
+					if (query.startsWith('query WriteViewer')) return { data: { viewer: { login: 'approved' } } };
 
 					assert.match(query, /^query IssueWriteTarget/);
 					targetStarted.fulfill();
