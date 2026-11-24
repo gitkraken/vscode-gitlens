@@ -8,6 +8,7 @@ import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { fnv1aHash64 } from '@gitlens/utils/hash.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
@@ -376,17 +377,43 @@ suite('public integration manager cache', () => {
 			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
 
 			stubbed._session = selected;
-			integration.onSessionsRemoving('secondary', true);
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl)?.installationOrigin, selected.baseUrl);
-			integration.onSessionsRemoving(selected.id, selected.cloud);
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+			const { configuredIntegrationService: localStore } = manager as unknown as {
+				configuredIntegrationService: ConfiguredIntegrationService;
+			};
+			const insideWrite = defer<void>();
+			const finishWrite = defer<void>();
+			const storeSecret = runtime.storage.storeSecret;
+			runtime.storage.storeSecret = async (key, value) => {
+				insideWrite.fulfill();
+				await finishWrite.promise;
+				await storeSecret(key, value);
+			};
 
 			const replacement = { ...selected, accessToken: 'replacement' };
+			const rotating = localStore.storeSession(providerId, replacement);
+			try {
+				await Promise.race([
+					insideWrite.promise,
+					rotating.then(() =>
+						assert.equal(insideWrite.pending, false, 'the replacement must reach the secret store'),
+					),
+				]);
+				assert.equal(stubbed._session, undefined);
+				assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+			} finally {
+				finishWrite.fulfill();
+				await rotating;
+				runtime.storage.storeSecret = storeSecret;
+			}
+
 			stubbed._session = replacement;
+			integration.onSessionsRemoving('secondary', true);
 			assert.equal(
 				view.getCachedPullRequestScope?.(selected.baseUrl)?.sessionFingerprint,
 				fnv1aHash64(replacement.accessToken),
 			);
+			integration.onSessionsRemoving(replacement.id, replacement.cloud);
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
 		} finally {
 			manager.dispose();
 			configured.dispose();
