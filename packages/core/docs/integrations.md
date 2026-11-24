@@ -114,16 +114,24 @@ cache controls (`connectionId`, `etag`, expiry). The optional methods are:
 - `getRepositoryMetadata`, `getRepositoryDefaultBranch`: repository lookups.
 - `getPullRequestForSha`, `getPullRequestForBranch`, `getPullRequest`: pull-request lookups by commit, branch, or id.
 - `getIssue`, `getIssueOrPullRequest`: issue lookups by id.
-- `deletePullRequests()`: evicts every cached pull request (a merge can change pull requests no caller can name).
+- `deletePullRequests(scope?)` evicts cached pull requests for the provided `{ id, domain }` installation origin.
+  Without a scope, evict all pull requests because a merge can change pull requests no caller can name.
 
 A method you omit means no caching for that read: its loader runs on every call (and `deletePullRequests` is a
 no-op). Call a method as `cache.method(...)`; the manager never detaches it, so a class instance works.
 
-The descriptor is `{ id, domain, maybeConnected, sessionFingerprint }`, not the integration class. Its getters read
-through to the live integration each time they are read, so the values are live, not snapshots. Key entries by `id`
-and `domain`, and treat `maybeConnected` and `sessionFingerprint` as the entry's etag: when either changes (a
-reconnect, a token change) the entry must miss. The descriptor is `undefined` for lookups with no integration.
-The fixture uses the package's public `PromiseCache` utility, but any cache with the same behavior is valid.
+The cache descriptor exposes `id`, `domain`, `maybeConnected`, and `sessionFingerprint` without exposing the
+integration instance. Key entries by provider and domain, and treat the connection state and fingerprint as the
+entry's etag. Enterprise pull request descriptors also carry `installationOrigin` and the fingerprint captured for
+the request. Use that origin as the cache namespace so installations that share a hostname stay independent.
+For other reads, the state and fingerprint getters reflect the live integration. A lookup without an integration
+receives an undefined descriptor. The fixture uses the package's public `PromiseCache` utility, but any cache with
+the same behavior is valid.
+
+For a cached-only Enterprise pull request lookup, `GitHostIntegration.getCachedPullRequestScope?(remoteUrl)` accepts
+the fetch remote URL. HTTP(S) remotes must match the selected session's scheme, host, and port. SSH and scp
+remotes must match its hostname, and the scope uses the session's actual API origin. The optional method returns
+`undefined` without a matching established session and makes no authentication or network requests.
 
 ### Authentication
 
@@ -931,7 +939,7 @@ An `ok: false` result contains a typed reason. GitHub can report inaccessible pr
 before the response was lost. For an Enterprise failure with `mutationDispatched: false`, Core stopped
 before sending a mutation.
 
-### GitHub.com pull request writes
+### GitHub and GitHub Enterprise Server pull request writes
 
 Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the
 repository’s `owner` and `repo`, plus the `number` and `expectedNodeId` for an existing pull request.
@@ -943,6 +951,14 @@ the canonical repository ID. Pass it as `expectedRepositoryId` to prevent select
 repository at the same address. For an active repository, `canCreate` is `true` when GitHub reports
 a repository role for the viewer, and `undefined` when the role is unavailable. GitHub determines
 whether the viewer may create a pull request between the chosen branches when it receives the write.
+
+For GitHub Enterprise Server, pass `providerId: 'cloud-github-enterprise'`, the connection ID,
+the full HTTP(S) installation origin as `domain`, and the expected GitHub login as `expectedLogin`
+to all three methods. The origin includes the scheme and any non-default port. The PR write API
+accepts installations served from the origin root. A path in the requested domain returns `invalid-input`.
+Core accepts `/api` and `/api/v3` as aliases for the root installation on the configured connection
+and selected credential. Any other path on either returns `no-connection` before a provider request.
+Core verifies the credential's live login and requires `expectedRepositoryId` on create.
 
 | Action for `writePullRequest` | Required input and result                                                                                                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -959,13 +975,25 @@ write. The write preflight checks the observed base branch. GitHub checks the ex
 for direct merge and enqueue.
 Stacked merge actions can land more than one pull request and are unavailable through this API.
 
+On GitHub Enterprise Server, Core checks the installed mutation schema, active branch rules and
+legacy linear-history policy before offering a merge strategy. It offers enqueue when the branch
+requires a queue and the installation supports the expected-head check. If Core cannot establish the
+merge policy, edit and state capabilities still reflect the viewer's pull request permissions.
+Core checks the base branch again before dispatching a merge or enqueue and verifies that the
+receipt matches the approved base. GitHub exposes the atomic check for the head only.
+
 Every confirmed result carries a canonical snapshot with GitHub’s update time and close or merge
-time when available. An enqueue receipt carries the snapshot verified at dispatch and the `queued`
+time when available. A GitHub.com enqueue receipt carries the snapshot verified at dispatch and the `queued`
 status. Consumers should refresh the item and related views for its latest
 queue position or merge state. `outcome-unknown` means the write may have reached GitHub. Reconcile it
 through a fresh read before retrying. `blocked` means the action was refused by the pull request state or
 branch policy. Inaccessible private resources can appear as `not-found`. After GitHub rejects a credential
 with HTTP 401, the next operation on that connection can recover it. Core never replays the write.
+
+Enterprise snapshots include the canonical origin in `domain`. An Enterprise enqueue returns the
+pull request attached to the queue entry. If the selected credential changes while GitHub processes
+a write, a confirmed result still carries its status and adds `credentialChanged: true`. Use that
+status to refresh by origin and read the snapshot under the current credential.
 
 ## 5. Paging
 

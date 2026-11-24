@@ -242,7 +242,7 @@ export async function mutateGitHubIssue(
 		const issue = target?.node;
 		if (
 			issue?.__typename !== 'Issue' ||
-			!isIssueOnInstallation(issue, origin) ||
+			!isGitHubWriteUrlOnInstallation(issue.url, origin) ||
 			issue.number !== input.number ||
 			issue.repository.id !== repository.id ||
 			issue.repository.owner.login.toLowerCase() !== owner.toLowerCase() ||
@@ -348,15 +348,15 @@ async function writeIssue(
 		{ input: input },
 	);
 	const issue = result?.change?.issue;
-	return issue != null && isIssueOnInstallation(issue, origin)
+	return issue != null && isGitHubWriteUrlOnInstallation(issue.url, origin)
 		? toIssueWriteResult(issue)
 		: { ok: false, reason: 'unknown' };
 }
 
-function isIssueOnInstallation(issue: IssueNode, origin: string | undefined): boolean {
+export function isGitHubWriteUrlOnInstallation(value: unknown, origin: string | undefined): boolean {
 	if (origin == null) return true;
 
-	const url = typeof issue.url === 'string' ? URL.parse(issue.url) : null;
+	const url = typeof value === 'string' ? URL.parse(value) : null;
 	return (
 		url?.origin === origin &&
 		(url.protocol === 'https:' || url.protocol === 'http:') &&

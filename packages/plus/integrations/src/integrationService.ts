@@ -2,7 +2,6 @@ import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 import type {
 	PullRequestCreateCapabilityResult,
-	PullRequestWriteFailure,
 	PullRequestWriteResult,
 	PullRequestWriteTargetResult,
 } from '@gitlens/git-github/api/pullRequestWrites.js';
@@ -156,6 +155,7 @@ import {
 } from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
+	getGitHubEnterprisePullRequestWriteOrigin,
 	getIntegrationIdForRemote,
 	isCloudSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
@@ -1617,16 +1617,44 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 			| (IssueDeleteOptions & { action: 'delete' })
 			| (IssueWriteTargetOptions & { action: 'resolve' }),
 	): Promise<IssueWriteResult> {
-		const { providerId, connectionId, domain, expectedLogin } = options;
+		const connection = await this.getGitHubWriteConnection(options, 'issue');
+		if (!connection.ok) {
+			return connection.reason === 'unknown' &&
+				options.providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+				? { ...connection, mutationDispatched: false }
+				: connection;
+		}
+
+		return connection.integration.mutateIssue(options.connectionId, options, {
+			expectedLogin: options.expectedLogin,
+			installationOrigin: connection.installationOrigin,
+		});
+	}
+
+	private async getGitHubWriteConnection(
+		{ providerId, connectionId, domain, expectedLogin }: Omit<PullRequestCreateCapabilityOptions, 'owner' | 'repo'>,
+		kind: 'issue' | 'pull-request',
+	): Promise<
+		| { ok: true; integration: GitHubIntegration | GitHubEnterpriseIntegration; installationOrigin?: string }
+		| { ok: false; reason: 'unsupported' | 'invalid-input' | 'no-connection' | 'unknown' }
+	> {
 		const enterprise = providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const requiresOrigin = enterprise && kind === 'pull-request';
 		if (!enterprise && providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
 		if (typeof connectionId !== 'string' || !connectionId.trim()) return { ok: false, reason: 'invalid-input' };
 
 		if (
-			expectedLogin !== undefined &&
+			(expectedLogin !== undefined || requiresOrigin) &&
 			(typeof expectedLogin !== 'string' || !expectedLogin || expectedLogin !== expectedLogin.trim())
 		) {
 			return { ok: false, reason: 'invalid-input' };
+		}
+
+		if (requiresOrigin) {
+			const url = typeof domain === 'string' && /^https?:\/\//i.test(domain) ? URL.parse(domain) : null;
+			if (url == null || url.href !== `${url.origin}/` || /^(?:api\.)?github\.com\.?$/i.test(url.hostname)) {
+				return { ok: false, reason: 'invalid-input' };
+			}
 		}
 
 		const host = typeof domain === 'string' ? hostFromDomain(domain) : undefined;
@@ -1651,10 +1679,10 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 							.peekStoredSession(providerId, connectionId, connection.cloud, configuredDomain)
 							.catch(() => undefined)
 					: undefined;
-			const base = baseUrlFromDomain(
-				connection.baseUrl ?? stored?.baseUrl ?? stored?.domain ?? configuredDomain,
-				stored?.protocol,
-			);
+			const sessionDomain = connection.baseUrl ?? stored?.baseUrl ?? stored?.domain ?? configuredDomain;
+			const base = requiresOrigin
+				? getGitHubEnterprisePullRequestWriteOrigin(sessionDomain, stored?.protocol)
+				: baseUrlFromDomain(sessionDomain, stored?.protocol);
 			if (typeof domain !== 'string' || base == null || !matchesInstallationOrigin(domain, base)) {
 				return { ok: false, reason: 'no-connection' };
 			}
@@ -1670,20 +1698,21 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					: Promise.resolve(undefined)
 		).catch(() => undefined);
 		return integration != null
-			? integration.mutateIssue(connectionId, options, {
-					expectedLogin: expectedLogin,
-					installationOrigin: installationOrigin,
-				})
-			: { ok: false, reason: 'unknown', ...(enterprise ? { mutationDispatched: false } : {}) };
+			? { ok: true, integration: integration, installationOrigin: installationOrigin }
+			: { ok: false, reason: 'unknown' };
 	}
 
 	async resolvePullRequestWriteTarget(options: PullRequestWriteTargetOptions): Promise<PullRequestWriteTargetResult> {
 		if (options == null) return { ok: false, reason: 'invalid-input' };
 
 		const input = { ...options };
-		return this.withPullRequestWriteIntegration(input, integration =>
-			integration.resolvePullRequestWriteTarget(input.connectionId, input),
-		);
+		const connection = await this.getGitHubWriteConnection(input, 'pull-request');
+		return connection.ok
+			? connection.integration.resolvePullRequestWriteTarget(input.connectionId, input, {
+					expectedLogin: input.expectedLogin,
+					installationOrigin: connection.installationOrigin,
+				})
+			: connection;
 	}
 
 	async getPullRequestCreateCapability(
@@ -1692,32 +1721,26 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		if (options == null) return { ok: false, reason: 'invalid-input' };
 
 		const input = { ...options };
-		return this.withPullRequestWriteIntegration(input, integration =>
-			integration.getPullRequestCreateCapability(input.connectionId, input),
-		);
+		const connection = await this.getGitHubWriteConnection(input, 'pull-request');
+		return connection.ok
+			? connection.integration.getPullRequestCreateCapability(input.connectionId, input, {
+					expectedLogin: input.expectedLogin,
+					installationOrigin: connection.installationOrigin,
+				})
+			: connection;
 	}
 
 	async writePullRequest(options: PullRequestWriteOptions): Promise<PullRequestWriteResult> {
 		if (options == null) return { ok: false, reason: 'invalid-input' };
 
 		const input = { ...options };
-		return this.withPullRequestWriteIntegration(input, integration =>
-			integration.writePullRequest(input.connectionId, input),
-		);
-	}
-
-	private async withPullRequestWriteIntegration<T>(
-		{ providerId, connectionId }: { providerId: IntegrationIds; connectionId: string },
-		run: (integration: GitHubIntegration) => Promise<T>,
-	): Promise<T | PullRequestWriteFailure> {
-		if (providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
-		if (typeof connectionId !== 'string' || !connectionId.trim()) return { ok: false, reason: 'invalid-input' };
-		if (!this.getConfigured(providerId).some(connection => connection.id === connectionId)) {
-			return { ok: false, reason: 'no-connection' };
-		}
-
-		const integration = await this.get(providerId).catch(() => undefined);
-		return integration != null ? run(integration) : { ok: false, reason: 'unknown' };
+		const connection = await this.getGitHubWriteConnection(input, 'pull-request');
+		return connection.ok
+			? connection.integration.writePullRequest(input.connectionId, input, {
+					expectedLogin: input.expectedLogin,
+					installationOrigin: connection.installationOrigin,
+				})
+			: connection;
 	}
 
 	/**

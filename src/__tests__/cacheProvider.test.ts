@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue } from '@gitlens/git/models/issue.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { IntegrationIds } from '@gitlens/integrations/constants.js';
 import {
@@ -9,6 +10,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '@gitlens/integrations/constants.js';
 import type { IntegrationCacheDescriptor } from '@gitlens/integrations/index.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { CacheProvider } from '../cache.js';
 
 function createIntegration(
@@ -21,6 +23,16 @@ function createIntegration(
 		maybeConnected: true,
 		sessionFingerprint: 'shared-session',
 	};
+}
+
+function createPullRequest(title: string): PullRequest {
+	return {
+		id: '1',
+		title: title,
+		type: 'pullrequest',
+		state: 'opened',
+		closed: false,
+	} satisfies Partial<PullRequest> as PullRequest;
 }
 
 suite('CacheProvider', () => {
@@ -111,6 +123,155 @@ suite('CacheProvider', () => {
 			cache.peekIssue('PROJ-1', resource, hostB),
 			undefined,
 			'a same-key issue cached for one host is not returned for another',
+		);
+	});
+
+	test('isolates Enterprise pull request lookups and invalidation by origin', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource = { key: 'org/repo', owner: 'org', name: 'repo' };
+		const domain = 'ghe.example.test:8443';
+		const http = { ...createIntegration(domain), installationOrigin: `http://${domain}` };
+		const https = { ...createIntegration(domain), installationOrigin: `https://${domain}` };
+		const httpPullRequest = createPullRequest('HTTP pull request');
+		const httpsPullRequest = createPullRequest('HTTPS pull request');
+		const refreshed = createPullRequest('Refreshed pull request');
+		const issue = { id: '2', title: 'Issue', type: 'issue' } satisfies Partial<Issue> as Issue;
+
+		const loadHttp = () => ({ value: Promise.resolve(httpPullRequest) });
+		const loadHttps = () => ({ value: Promise.resolve(httpsPullRequest) });
+		const loadRefreshed = () => ({ value: Promise.resolve(refreshed) });
+		const fail = () => assert.fail('the cache must retain this entry');
+
+		await cache.getPullRequest('1', resource, http, loadHttp);
+		await cache.getPullRequestForBranch('main', resource, http, loadHttp);
+		await cache.getPullRequestForSha('abc', resource, http, loadHttp);
+		await cache.getIssueOrPullRequest('1', 'pullrequest', resource, http, loadHttp);
+		assert.strictEqual(await cache.getPullRequest('1', resource, https, loadHttps), httpsPullRequest);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, https, loadHttps), httpsPullRequest);
+		assert.strictEqual(await cache.getPullRequestForSha('abc', resource, https, loadHttps), httpsPullRequest);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'pullrequest', resource, https, loadHttps),
+			httpsPullRequest,
+		);
+
+		await cache.getIssueOrPullRequest('2', undefined, resource, http, () => ({ value: Promise.resolve(issue) }));
+		await cache.getIssueOrPullRequest('2', 'issue', resource, http, () => ({ value: Promise.resolve(issue) }));
+
+		cache.deletePullRequests({ id: http.id, domain: http.installationOrigin });
+
+		assert.strictEqual(await cache.getPullRequest('1', resource, http, loadRefreshed), refreshed);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, http, loadRefreshed), refreshed);
+		assert.strictEqual(await cache.getPullRequestForSha('abc', resource, http, loadRefreshed), refreshed);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'pullrequest', resource, http, loadRefreshed),
+			refreshed,
+		);
+		assert.strictEqual(await cache.getPullRequest('1', resource, https, fail), httpsPullRequest);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, https, fail), httpsPullRequest);
+		assert.strictEqual(await cache.getPullRequestForSha('abc', resource, https, fail), httpsPullRequest);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'pullrequest', resource, https, fail),
+			httpsPullRequest,
+		);
+		assert.strictEqual(await cache.getIssueOrPullRequest('2', undefined, resource, http, fail), issue);
+		assert.strictEqual(await cache.getIssueOrPullRequest('2', 'issue', resource, http, fail), issue);
+	});
+
+	test('invalidates an Enterprise pull request when the linked lookup used an issue hint', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource = { key: 'org/repo' };
+		const domain = 'ghe.example.test:8443';
+		const http = { ...createIntegration(domain), installationOrigin: `http://${domain}` };
+		const https = { ...createIntegration(domain), installationOrigin: `https://${domain}` };
+		const old = createPullRequest('Old');
+		const refreshed = createPullRequest('Refreshed');
+		const sibling = createPullRequest('Sibling');
+
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, http, () => ({ value: old })),
+			old,
+		);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, https, () => ({ value: sibling })),
+			sibling,
+		);
+
+		cache.deletePullRequests({ id: http.id, domain: http.installationOrigin });
+
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, http, () => ({ value: refreshed })),
+			refreshed,
+		);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, https, () => assert.fail('retain the sibling')),
+			sibling,
+		);
+	});
+
+	test('a pending Enterprise linked lookup cannot restore a pull request after invalidation', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource = { key: 'org/repo' };
+		const integration = {
+			...createIntegration('ghe.example.test'),
+			installationOrigin: 'https://ghe.example.test',
+		};
+		const stale = createPullRequest('Stale');
+		const fresh = createPullRequest('Fresh');
+		const pending = defer<PullRequest>();
+		const result = cache.getIssueOrPullRequest('1', undefined, resource, integration, () => ({
+			value: pending.promise,
+		}));
+
+		cache.deletePullRequests({ id: integration.id, domain: integration.installationOrigin });
+
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', undefined, resource, integration, () => ({ value: fresh })),
+			fresh,
+		);
+		pending.fulfill(stale);
+		assert.strictEqual(await result, stale);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', undefined, resource, integration, () => {
+				assert.fail('the replacement must remain cached');
+			}),
+			fresh,
+		);
+	});
+
+	test('an Enterprise read needs origin and credential proof to share a cache entry', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource = { key: 'org/repo' };
+		const bare = createIntegration('ghe.example.test');
+		const proved = { ...bare, installationOrigin: 'https://ghe.example.test' };
+		const first = createPullRequest('First');
+		const second = createPullRequest('Second');
+		const firstLoad = () => ({ value: first });
+		const secondLoad = () => ({ value: second });
+		const fail = () => assert.fail('a repeated proved read must reuse its cache entry');
+
+		const wrongOrigin = { ...proved, installationOrigin: 'http://ghe.example.test' };
+		const replacement = { ...proved, sessionFingerprint: 'replacement' };
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, bare, firstLoad), first);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, proved, secondLoad), second);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, proved, fail), second);
+		assert.strictEqual(await cache.getPullRequestForSha('abc', resource, proved, secondLoad), second);
+		for (const descriptor of [bare, wrongOrigin, replacement]) {
+			assert.strictEqual(cache.peekPullRequestForBranch('main', resource, descriptor), undefined);
+			assert.strictEqual(cache.peekPullRequestForSha('abc', resource, descriptor), undefined);
+		}
+
+		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, proved), second);
+		assert.strictEqual(cache.peekPullRequestForSha('abc', resource, proved), second);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, replacement, firstLoad), first);
+		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, replacement), first);
+		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, proved), undefined);
+		assert.deepStrictEqual(
+			await cache.getPullRequestsForBranchName('main', resource, bare, () => ({ value: [first] })),
+			[first],
+		);
+		assert.deepStrictEqual(
+			await cache.getPullRequestsForBranchName('main', resource, bare, () => ({ value: [second] })),
+			[second],
 		);
 	});
 

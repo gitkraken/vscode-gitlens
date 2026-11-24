@@ -7,10 +7,13 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { fnv1aHash64 } from '@gitlens/utils/hash.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
+import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
-import type { IntegrationCacheDescriptor, IntegrationManagerCacheProvider } from '../index.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import type { GitHostIntegration, IntegrationCacheDescriptor, IntegrationManagerCacheProvider } from '../index.js';
 import { createIntegrationManager } from '../index.js';
 import type { IntegrationService } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -240,6 +243,200 @@ suite('public integration manager cache', () => {
 		assert.equal(captured?.sessionFingerprint, undefined);
 
 		manager.dispose();
+	});
+
+	test('passes the same Enterprise session to the cache descriptor and deferred pull request loader', async () => {
+		const { cache: _internalCache, ...context } = createFakeRuntime();
+		const domain = 'ghe.example.test:8443';
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const replacement = { ...selected, baseUrl: `https://${domain}`, accessToken: 'replacement' };
+		let captured: IntegrationCacheDescriptor | undefined;
+		let beforeLoad: () => void = () => {};
+		const manager = createIntegrationManager({
+			...context,
+			cache: {
+				getCurrentAccount: (_integration, loader) => loader(new CacheController()).value,
+				getPullRequest: async (_id, _resource, integration, loader) => {
+					captured = integration;
+					await Promise.resolve();
+					beforeLoad();
+					return loader(new CacheController()).value;
+				},
+			},
+		}) as IntegrationService;
+		try {
+			const integration = await manager.get(providerId, selected.baseUrl);
+			const stubbed = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderPullRequest: (session: ProviderAuthenticationSession) => Promise<PullRequest | undefined>;
+			};
+			stubbed._session = selected;
+			beforeLoad = () => {
+				stubbed._session = replacement;
+			};
+			let dispatched: ProviderAuthenticationSession | undefined;
+			stubbed.getProviderPullRequest = async session => {
+				dispatched = session;
+				return undefined;
+			};
+			const repo = { key: 'octo/repo', owner: 'octo', name: 'repo' };
+
+			await integration.getPullRequest(repo, '1');
+			assert.equal(dispatched, selected);
+			assert.deepEqual(
+				{ ...captured },
+				{
+					id: providerId,
+					domain: domain,
+					maybeConnected: true,
+					installationOrigin: selected.baseUrl,
+					sessionFingerprint: fnv1aHash64(selected.accessToken),
+				},
+			);
+
+			await integration.getPullRequest(repo, '1');
+			assert.equal(dispatched, replacement);
+			assert.equal(captured?.installationOrigin, replacement.baseUrl);
+			assert.equal(captured?.sessionFingerprint, fnv1aHash64(replacement.accessToken));
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('scopes an Enterprise linked pull request when the caller hints that it is an issue', async () => {
+		const { cache: _internalCache, ...context } = createFakeRuntime();
+		const domain = 'ghe.example.test:8443';
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const linked = { id: '1', type: 'pullrequest' } satisfies Partial<PullRequest> as PullRequest;
+		let captured: IntegrationCacheDescriptor | undefined;
+		const manager = createIntegrationManager({
+			...context,
+			cache: {
+				getCurrentAccount: (_integration, loader) => loader(new CacheController()).value,
+				getIssueOrPullRequest: (_id, type, _resource, descriptor, loader) => {
+					assert.equal(type, 'issue');
+					captured = descriptor;
+					return loader(new CacheController()).value;
+				},
+			},
+		}) as IntegrationService;
+		try {
+			const integration = await manager.get(providerId, selected.baseUrl);
+			const stubbed = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderLinkedIssueOrPullRequest: (session: ProviderAuthenticationSession) => Promise<PullRequest>;
+			};
+			stubbed._session = selected;
+			stubbed.getProviderLinkedIssueOrPullRequest = async value => {
+				assert.equal(value, selected);
+				return linked;
+			};
+
+			const result = await integration.getLinkedIssueOrPullRequest(
+				{ key: 'octo/repo', owner: 'octo', name: 'repo' },
+				{ id: '1', key: '1' },
+				{ type: 'issue' },
+			);
+			assert.equal(result, linked);
+			assert.equal(captured?.installationOrigin, selected.baseUrl);
+			assert.equal(captured?.sessionFingerprint, fnv1aHash64(selected.accessToken));
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('exposes a cached-only Enterprise scope for the selected, non-retired local session', async () => {
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () => assert.fail('getting the scope must not make a request');
+		const domain = 'ghe.example.test:8443';
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const sibling = { ...selected, id: 'sibling', baseUrl: `https://${domain}` };
+		const webRemote = `${selected.baseUrl}/octo/repo.git`;
+		const sshRemote = 'ssh://git@ghe.example.test:2222/octo/repo.git';
+		const scpRemote = 'git@ghe.example.test:octo/repo.git';
+		const configured = new ConfiguredIntegrationService(runtime);
+		await configured.storeSession(providerId, sibling);
+		await configured.storeSession(providerId, selected);
+		await configured.setPrimaryConnection(providerId, selected.id);
+		const { cache: _internalCache, ...context } = runtime;
+		const manager = createIntegrationManager(context) as IntegrationService;
+		try {
+			const integration = await manager.get(providerId, selected.baseUrl);
+			const view: GitHostIntegration = integration;
+			const stubbed = integration as unknown as { _session?: ProviderAuthenticationSession };
+			assert.equal(view.getCachedPullRequestScope?.(webRemote), undefined);
+
+			stubbed._session = selected;
+			for (const remote of [webRemote, sshRemote, scpRemote]) {
+				const scope = view.getCachedPullRequestScope?.(remote);
+				assert.equal(scope?.installationOrigin, selected.baseUrl, remote);
+				assert.equal(scope?.sessionFingerprint, fnv1aHash64(selected.accessToken), remote);
+			}
+
+			for (const remote of [
+				`${sibling.baseUrl}/octo/repo.git`,
+				'http://ghe.example.test:8080/octo/repo.git',
+				'ssh://git@other.example.test:2222/octo/repo.git',
+				'git@other.example.test:octo/repo.git',
+				'ssh://git@ghe.example.test:invalid/octo/repo.git',
+				'git://ghe.example.test/octo/repo.git',
+				'file:///octo/repo.git',
+				'git@:octo/repo.git',
+				'git@ghe.example.test:',
+			]) {
+				assert.equal(view.getCachedPullRequestScope?.(remote), undefined, remote);
+			}
+
+			stubbed._session = { ...selected, expiresAt: new Date(0) };
+			assert.equal(view.getCachedPullRequestScope?.(webRemote), undefined);
+			stubbed._session = sibling;
+			assert.equal(view.getCachedPullRequestScope?.(sshRemote), undefined);
+
+			stubbed._session = selected;
+			const { configuredIntegrationService: localStore } = manager as unknown as {
+				configuredIntegrationService: ConfiguredIntegrationService;
+			};
+			const insideWrite = defer<void>();
+			const finishWrite = defer<void>();
+			const storeSecret = runtime.storage.storeSecret;
+			runtime.storage.storeSecret = async (key, value) => {
+				insideWrite.fulfill();
+				await finishWrite.promise;
+				await storeSecret(key, value);
+			};
+
+			const replacement = { ...selected, accessToken: 'replacement' };
+			const rotating = localStore.storeSession(providerId, replacement);
+			try {
+				await Promise.race([
+					insideWrite.promise,
+					rotating.then(() =>
+						assert.equal(insideWrite.pending, false, 'the replacement must reach the secret store'),
+					),
+				]);
+				assert.equal(stubbed._session, undefined);
+				assert.equal(view.getCachedPullRequestScope?.(sshRemote), undefined);
+			} finally {
+				finishWrite.fulfill();
+				await rotating;
+				runtime.storage.storeSecret = storeSecret;
+			}
+
+			stubbed._session = replacement;
+			integration.onSessionsRemoving('secondary', true);
+			assert.equal(
+				view.getCachedPullRequestScope?.(webRemote)?.sessionFingerprint,
+				fnv1aHash64(replacement.accessToken),
+			);
+			integration.onSessionsRemoving(replacement.id, replacement.cloud);
+			assert.equal(view.getCachedPullRequestScope?.(scpRemote), undefined);
+		} finally {
+			manager.dispose();
+			configured.dispose();
+		}
 	});
 
 	test('runs every lookup the cache omits uncached, and tolerates a missing eviction', async () => {

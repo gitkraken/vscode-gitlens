@@ -71,6 +71,19 @@ const snapshot = {
 	baseRef: baseRef,
 };
 const queueEntry = { state: 'AWAITING_CHECKS', enqueuedAt: '2026-11-23T09:00:00Z', position: 1 };
+const enterpriseDomain = 'http://ghe.example.test:8443';
+const enterprise = {
+	...repo,
+	providerId: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+	connectionId: 'enterprise-selected',
+	domain: enterpriseDomain,
+	expectedLogin: 'EnterpriseUser',
+};
+const enterpriseTarget = { ...target, ...enterprise };
+const enterpriseNode = { ...node, url: `${enterpriseDomain}/Org/Repo/pull/42` };
+const enterpriseSnapshot = { ...snapshot, domain: enterpriseDomain, url: enterpriseNode.url };
+const enterpriseMerge = { ...merge, ...enterprise };
+const enterpriseEnqueue = { ...enqueue, ...enterprise };
 const deniedBranchProtection = {
 	errors: [
 		{
@@ -87,6 +100,7 @@ type Call = {
 	query: string;
 	variables?: Record<string, unknown>;
 	canonicalIds: boolean;
+	redirect?: RequestInit['redirect'];
 };
 
 function cloudToken(accessToken: string, connectionId = 'selected') {
@@ -122,36 +136,70 @@ async function withManager(
 		runtime: ReturnType<typeof createFakeRuntime>;
 		storeSelected: (token: string) => Promise<boolean>;
 	}) => Promise<void>,
-	tokens: { primary: string; selected: string } = { primary: 'token-primary', selected: 'token-selected' },
+	options?: { primary?: string; selected?: string; enterpriseEnabled?: boolean; enterpriseBaseUrl?: string },
 ) {
+	const {
+		primary = 'token-primary',
+		selected = 'token-selected',
+		enterpriseEnabled = false,
+		enterpriseBaseUrl,
+	} = options ?? {};
 	const runtime = createFakeRuntime();
 	const configured = new ConfiguredIntegrationService(runtime);
-	const storeSession = (id: string, token: string) =>
-		configured.storeSession(GitCloudHostIntegrationId.GitHub, {
+	const cloudProvider = GitCloudHostIntegrationId.GitHub;
+	const storeSession = (
+		id: string,
+		token: string,
+		providerId: typeof cloudProvider | typeof enterprise.providerId = cloudProvider,
+		domain = 'github.com',
+		baseUrl?: string,
+	) =>
+		configured.storeSession(providerId, {
 			id: id,
 			accessToken: token,
 			account: { id: id, label: id },
 			scopes: ['repo'],
 			cloud: true,
 			type: 'oauth',
-			domain: 'github.com',
+			domain: domain,
+			baseUrl: baseUrl,
 		});
-	await storeSession('primary', tokens.primary);
-	await storeSession('selected', tokens.selected);
+	await storeSession('primary', primary);
+	await storeSession('selected', selected);
+	const storeEnterprise = (id: string, token: string, domain = enterpriseDomain) =>
+		storeSession(id, token, enterprise.providerId, domain);
+	if (enterpriseEnabled) {
+		await storeEnterprise('enterprise-primary', primary);
+		await storeSession(
+			enterprise.connectionId,
+			selected,
+			enterprise.providerId,
+			enterpriseDomain,
+			enterpriseBaseUrl,
+		);
+		await storeEnterprise('other-installation', 'token-other', 'https://other.example.test');
+	}
+
+	const storeSelected = (token: string) =>
+		enterpriseEnabled ? storeEnterprise(enterprise.connectionId, token) : storeSession('selected', token);
 	const calls: Call[] = [];
 	runtime.http.fetch = async (url, init) => {
 		const headers = new Headers(init?.headers);
-		assert.ok(typeof init?.body === 'string');
-		const body = JSON.parse(init.body) as { query: string; variables?: Record<string, unknown> };
+		const requestUrl = new URL(String(url));
+		const body =
+			typeof init?.body === 'string'
+				? (JSON.parse(init.body) as { query: string; variables?: Record<string, unknown> })
+				: { query: `GET ${requestUrl.pathname}` };
 		const call = {
-			url: new URL(String(url)),
+			url: requestUrl,
 			authorization: headers.get('authorization'),
 			canonicalIds: headers.get('x-github-next-global-id') === '1',
+			redirect: init?.redirect,
 			query: body.query.trimStart(),
 			variables: body.variables,
 		};
 		calls.push(call);
-		const result = await respond(call, token => storeSession('selected', token));
+		const result = await respond(call, storeSelected);
 		return result instanceof Response ? result : Response.json(result);
 	};
 	const manager = createIntegrationService(runtime);
@@ -160,7 +208,7 @@ async function withManager(
 			manager: manager,
 			calls: calls,
 			runtime: runtime,
-			storeSelected: token => storeSession('selected', token),
+			storeSelected: storeSelected,
 		});
 	} finally {
 		manager.dispose();
@@ -446,7 +494,7 @@ suite('IntegrationManager GitHub pull request writes', () => {
 		);
 	});
 
-	test('rejects unsupported and missing connections without sending traffic', async () => {
+	test('rejects unscoped Enterprise and missing cloud connections without sending traffic', async () => {
 		await withManager(
 			() => assert.fail('must not contact GitHub'),
 			async ({ manager }) => {
@@ -457,7 +505,7 @@ suite('IntegrationManager GitHub pull request writes', () => {
 					}),
 					{
 						ok: false,
-						reason: 'unsupported',
+						reason: 'invalid-input',
 					},
 				);
 				assert.deepEqual(await manager.writePullRequest({ ...merge, connectionId: 'missing' }), {
@@ -1157,6 +1205,455 @@ suite('IntegrationManager GitHub pull request writes', () => {
 				assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 2);
 			},
 			tokens,
+		);
+	});
+});
+
+function enterpriseMergeSchema(query: string, options?: { queue?: boolean; expectedHead?: boolean }) {
+	const { queue = true, expectedHead = true } = options ?? {};
+	const fields = (...names: string[]) => ({ fields: names.map(name => ({ name: name })) });
+	const schema = {
+		mutation: fields('mergePullRequest', ...(queue ? ['enqueuePullRequest'] : [])),
+		pr: fields(...(queue ? ['isInMergeQueue', 'isMergeQueueEnabled'] : [])),
+		ref: fields('refUpdateRule'),
+		legacy: fields('requiresLinearHistory'),
+		enqueue: queue
+			? { inputFields: [{ name: 'pullRequestId' }, ...(expectedHead ? [{ name: 'expectedHeadOid' }] : [])] }
+			: null,
+		enqueuePayload: queue ? fields('mergeQueueEntry') : null,
+		entry: queue ? fields('id', 'pullRequest') : null,
+		merge: { inputFields: [{ name: 'pullRequestId' }, { name: 'expectedHeadOid' }, { name: 'mergeMethod' }] },
+	};
+	const aliases = Array.from(query.matchAll(/\b(\w+):\s*__type\b/g), match => match[1]);
+	const inputTypes = aliases.filter(alias => alias === 'enqueue' || alias === 'merge');
+	assert.ok(inputTypes.length <= 2, 'Enterprise Server limits __Type.inputFields to two selections');
+	assert.ok(aliases.length - inputTypes.length <= 2, 'Enterprise Server limits __Type.fields to two selections');
+
+	return { data: Object.fromEntries(Object.entries(schema).filter(([alias]) => aliases.includes(alias))) };
+}
+
+suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
+	const viewer = { data: { viewer: { login: 'enterpriseuser' } } };
+	const targetResponse = { data: { repository: repository, node: enterpriseNode } };
+	const create = {
+		...enterprise,
+		action: 'create',
+		headRef: 'feature/change',
+		baseRef: baseRef,
+		title: node.title,
+		expectedRepositoryId: repository.id,
+	} as const;
+	const edit = { ...enterpriseTarget, action: 'edit', title: 'New title' } as const;
+
+	test('requires a full installation origin, the selected connection, and its live login', async () => {
+		await withManager(
+			() => viewer,
+			async ({ manager, calls }) => {
+				for (const domain of [
+					undefined,
+					'ghe.example.test:8443',
+					`${enterpriseDomain}/api/v3`,
+					`${enterpriseDomain}?x=1`,
+					'https://github.com:8443',
+				]) {
+					assert.deepEqual(
+						await manager.resolvePullRequestWriteTarget({ ...enterpriseTarget, domain: domain }),
+						{
+							ok: false,
+							reason: 'invalid-input',
+						},
+					);
+				}
+
+				assert.deepEqual(
+					await manager.resolvePullRequestWriteTarget({ ...enterpriseTarget, expectedLogin: undefined }),
+					{
+						ok: false,
+						reason: 'invalid-input',
+					},
+				);
+				for (const scope of [
+					{ domain: 'https://ghe.example.test:8443' },
+					{ connectionId: 'other-installation' },
+				]) {
+					assert.deepEqual(await manager.resolvePullRequestWriteTarget({ ...enterpriseTarget, ...scope }), {
+						ok: false,
+						reason: 'no-connection',
+					});
+				}
+
+				assert.equal(calls.length, 0);
+				assert.deepEqual(await manager.writePullRequest({ ...edit, expectedLogin: 'someone-else' }), {
+					ok: false,
+					reason: 'no-connection',
+				});
+				assert.equal(calls.length, 1);
+				assert.equal(calls[0].authorization, 'token token-selected');
+				assert.equal(calls[0].url.href, `${enterpriseDomain}/api/graphql`);
+				assert.equal(calls[0].redirect, 'error');
+				assert.equal(calls[0].canonicalIds, false);
+			},
+			{ enterpriseEnabled: true },
+		);
+	});
+
+	for (const path of ['/instance/api/v3', '/api/v4']) {
+		test(`rejects a configured Enterprise connection at ${path} before contacting GitHub`, async () => {
+			await withManager(
+				() => assert.fail('a path-bearing connection must not reach GitHub'),
+				async ({ manager, calls }) => {
+					assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
+						ok: false,
+						reason: 'no-connection',
+					});
+					assert.deepEqual(await manager.resolvePullRequestWriteTarget(enterpriseTarget), {
+						ok: false,
+						reason: 'no-connection',
+					});
+					assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
+					assert.equal(calls.length, 0);
+				},
+				{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}${path}` },
+			);
+		});
+
+		test(`rejects an Enterprise credential moved to ${path} after configuration`, async () => {
+			await withManager(
+				() => assert.fail('the credential must stay on the approved root installation'),
+				async ({ manager, runtime, calls }) => {
+					const key = `integration.auth.cloud:${enterprise.providerId}|${enterprise.connectionId}`;
+					const stored = await runtime.storage.getSecret(key);
+					assert.ok(stored);
+					const selected = JSON.parse(stored) as ProviderAuthenticationSession;
+					await runtime.storage.storeSecret(
+						key,
+						JSON.stringify({
+							...selected,
+							baseUrl: `${enterpriseDomain}${path}`,
+						}),
+					);
+					const configured = manager
+						.getConfigured(enterprise.providerId)
+						.find(connection => connection.id === enterprise.connectionId);
+					assert.equal(configured?.baseUrl, enterpriseDomain);
+
+					assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
+					assert.equal(calls.length, 0);
+				},
+				{ enterpriseEnabled: true, enterpriseBaseUrl: enterpriseDomain },
+			);
+		});
+	}
+
+	for (const path of ['/api', '/api/v3']) {
+		test(`accepts the ${path} alias on the configured Enterprise connection and credential`, async () => {
+			await withManager(
+				call => (call.query.startsWith('query WriteViewer') ? viewer : { data: { repository: repository } }),
+				async ({ manager, calls }) => {
+					assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
+						ok: true,
+						repositoryId: repository.id,
+						canCreate: true,
+					});
+					assert.deepEqual(
+						calls.map(call => call.url.href),
+						[`${enterpriseDomain}/api/graphql`, `${enterpriseDomain}/api/graphql`],
+					);
+				},
+				{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}${path}` },
+			);
+		});
+	}
+
+	test('pins the repository for create and checks both branches in the receipt', async () => {
+		await withManager(
+			call => {
+				if (call.query.startsWith('query WriteViewer')) return viewer;
+				if (call.query.startsWith('query PullRequestCreate')) return { data: { repository: repository } };
+
+				const { input } = call.variables ?? {};
+				assert.deepEqual(input, {
+					repositoryId: repository.id,
+					baseRefName: baseRef,
+					headRefName: create.headRef,
+					title: create.title,
+				});
+				return { data: { change: { pullRequest: { ...enterpriseNode, headRefName: create.headRef } } } };
+			},
+			async ({ manager, calls, runtime }) => {
+				const invalidated: unknown[] = [];
+				runtime.cache.deletePullRequests = scope => invalidated.push(scope);
+				assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
+					ok: true,
+					repositoryId: repository.id,
+					canCreate: true,
+				});
+				assert.deepEqual(await manager.writePullRequest({ ...create, expectedRepositoryId: undefined }), {
+					ok: false,
+					reason: 'invalid-input',
+				});
+				assert.deepEqual(
+					await manager.writePullRequest({ ...create, expectedRepositoryId: 'other-repository' }),
+					{
+						ok: false,
+						reason: 'not-found',
+					},
+				);
+				assert.deepEqual(await manager.writePullRequest(create), {
+					ok: true,
+					status: 'created',
+					pullRequest: enterpriseSnapshot,
+				});
+				assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
+				assert.deepEqual(invalidated, [{ id: enterprise.providerId, domain: enterpriseDomain }]);
+			},
+			{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}/api/v3` },
+		);
+	});
+
+	test('keeps edit and state changes available when merge policy is unavailable', async () => {
+		let state = 'OPEN';
+		await withManager(
+			call => {
+				if (call.query.startsWith('query WriteViewer')) return viewer;
+				if (call.query.startsWith('query PullRequestMergeSchema')) {
+					return call.query.startsWith('query PullRequestMergeSchemaBranch')
+						? deniedBranchProtection
+						: enterpriseMergeSchema(call.query);
+				}
+
+				if (call.query.startsWith('query PullRequestWriteTarget')) {
+					assert.doesNotMatch(call.query, /stack|viewerDefaultMergeMethod|isMergeQueueEnabled/);
+					return { data: { repository: repository, node: { ...enterpriseNode, state: state } } };
+				}
+				if (call.query.includes('updatePullRequest')) {
+					return { data: { change: { pullRequest: { ...enterpriseNode, title: edit.title } } } };
+				}
+				if (call.query.includes('closePullRequest')) {
+					state = 'CLOSED';
+					return { data: { change: { pullRequest: { ...enterpriseNode, state: state } } } };
+				}
+				if (call.query.includes('reopenPullRequest')) {
+					state = 'OPEN';
+					return { data: { change: { pullRequest: enterpriseNode } } };
+				}
+
+				return assert.fail(call.query);
+			},
+			async ({ manager }) => {
+				assert.deepEqual(await manager.resolvePullRequestWriteTarget(enterpriseTarget), {
+					ok: true,
+					pullRequest: enterpriseSnapshot,
+					capabilities: {
+						edit: true,
+						close: true,
+						reopen: false,
+						merge: { kind: 'unavailable', reason: 'forbidden' },
+					},
+				});
+				assert.deepEqual(await manager.writePullRequest(edit), {
+					ok: true,
+					status: 'updated',
+					pullRequest: { ...enterpriseSnapshot, title: edit.title },
+				});
+				assert.deepEqual(
+					await manager.writePullRequest({ ...enterpriseTarget, action: 'set-state', state: 'closed' }),
+					{
+						ok: true,
+						status: 'closed',
+						pullRequest: { ...enterpriseSnapshot, state: 'closed' },
+					},
+				);
+				assert.deepEqual(
+					await manager.writePullRequest({ ...enterpriseTarget, action: 'set-state', state: 'open' }),
+					{
+						ok: true,
+						status: 'reopened',
+						pullRequest: enterpriseSnapshot,
+					},
+				);
+			},
+			{ enterpriseEnabled: true },
+		);
+	});
+
+	test('reads active rules on a schema without queue support and checks the base again before direct merge', async () => {
+		let retarget = true;
+		let receiptBase = 'other';
+		await withManager(
+			call => {
+				if (call.query.startsWith('query WriteViewer')) return viewer;
+				if (call.query.startsWith('query PullRequestMergeSchema')) {
+					return enterpriseMergeSchema(call.query, { queue: false });
+				}
+
+				if (call.query.startsWith('GET ')) {
+					assert.equal(call.url.origin, enterpriseDomain);
+					assert.equal(call.url.pathname, '/api/v3/repos/Org/Repo/rules/branches/release%2Fstable');
+					assert.equal(call.authorization, 'token token-selected');
+					assert.equal(call.redirect, 'error');
+					if (call.url.searchParams.get('page') === '1') {
+						return Response.json(
+							[{ type: 'pull_request', parameters: { required_approving_review_count: 1 } }],
+							{
+								headers: { link: '<https://unrelated.example.test/>; rel="next"' },
+							},
+						);
+					}
+
+					assert.equal(call.url.searchParams.get('page'), '2');
+					return [{ type: 'pull_request', parameters: { allowed_merge_methods: ['squash', 'merge'] } }];
+				}
+				if (call.query.startsWith('query PullRequestLegacyBranchRule')) {
+					return { data: { node: { id: baseRefId, refUpdateRule: { requiresLinearHistory: true } } } };
+				}
+
+				if (call.query.startsWith('query PullRequestWriteTarget')) {
+					return retarget && call.variables?.expectedNodeId === node.id
+						? { data: { repository: repository, node: { ...enterpriseNode, baseRefName: 'other' } } }
+						: targetResponse;
+				}
+
+				assert.deepEqual(call.variables?.input, {
+					pullRequestId: node.id,
+					expectedHeadOid: headSha,
+					mergeMethod: 'SQUASH',
+				});
+				return {
+					data: { change: { pullRequest: { ...enterpriseNode, state: 'MERGED', baseRefName: receiptBase } } },
+				};
+			},
+			async ({ manager, calls }) => {
+				const result = await manager.resolvePullRequestWriteTarget(enterpriseTarget);
+				assert.ok(result.ok);
+				assert.deepEqual(result.capabilities.merge, {
+					kind: 'direct',
+					methods: ['squash'],
+					defaultMethod: undefined,
+				});
+				assert.deepEqual(await manager.writePullRequest(enterpriseMerge), {
+					ok: false,
+					reason: 'base-changed',
+				});
+				assert.ok(calls.every(call => !call.query.startsWith('mutation')));
+
+				retarget = false;
+				assert.deepEqual(await manager.writePullRequest(enterpriseMerge), {
+					ok: false,
+					reason: 'outcome-unknown',
+				});
+				assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
+				receiptBase = baseRef;
+				assert.deepEqual(await manager.writePullRequest(enterpriseMerge), {
+					ok: true,
+					status: 'merged',
+					pullRequest: { ...enterpriseSnapshot, state: 'merged' },
+				});
+			},
+			{ enterpriseEnabled: true },
+		);
+	});
+
+	for (const expectedHead of [true, false]) {
+		test(`offers the required queue only when its mutation accepts the head fence (${expectedHead})`, async () => {
+			await withManager(
+				call => {
+					if (call.query.startsWith('query WriteViewer')) return viewer;
+					if (call.query.startsWith('query PullRequestWriteTarget')) return targetResponse;
+					if (call.query.startsWith('query PullRequestMergeSchema')) {
+						return enterpriseMergeSchema(call.query, { expectedHead: expectedHead });
+					}
+
+					if (call.query.startsWith('query PullRequestMergeFeatures')) {
+						return { data: { node: { ...enterpriseNode, isMergeQueueEnabled: true } } };
+					}
+
+					assert.match(call.query, /change: enqueuePullRequest/);
+					assert.deepEqual(call.variables?.input, { pullRequestId: node.id, expectedHeadOid: headSha });
+					return { data: { change: { mergeQueueEntry: { id: 'MQ_42', pullRequest: enterpriseNode } } } };
+				},
+				async ({ manager, calls }) => {
+					const result = await manager.resolvePullRequestWriteTarget(enterpriseTarget);
+					assert.ok(result.ok);
+					assert.deepEqual(
+						result.capabilities.merge,
+						expectedHead ? { kind: 'queue' } : { kind: 'unavailable', reason: 'unsupported' },
+					);
+					assert.deepEqual(await manager.writePullRequest(enterpriseMerge), {
+						ok: false,
+						reason: expectedHead ? 'blocked' : 'unsupported',
+					});
+					assert.deepEqual(
+						await manager.writePullRequest(enterpriseEnqueue),
+						expectedHead
+							? { ok: true, status: 'queued', pullRequest: enterpriseSnapshot }
+							: { ok: false, reason: 'unsupported' },
+					);
+					assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, Number(expectedHead));
+				},
+				{ enterpriseEnabled: true },
+			);
+		});
+	}
+
+	for (const rotate of ['before', 'after'] as const) {
+		test(`fences a credential rotated ${rotate} mutation dispatch`, async () => {
+			await withManager(
+				async (call, storeSelected) => {
+					if (call.query.startsWith('query WriteViewer')) return viewer;
+					if (call.query.startsWith('query PullRequestWriteTarget')) {
+						if (rotate === 'before') {
+							assert.equal(await storeSelected('replacement'), true);
+						}
+
+						return targetResponse;
+					}
+
+					assert.equal(rotate, 'after');
+					assert.equal(await storeSelected('replacement'), true);
+					return { data: { change: { pullRequest: { ...enterpriseNode, title: edit.title } } } };
+				},
+				async ({ manager, calls }) => {
+					assert.deepEqual(
+						await manager.writePullRequest(edit),
+						rotate === 'before'
+							? { ok: false, reason: 'no-connection' }
+							: {
+									ok: true,
+									status: 'updated',
+									credentialChanged: true,
+									pullRequest: { ...enterpriseSnapshot, title: edit.title },
+								},
+					);
+					assert.equal(
+						calls.filter(call => call.query.startsWith('mutation')).length,
+						Number(rotate === 'after'),
+					);
+				},
+				{ enterpriseEnabled: true },
+			);
+		});
+	}
+
+	test('rejects a cross-installation target and treats a cross-installation receipt as uncertain', async () => {
+		let foreignTarget = true;
+		await withManager(
+			call => {
+				if (call.query.startsWith('query WriteViewer')) return viewer;
+				if (call.query.startsWith('query PullRequestWriteTarget')) {
+					return foreignTarget ? { data: writeTarget } : targetResponse;
+				}
+
+				return { data: { change: { pullRequest: node } } };
+			},
+			async ({ manager, calls }) => {
+				assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'not-found' });
+				assert.ok(calls.every(call => !call.query.startsWith('mutation')));
+				foreignTarget = false;
+				assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'outcome-unknown' });
+				assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
+			},
+			{ enterpriseEnabled: true },
 		);
 	});
 });

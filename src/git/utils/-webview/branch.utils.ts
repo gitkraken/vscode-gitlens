@@ -5,7 +5,13 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { MergeTarget } from '@gitlens/git/providers/branches.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
-import { getAzureRepositoryIdentity, isAzureProviderId } from '@gitlens/integrations/index.js';
+import type { IntegrationCacheDescriptor } from '@gitlens/integrations/index.js';
+import {
+	getAzureRepositoryIdentity,
+	getIntegrationIdForRemote,
+	GitSelfManagedHostIntegrationId,
+	isAzureProviderId,
+} from '@gitlens/integrations/index.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { getSettledValue, pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { EnrichedAutolink } from '../../../autolinks/models/autolinks.js';
@@ -219,14 +225,23 @@ export async function getBranchAssociatedPullRequest(
 	const integration = await getRemoteIntegration(remote);
 
 	if (options?.cached) {
+		let descriptor: IntegrationCacheDescriptor | undefined = integration;
+		if (getIntegrationIdForRemote(remote.provider) === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
+			const fetchUrl = remote.urls.find(url => url.type === 'fetch')?.url;
+			if (fetchUrl == null) return undefined;
+
+			descriptor = integration?.getCachedPullRequestScope?.(fetchUrl);
+			if (descriptor == null) return undefined;
+		}
+
 		if (branch.upstream?.missing) {
 			if (!branch.sha) return undefined;
-			return container.cache.peekPullRequestForSha(branch.sha, remote.provider.repoDesc, integration);
+			return container.cache.peekPullRequestForSha(branch.sha, remote.provider.repoDesc, descriptor);
 		}
 		return container.cache.peekPullRequestForBranch(
 			branch.trackingWithoutRemote ?? branch.nameWithoutRemote,
 			remote.provider.repoDesc,
-			integration,
+			descriptor,
 		);
 	}
 
@@ -251,8 +266,6 @@ export async function getBranchAssociatedPullRequest(
  * Every pull request whose head is the branch's upstream name, in any state, newest first — or `undefined` when that
  * couldn't be asked or answered (an empty list is a proven "none"). Unlike {@link getBranchAssociatedPullRequest},
  * which looks the ref up, this still finds a merged pull request after the host deleted its head branch.
- *
- * One uncached integration read, so it's cached here by branch name for an hour, "none" included.
  */
 export async function getBranchPullRequestsByHeadName(
 	container: Container,
@@ -324,6 +337,10 @@ export async function cacheBranchAssociatedPullRequest(
 
 	const remote = await getBranchRemote(container, branch);
 	if (remote?.provider == null) return;
+
+	if (getIntegrationIdForRemote(remote.provider) === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
+		return;
+	}
 
 	const integration = await getRemoteIntegration(remote);
 	void container.cache.getPullRequestForBranch(

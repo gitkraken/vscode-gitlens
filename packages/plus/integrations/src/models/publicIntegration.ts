@@ -174,6 +174,8 @@ export interface GitHostIntegration extends IntegrationViewBase {
 		rev: string,
 		options?: { avatarSize?: number },
 	): Promise<Account | UnidentifiedAuthor | undefined>;
+	/** Gets the established local session's cache descriptor for this fetch remote, without resolving or refreshing it. */
+	getCachedPullRequestScope?(remoteUrl: string): IntegrationCacheDescriptor | undefined;
 	getCurrentAccount(options?: {
 		avatarSize?: number;
 		connectionId?: string;
@@ -305,6 +307,8 @@ export type IntegrationById<T extends IntegrationIds> = T extends IssuesHostInte
 export interface IntegrationCacheDescriptor {
 	readonly id: IntegrationIds;
 	readonly domain?: string;
+	/** The HTTP(S) origin used by the selected session for this Enterprise pull request read. */
+	readonly installationOrigin?: string;
 	/** Whether the integration has a session; `undefined` until it has looked. */
 	readonly maybeConnected?: boolean;
 	/** A hash of the current session's token, which changes when the account or token does. */
