@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [19.7.0] - 2026-11-24
+
 ### Changed
 
 - Changes the icon for a pull request waiting in a merge queue to a pull request with a clock badge, so it reads as queued at a glance in the _Commit Graph_, views, hovers, autolinks, and _Launchpad_ ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126))
@@ -7740,7 +7742,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release but still heavily a work in progress.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.6.1...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/v19.7.0...HEAD
+[19.7.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.6.1...gitkraken:v19.7.0
 [19.6.1]: https://github.com/gitkraken/vscode-gitlens/compare/v19.6.0...gitkraken:v19.6.1
 [19.6.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.5.0...gitkraken:v19.6.0
 [19.5.0]: https://github.com/gitkraken/vscode-gitlens/compare/v19.4.0...gitkraken:v19.5.0
