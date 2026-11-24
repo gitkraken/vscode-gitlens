@@ -29,6 +29,17 @@ import type {
 	SupportedCloudIntegrationIds,
 } from './constants.js';
 import type {
+	IssueTrackerCreateOptions,
+	IssueTrackerCreateOptionsResult,
+	IssueTrackerDeleteOptions,
+	IssueTrackerIssueWriteOptions,
+	IssueTrackerIssueWriteOptionsResult,
+	IssueTrackerWriteOptions,
+	IssueTrackerWriteResult,
+	IssueTrackerWriteTargetOptions,
+	IssueTrackerWriteTargetResult,
+} from './models/issueTrackerWrites.js';
+import type {
 	GitHostIntegration,
 	IntegrationById,
 	IntegrationResult,
@@ -1229,6 +1240,15 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
+	getIssueTrackerCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult>;
+	getIssueTrackerIssueWriteOptions(
+		options: IssueTrackerIssueWriteOptions,
+	): Promise<IssueTrackerIssueWriteOptionsResult>;
+	writeIssueTrackerIssue(options: IssueTrackerWriteOptions): Promise<IssueTrackerWriteResult>;
+	deleteIssueTrackerIssue(options: IssueTrackerDeleteOptions): Promise<IssueTrackerWriteResult>;
+	resolveIssueTrackerIssueWriteTarget(
+		options: IssueTrackerWriteTargetOptions,
+	): Promise<IssueTrackerWriteTargetResult>;
 	sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	sweepClosedPullRequests(options?: ClosedPullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	broadenIssues(options: {

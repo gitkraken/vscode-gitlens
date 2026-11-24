@@ -31,6 +31,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
@@ -56,6 +57,7 @@ import {
 } from './bitbucket-server/pullRequestSearch.js';
 import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
 import { requestJiraIssueByKey, requestJiraIssuesEtagFields } from './jiraIssueByKey.js';
+import { JiraIssueWriter } from './jiraIssueWrites.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { requestLinearIssuesEtagFields } from './linearIssuesEtag.js';
 import type { PagingMode } from './metadata.js';
@@ -1281,6 +1283,17 @@ export class ProvidersApi implements Disposable {
 		} catch (e) {
 			return this.handleProviderError<ProviderAccount>(tokenWithInfo, e);
 		}
+	}
+
+	async getJiraIssueWriter(options: IssueTrackerWriteConnection): Promise<JiraIssueWriter | undefined> {
+		const session = await this.ensureProviderToken({
+			providerId: options.providerId,
+			connectionId: options.connectionId,
+		}).catch(() => undefined);
+		const tokenWithInfo = session?.tokenWithInfo;
+		if (tokenWithInfo?.connectionId !== options.connectionId || !tokenWithInfo.accessToken) return undefined;
+
+		return JiraIssueWriter.connect(this.request, tokenWithInfo.accessToken, options);
 	}
 
 	async getJiraResourcesForCurrentUser(
