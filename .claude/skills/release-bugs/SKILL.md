@@ -13,6 +13,8 @@ A refresh only touches issues that are new or changed since the last one. Settle
 - Writing requires Contributor (or higher) access to the page. Only the owner or an Editor can republish its layout from `page.html` in this folder. A refresh never republishes.
 - Trace method: `trace-prompt.md` in this folder. Rules for what counts live there and in `scripts/issues/release-bugs-core.mts`. Don't restate or change them here.
 
+Known limit: GitLens 4.x releases have no stable tags in the repo, so a defect that dates from 4.x resolves to v5.0.0 (e.g. #6185, which first shipped in 4.0.1). This is accepted because the ledger is for recent releases. The page says so; don't report it as a refresh error.
+
 ## Rules
 
 - Never write to GitHub.
