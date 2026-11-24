@@ -51,6 +51,7 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { batch, mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
@@ -85,6 +86,7 @@ import type {
 } from '../reads/etag.js';
 import { pullRequestCheckRunsEtag } from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
+import { areDomainsOnSameHostname, isWebRemoteScheme } from '../utils/domain.utils.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import { providersMetadata } from './metadata.js';
@@ -1901,7 +1903,7 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 
 	private readonly _removedSessions = new WeakSet<ProviderAuthenticationSession>();
 
-	getCachedPullRequestScope(origin: string): IntegrationCacheDescriptor | undefined {
+	getCachedPullRequestScope(remoteUrl: string): IntegrationCacheDescriptor | undefined {
 		const session = this._session;
 		if (
 			!session?.accessToken ||
@@ -1914,7 +1916,19 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 		}
 
 		const descriptor = this.getPullRequestCacheDescriptor(session);
-		return descriptor.installationOrigin === origin ? descriptor : undefined;
+		const { installationOrigin } = descriptor;
+		if (installationOrigin == null) return undefined;
+
+		const [scheme, domain, path] = parseGitRemoteUrl(remoteUrl);
+		if (!domain || !path) return undefined;
+
+		if (isWebRemoteScheme(scheme)) {
+			return URL.parse(remoteUrl)?.origin === installationOrigin ? descriptor : undefined;
+		}
+		if (scheme != null && scheme !== 'ssh://') return undefined;
+
+		const hostname = scheme === 'ssh://' ? URL.parse(remoteUrl)?.hostname : domain;
+		return areDomainsOnSameHostname(hostname, installationOrigin) ? descriptor : undefined;
 	}
 
 	override onSessionsRemoving(connectionId?: string, cloud?: boolean): void {

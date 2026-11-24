@@ -353,28 +353,47 @@ suite('public integration manager cache', () => {
 		const domain = 'ghe.example.test:8443';
 		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
 		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const sibling = { ...selected, id: 'sibling', baseUrl: `https://${domain}` };
+		const webRemote = `${selected.baseUrl}/octo/repo.git`;
+		const sshRemote = 'ssh://git@ghe.example.test:2222/octo/repo.git';
+		const scpRemote = 'git@ghe.example.test:octo/repo.git';
 		const configured = new ConfiguredIntegrationService(runtime);
+		await configured.storeSession(providerId, sibling);
 		await configured.storeSession(providerId, selected);
+		await configured.setPrimaryConnection(providerId, selected.id);
 		const { cache: _internalCache, ...context } = runtime;
 		const manager = createIntegrationManager(context) as IntegrationService;
 		try {
 			const integration = await manager.get(providerId, selected.baseUrl);
 			const view: GitHostIntegration = integration;
 			const stubbed = integration as unknown as { _session?: ProviderAuthenticationSession };
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+			assert.equal(view.getCachedPullRequestScope?.(webRemote), undefined);
 
 			stubbed._session = selected;
-			assert.equal(view.getCachedPullRequestScope?.(`https://${domain}`), undefined);
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl)?.installationOrigin, selected.baseUrl);
-			assert.equal(
-				view.getCachedPullRequestScope?.(selected.baseUrl)?.sessionFingerprint,
-				fnv1aHash64(selected.accessToken),
-			);
+			for (const remote of [webRemote, sshRemote, scpRemote]) {
+				const scope = view.getCachedPullRequestScope?.(remote);
+				assert.equal(scope?.installationOrigin, selected.baseUrl, remote);
+				assert.equal(scope?.sessionFingerprint, fnv1aHash64(selected.accessToken), remote);
+			}
+
+			for (const remote of [
+				`${sibling.baseUrl}/octo/repo.git`,
+				'http://ghe.example.test:8080/octo/repo.git',
+				'ssh://git@other.example.test:2222/octo/repo.git',
+				'git@other.example.test:octo/repo.git',
+				'ssh://git@ghe.example.test:invalid/octo/repo.git',
+				'git://ghe.example.test/octo/repo.git',
+				'file:///octo/repo.git',
+				'git@:octo/repo.git',
+				'git@ghe.example.test:',
+			]) {
+				assert.equal(view.getCachedPullRequestScope?.(remote), undefined, remote);
+			}
 
 			stubbed._session = { ...selected, expiresAt: new Date(0) };
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
-			stubbed._session = { ...selected, id: 'secondary' };
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+			assert.equal(view.getCachedPullRequestScope?.(webRemote), undefined);
+			stubbed._session = sibling;
+			assert.equal(view.getCachedPullRequestScope?.(sshRemote), undefined);
 
 			stubbed._session = selected;
 			const { configuredIntegrationService: localStore } = manager as unknown as {
@@ -399,7 +418,7 @@ suite('public integration manager cache', () => {
 					),
 				]);
 				assert.equal(stubbed._session, undefined);
-				assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+				assert.equal(view.getCachedPullRequestScope?.(sshRemote), undefined);
 			} finally {
 				finishWrite.fulfill();
 				await rotating;
@@ -409,11 +428,11 @@ suite('public integration manager cache', () => {
 			stubbed._session = replacement;
 			integration.onSessionsRemoving('secondary', true);
 			assert.equal(
-				view.getCachedPullRequestScope?.(selected.baseUrl)?.sessionFingerprint,
+				view.getCachedPullRequestScope?.(webRemote)?.sessionFingerprint,
 				fnv1aHash64(replacement.accessToken),
 			);
 			integration.onSessionsRemoving(replacement.id, replacement.cloud);
-			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+			assert.equal(view.getCachedPullRequestScope?.(scpRemote), undefined);
 		} finally {
 			manager.dispose();
 			configured.dispose();

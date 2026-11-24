@@ -120,11 +120,18 @@ cache controls (`connectionId`, `etag`, expiry). The optional methods are:
 A method you omit means no caching for that read: its loader runs on every call (and `deletePullRequests` is a
 no-op). Call a method as `cache.method(...)`; the manager never detaches it, so a class instance works.
 
-The descriptor is `{ id, domain, maybeConnected, sessionFingerprint }`, not the integration class. Its getters read
-through to the live integration each time they are read, so the values are live, not snapshots. Key entries by `id`
-and `domain`, and treat `maybeConnected` and `sessionFingerprint` as the entry's etag: when either changes (a
-reconnect, a token change) the entry must miss. The descriptor is `undefined` for lookups with no integration.
-The fixture uses the package's public `PromiseCache` utility, but any cache with the same behavior is valid.
+The cache descriptor exposes `id`, `domain`, `maybeConnected`, and `sessionFingerprint` without exposing the
+integration instance. Key entries by provider and domain, and treat the connection state and fingerprint as the
+entry's etag. Enterprise pull request descriptors also carry `installationOrigin` and the fingerprint captured for
+the request. Use that origin as the cache namespace so installations that share a hostname stay independent.
+For other reads, the state and fingerprint getters reflect the live integration. A lookup without an integration
+receives an undefined descriptor. The fixture uses the package's public `PromiseCache` utility, but any cache with
+the same behavior is valid.
+
+For a cached-only Enterprise pull request lookup, `GitHostIntegration.getCachedPullRequestScope?(remoteUrl)` accepts
+the fetch remote URL. HTTP(S) remotes must match the selected session's scheme, host, and port. SSH and scp
+remotes must match its hostname, and the scope uses the session's actual API origin. The optional method returns
+`undefined` without a matching established session and makes no authentication or network requests.
 
 ### Authentication
 

@@ -228,10 +228,9 @@ export async function getBranchAssociatedPullRequest(
 		let descriptor: IntegrationCacheDescriptor | undefined = integration;
 		if (getIntegrationIdForRemote(remote.provider) === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
 			const fetchUrl = remote.urls.find(url => url.type === 'fetch')?.url;
-			const origin = fetchUrl == null ? undefined : URL.parse(fetchUrl)?.origin;
-			if (origin == null) return undefined;
+			if (fetchUrl == null) return undefined;
 
-			descriptor = integration?.getCachedPullRequestScope?.(origin);
+			descriptor = integration?.getCachedPullRequestScope?.(fetchUrl);
 			if (descriptor == null) return undefined;
 		}
 

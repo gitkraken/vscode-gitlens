@@ -174,8 +174,8 @@ export interface GitHostIntegration extends IntegrationViewBase {
 		rev: string,
 		options?: { avatarSize?: number },
 	): Promise<Account | UnidentifiedAuthor | undefined>;
-	/** Gets the cache descriptor for an established local session at this origin, without resolving or refreshing it. */
-	getCachedPullRequestScope?(origin: string): IntegrationCacheDescriptor | undefined;
+	/** Gets the established local session's cache descriptor for this fetch remote, without resolving or refreshing it. */
+	getCachedPullRequestScope?(remoteUrl: string): IntegrationCacheDescriptor | undefined;
 	getCurrentAccount(options?: {
 		avatarSize?: number;
 		connectionId?: string;
