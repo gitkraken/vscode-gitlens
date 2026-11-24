@@ -213,7 +213,6 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 			}
 			<gl-tooltip placement="bottom">
 				<a class="action-button wip-button" @click=${this.onJumpToWip}>
-					<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
 					<gl-wip-stats
 						.added=${this.wipState?.workDirStats?.added}
 						.modified=${this.wipState?.workDirStats?.modified}
