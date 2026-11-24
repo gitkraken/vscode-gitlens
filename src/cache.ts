@@ -84,10 +84,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 	}
 
 	deletePullRequests(scope?: { id: IntegrationCacheDescriptor['id']; domain: string }): void {
-		const prefix = scope == null ? undefined : pullRequestInstallationPrefix(scope);
-		if (prefix === '') return;
+		const prefix = scope == null ? undefined : pullRequestInstallationPrefix(scope.id, scope.domain);
+		if (scope != null && prefix == null) return;
 
-		for (const key of this._cache.keys()) {
+		for (const [key, item] of this._cache) {
 			if (prefix != null && key.split(':', 3)[2]?.startsWith(prefix) !== true) continue;
 
 			if (
@@ -100,11 +100,20 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 				continue;
 			}
 
-			if (
-				(key.startsWith('issuesOrPrsById:') || key.startsWith('issuesOrPrsByIdAndRepo:')) &&
-				(prefix != null || key.includes(`:${'pullrequest' satisfies IssueOrPullRequestType}`))
-			) {
-				this._cache.delete(key);
+			if (key.startsWith('issuesOrPrsById:') || key.startsWith('issuesOrPrsByIdAndRepo:')) {
+				if (
+					prefix != null &&
+					!isPromise(item.value) &&
+					item.value != null &&
+					'type' in item.value &&
+					item.value.type === 'issue'
+				) {
+					continue;
+				}
+
+				if (prefix != null || key.includes(`:${'pullrequest' satisfies IssueOrPullRequestType}`)) {
+					this._cache.delete(key);
+				}
 			}
 		}
 	}
@@ -184,8 +193,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		cacheable: Cacheable<IssueOrPullRequest>,
 		options?: ExpiryOptions,
 	): CacheResult<IssueOrPullRequest> {
-		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
-		const prefix = type !== 'issue' ? pullRequestInstallationPrefix(integration) : '';
+		const address = this.getPullRequestCacheAddress(resource, integration, type);
+		if (address == null) return cacheable(new CacheController()).value;
+
+		const { key, etag, prefix } = address;
 
 		if (resource == null) {
 			return this.get(
@@ -241,8 +252,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		cacheable: Cacheable<PullRequest>,
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
-		const { key, etag } = this.getResourceKeyAndEtag(resource, integration);
-		const prefix = pullRequestInstallationPrefix(integration);
+		const address = this.getPullRequestCacheAddress(resource, integration);
+		if (address == null) return cacheable(new CacheController()).value;
+
+		const { key, etag, prefix } = address;
 
 		if (resource == null) {
 			return this.get(
@@ -269,8 +282,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		cacheable: Cacheable<PullRequest>,
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
-		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
-		const prefix = pullRequestInstallationPrefix(integration);
+		const address = this.getPullRequestCacheAddress(repo, integration);
+		if (address == null) return cacheable(new CacheController()).value;
+
+		const { key, etag, prefix } = address;
 		return this.get(
 			'prByBranch',
 			`branch:${prefix}${branch}:${key}`,
@@ -287,9 +302,12 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		cacheable: Cacheable<PullRequest[]>,
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest[]> {
+		if (integration?.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
+			return cacheable(new CacheController()).value;
+		}
+
 		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
-		const prefix = pullRequestInstallationPrefix(integration);
-		return this.get('prsByBranchName', `branch:${prefix}${branch}:${key}`, etag, cacheable, options);
+		return this.get('prsByBranchName', `branch:${branch}:${key}`, etag, cacheable, options);
 	}
 
 	getPullRequestForSha(
@@ -299,8 +317,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		cacheable: Cacheable<PullRequest>,
 		options?: ExpiryOptions,
 	): CacheResult<PullRequest> {
-		const { key, etag } = this.getResourceKeyAndEtag(repo, integration);
-		const prefix = pullRequestInstallationPrefix(integration);
+		const address = this.getPullRequestCacheAddress(repo, integration);
+		if (address == null) return cacheable(new CacheController()).value;
+
+		const { key, etag, prefix } = address;
 		return this.get(
 			'prsBySha',
 			`sha:${prefix}${sha}:${key}`,
@@ -325,9 +345,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		repo: ResourceDescriptor,
 		integration: IntegrationCacheDescriptor | undefined,
 	): PullRequest | undefined {
+		if (integration?.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) return undefined;
+
 		const { key } = this.getResourceKeyAndEtag(repo, integration);
-		const prefix = pullRequestInstallationPrefix(integration);
-		return this.peek('prByBranch', `branch:${prefix}${branch}:${key}`);
+		return this.peek('prByBranch', `branch:${branch}:${key}`);
 	}
 
 	peekPullRequestForSha(
@@ -335,9 +356,10 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		repo: ResourceDescriptor,
 		integration: IntegrationCacheDescriptor | undefined,
 	): PullRequest | undefined {
+		if (integration?.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) return undefined;
+
 		const { key } = this.getResourceKeyAndEtag(repo, integration);
-		const prefix = pullRequestInstallationPrefix(integration);
-		return this.peek('prsBySha', `sha:${prefix}${sha}:${key}`);
+		return this.peek('prsBySha', `sha:${sha}:${key}`);
 	}
 
 	peekIssue(
@@ -478,18 +500,37 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		return { key: `${integration.id}:${host}:${key}`, etag: etag };
 	}
 
+	private getPullRequestCacheAddress(
+		resource: ResourceDescriptor,
+		integration: IntegrationCacheDescriptor | undefined,
+		type?: IssueOrPullRequestType,
+	) {
+		if (type === 'issue' || integration?.id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
+			return { ...this.getResourceKeyAndEtag(resource, integration), prefix: '' };
+		}
+
+		const { installationOrigin, sessionFingerprint } = integration;
+		const prefix = pullRequestInstallationPrefix(integration.id, installationOrigin);
+		if (prefix == null || !sessionFingerprint) return undefined;
+
+		return { key: resource.key, etag: sessionFingerprint, prefix: prefix };
+	}
+
 	private getIntegrationCacheKey(integration: IntegrationCacheDescriptor): string {
 		return `${integration.id}:${integration.domain}`;
 	}
 }
 
 function pullRequestInstallationPrefix(
-	integration: Pick<IntegrationCacheDescriptor, 'id' | 'domain'> | undefined,
-): string {
-	if (integration?.id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) return '';
+	id: IntegrationCacheDescriptor['id'],
+	origin: string | undefined,
+): string | undefined {
+	if (id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise || !origin) return undefined;
 
-	const host = hostFromDomain(integration.domain);
-	return host == null ? '' : `^${encodeURIComponent(host)}^`;
+	const url = URL.parse(origin);
+	if ((url?.protocol !== 'https:' && url?.protocol !== 'http:') || url.href !== `${url.origin}/`) return undefined;
+
+	return `^${encodeURIComponent(url.origin)}^`;
 }
 
 /**

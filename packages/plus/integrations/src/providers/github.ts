@@ -72,7 +72,11 @@ import type {
 	ProviderPullRequestSearchPage,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
+import type {
+	IntegrationCacheDescriptor,
+	SearchMyPullRequestsOptions,
+	SearchPullRequestsOptions,
+} from '../models/publicIntegration.js';
 import type {
 	IssueEtagFields,
 	IssueEtagInclude,
@@ -1897,6 +1901,22 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 
 	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
 		return this.getSelfManagedApiBaseUrl(session);
+	}
+
+	protected override getPullRequestCacheDescriptor(
+		session: ProviderAuthenticationSession,
+	): IntegrationCacheDescriptor {
+		try {
+			return {
+				id: this.id,
+				domain: this.domain,
+				maybeConnected: true,
+				installationOrigin: new URL(this.apiBaseUrlFor(session)).origin,
+				sessionFingerprint: this.getSessionFingerprint(session),
+			};
+		} catch {
+			return this;
+		}
 	}
 
 	constructor(

@@ -137,6 +137,7 @@ function toCacheDescriptor(
 	return {
 		id: integration.id,
 		domain: integration.domain,
+		...(integration.installationOrigin != null && { installationOrigin: integration.installationOrigin }),
 		get maybeConnected() {
 			return integration.maybeConnected;
 		},

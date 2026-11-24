@@ -7,9 +7,10 @@ import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
+import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationCacheDescriptor, IntegrationManagerCacheProvider } from '../index.js';
 import { createIntegrationManager } from '../index.js';
 import type { IntegrationService } from '../integrationService.js';
@@ -240,6 +241,65 @@ suite('public integration manager cache', () => {
 		assert.equal(captured?.sessionFingerprint, undefined);
 
 		manager.dispose();
+	});
+
+	test('passes the same Enterprise session to the cache descriptor and deferred pull request loader', async () => {
+		const { cache: _internalCache, ...context } = createFakeRuntime();
+		const domain = 'ghe.example.test:8443';
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const replacement = { ...selected, baseUrl: `https://${domain}`, accessToken: 'replacement' };
+		let captured: IntegrationCacheDescriptor | undefined;
+		let beforeLoad: () => void = () => {};
+		const manager = createIntegrationManager({
+			...context,
+			cache: {
+				getCurrentAccount: (_integration, loader) => loader(new CacheController()).value,
+				getPullRequest: async (_id, _resource, integration, loader) => {
+					captured = integration;
+					await Promise.resolve();
+					beforeLoad();
+					return loader(new CacheController()).value;
+				},
+			},
+		}) as IntegrationService;
+		try {
+			const integration = await manager.get(providerId, selected.baseUrl);
+			const stubbed = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderPullRequest: (session: ProviderAuthenticationSession) => Promise<PullRequest | undefined>;
+			};
+			stubbed._session = selected;
+			beforeLoad = () => {
+				stubbed._session = replacement;
+			};
+			let dispatched: ProviderAuthenticationSession | undefined;
+			stubbed.getProviderPullRequest = async session => {
+				dispatched = session;
+				return undefined;
+			};
+			const repo = { key: 'octo/repo', owner: 'octo', name: 'repo' };
+
+			await integration.getPullRequest(repo, '1');
+			assert.equal(dispatched, selected);
+			assert.deepEqual(
+				{ ...captured },
+				{
+					id: providerId,
+					domain: domain,
+					maybeConnected: true,
+					installationOrigin: selected.baseUrl,
+					sessionFingerprint: fnv1aHash64(selected.accessToken),
+				},
+			);
+
+			await integration.getPullRequest(repo, '1');
+			assert.equal(dispatched, replacement);
+			assert.equal(captured?.installationOrigin, replacement.baseUrl);
+			assert.equal(captured?.sessionFingerprint, fnv1aHash64(replacement.accessToken));
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	test('runs every lookup the cache omits uncached, and tolerates a missing eviction', async () => {

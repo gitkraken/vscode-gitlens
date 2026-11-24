@@ -974,19 +974,20 @@ export abstract class GitHostIntegration<
 			return undefined;
 		}
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const pr = this.ctx.cache.getPullRequestForBranch(
 			branch,
 			repo,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, opts);
+						const result = await this.getProviderPullRequestForBranch(session, repo, branch, opts);
 						this.resetRequestExceptionCount('getPullRequestForBranch');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer: left cached, the `undefined` below reads as "no pull
-						// request" for the bucket's whole expiry (an hour by branch).
 						cacheable.invalidate();
 						this.handleProviderException('getPullRequestForBranch', ex, { scope: scope });
 						if (throwOnError) throw ex;
@@ -1024,14 +1025,16 @@ export abstract class GitHostIntegration<
 			return undefined;
 		}
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const fresh = cacheOptions.expiryOverride === true;
 		const pr = this.ctx.cache.getPullRequestForSha(
 			rev,
 			repo,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
-					const session = this._session!;
 					const keys = this.getCommitLookupBackoffKeys(session, repo, rev);
 					if (!fresh) {
 						const now = Date.now();
