@@ -939,6 +939,49 @@ An `ok: false` result contains a typed reason. GitHub can report inaccessible pr
 before the response was lost. For an Enterprise failure with `mutationDispatched: false`, Core stopped
 before sending a mutation.
 
+### Jira Cloud issue writes
+
+Use the tracker methods on `IntegrationManager` from `@gitkraken/core-gitlens/plus/integrations/index.js`.
+Each call takes `providerId: IssuesCloudHostIntegrationId.Jira`, the selected `connectionId` and that
+connection's `resourceId` (the Atlassian cloud ID). The manager looks up the site's URL with the same
+credential used for reads. If you supply `expectedAccountId`, the account returned by Jira's `/myself`
+must match. Use the returned `accountId` for subsequent calls. Issue and project keys can repeat across
+sites, so retain the cloud ID alongside the canonical issue ID.
+
+| Method                                | Additional input                                                                                          | Success                                                                                                                           |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `getIssueTrackerCreateOptions`        | `project` (key or ID), optional `issueTypeId`                                                             | Canonical project, its `issueTypes` or the selected type's `fields`, and `truncated`.                                             |
+| `getIssueTrackerIssueWriteOptions`    | `issue` (key or ID), optional `expectedIssueId`                                                           | Issue receipt, `accountId`, editable `fields`, `transitions`, permission flags and `deleteCapability`.                            |
+| `writeIssueTrackerIssue`              | `action: 'create'`, `project`, `issueTypeId`, `summary`, optional `description` and `fields`              | Created issue receipt and `accountId`.                                                                                            |
+| `writeIssueTrackerIssue`              | `action: 'edit'`, `issue`, `expectedIssueId`, at least one change in `summary`, `description` or `fields` | Updated issue receipt and `accountId`.                                                                                            |
+| `writeIssueTrackerIssue`              | `action: 'transition'`, `issue`, `expectedIssueId`, `transitionId`, optional `fields`                     | Updated issue receipt and `accountId`.                                                                                            |
+| `resolveIssueTrackerIssueWriteTarget` | `issue`, optional `expectedIssueId` and `intent: 'delete'`                                                | Canonical issue receipt and `accountId` for a confirmation UI. Delete intent also checks the credential, permission and subtasks. |
+| `deleteIssueTrackerIssue`             | `issue`, `expectedIssueId`, `expectedAccountId`                                                           | Pre-delete issue receipt and `accountId` after Jira acknowledges the delete.                                                      |
+
+Use the metadata for the exact project, issue type or transition you selected. Each field carries its
+ID, operations, required and default flags, and any schema or allowed values Jira sends. Create
+metadata is read in at most 20 requests of up to 50 entries each. Check `truncated` before treating the
+returned list as complete. Pass Jira REST field values as a map keyed by field ID. Use the top-level
+inputs for `summary`, `description`, `project` and `issueTypeId`. Jira REST v2 accepts Jira wiki markup
+strings for rich-text fields. The caller is responsible for converting other formats.
+
+For an existing issue, retain the returned key and canonical ID together. Edit, transition and delete
+resolve the address again and send the mutation by canonical ID. A key Jira resolves to a moved issue
+or an ID that differs from the observed ID returns `conflict`. Each receipt contains the site, canonical ID
+and key, browser URL, project ID and key, issue type, summary, and workflow status ID, name and category.
+
+Before presenting a delete confirmation, resolve with `intent: 'delete'`. Delete checks the same
+site, account and issue on execution. Issues with subtasks are refused. The site grant must include
+the `delete:issue:jira` granular scope or the `write:jira-work` classic scope, and the user also needs
+Jira's Delete Issues permission. The GitKraken Jira grant currently needs an updated scope and
+reconnection before delete is available.
+
+Failures have `ok: false` and a typed `reason`. An `invalid-input` result may include `fieldErrors`
+and `messages` from Jira. A scope mismatch returns `insufficient-scope` without expiring the read
+credential. `mutationDispatched: false` means Core stopped before sending the write. Treat
+`applied: 'maybe'` as uncertain and reconcile the issue state before retrying. A successful delete
+requires Jira's `204` acknowledgement. Jira can also return `404` when visibility changes. [Jira Cloud REST v2 issue operations](https://developer.atlassian.com/cloud/jira/platform/rest/v2/api-group-issues/)
+
 ### GitHub and GitHub Enterprise Server pull request writes
 
 Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the
