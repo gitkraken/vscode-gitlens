@@ -4,6 +4,8 @@ import {
 	getDefaultEnd,
 	getDefaultStart,
 	getMinEndIndex,
+	getScopePresets,
+	isSameScopeSelection,
 	rangeMovedWithRows,
 	resolveEndIndex,
 	resolveSelectionRange,
@@ -213,5 +215,57 @@ suite('gl-commits-scope-pane range/floor utils', () => {
 			assert.strictEqual(rangeMovedWithRows([], rows, undefined, range('a', 'a')), false);
 			assert.strictEqual(rangeMovedWithRows(rows, [], range('a', 'a'), undefined), false);
 		});
+	});
+});
+
+suite('getScopePresets', () => {
+	const wip = [unstaged, staged];
+	const pushed = (id: string) => item(id, 'pushed');
+	const unpushed = (id: string) => item(id, 'unpushed');
+
+	function presets(items: ScopeItem[], includeShas: string[] = [], includeUncommitted = true) {
+		const selected = [...(includeUncommitted ? ['unstaged', 'staged'] : []), ...includeShas];
+		return getScopePresets(items).map(p => [p.key, isSameScopeSelection(p.ids, selected)]);
+	}
+
+	test('offers the uncommitted changes, the unpushed commits with them, and the whole branch', () => {
+		const items = [...wip, unpushed('c3'), pushed('c2'), pushed('c1'), loadMore, mergeBase];
+		assert.deepStrictEqual(presets(items), [
+			['uncommitted', true],
+			['unpushed', false],
+			['branch', false],
+		]);
+		assert.deepStrictEqual(
+			presets(items, ['c3', 'c2', 'c1']).map(([, pressed]) => pressed),
+			[false, false, true],
+		);
+	});
+
+	test('leaves out a preset that picks what another does, and shows nothing when there is no choice', () => {
+		const withoutUpstream = [...wip, unpushed('c2'), unpushed('c1'), mergeBase];
+		assert.deepStrictEqual(
+			presets(withoutUpstream).map(([key]) => key),
+			['uncommitted', 'branch'],
+		);
+
+		const withoutMergeBase = [...wip, unpushed('c2'), pushed('c1'), loadMore];
+		assert.deepStrictEqual(
+			presets(withoutMergeBase).map(([key]) => key),
+			['uncommitted', 'unpushed'],
+		);
+
+		assert.deepStrictEqual(presets([...wip]), []);
+	});
+
+	test('shows a lone Branch preset on a pushed branch with a clean tree', () => {
+		const items = [pushed('c2'), pushed('c1'), loadMore, mergeBase];
+		assert.deepStrictEqual(presets(items, ['c2'], false), [['branch', false]]);
+		assert.deepStrictEqual(presets(items, ['c2', 'c1'], false), [['branch', true]]);
+	});
+
+	test('keeps Branch to the commits above the merge base once Load more lists it', () => {
+		const items = [pushed('c2'), pushed('c1'), { ...pushed('m2'), mergeBase: true }, pushed('m1')];
+		assert.deepStrictEqual(presets(items, ['c2', 'c1', 'm2'], false), [['branch', false]]);
+		assert.deepStrictEqual(presets(items, ['c2', 'c1'], false), [['branch', true]]);
 	});
 });

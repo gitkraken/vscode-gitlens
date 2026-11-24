@@ -153,8 +153,6 @@ export type RunningOperation =
 			focusAreaRuns?: ReadonlyMap<string, AbortController>;
 			/** The reader's progress through the changeset; carried across runs, dropped with the entry. */
 			session?: ReviewSession;
-			/** The content the AI findings were made against, to tell which describe a file that has moved
-			 *  on since; started over by each fresh result, added to as findings come in after it. */
 			findingsContent?: ReviewFindingsContent;
 			/** The model's findings this review had before its current run — what the run's findings, and a
 			 *  two-pass area's when its details come, take their ids from when they are the same ones; kept

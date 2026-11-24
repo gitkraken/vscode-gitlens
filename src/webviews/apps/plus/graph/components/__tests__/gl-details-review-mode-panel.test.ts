@@ -19,6 +19,10 @@ type WillUpdateHarness = {
 	_errorAreas: Set<string>;
 	_sessionRevision: number;
 	_fileFindings?: unknown;
+	status?: GlDetailsReviewModePanel['status'];
+	_openPane?: 'commits' | 'findings';
+	setOpenPane?: (pane: 'commits' | 'findings' | undefined) => void;
+	hasUpdated?: boolean;
 };
 
 const willUpdate: (this: WillUpdateHarness, changedProperties: Map<string, unknown>) => void = Reflect.get(
@@ -63,6 +67,50 @@ function makePanel(): WillUpdateHarness {
 	setResult(panel, twoPassResult);
 	return panel;
 }
+
+suite('GlDetailsReviewModePanel panes', () => {
+	const setOpenPane: (pane: 'commits' | 'findings' | undefined) => void = Reflect.get(
+		GlDetailsReviewModePanel.prototype,
+		'setOpenPane',
+	);
+
+	teardown(() => setOpenPane.call({}, 'commits'));
+
+	for (const [from, to, open] of [
+		['idle', 'loading', 'findings'],
+		['loading', 'error', 'findings'],
+		['loading', 'ready', 'findings'],
+		['error', 'ready', 'findings'],
+		['ready', 'idle', 'commits'],
+		[undefined, 'error', 'findings'],
+		[undefined, 'loading', 'findings'],
+		[undefined, 'ready', 'commits'],
+		[undefined, 'idle', 'commits'],
+	] as const) {
+		test(`${from ?? 'a first render'} to ${to} leaves ${open} open when commits were`, () => {
+			const panel: WillUpdateHarness = {
+				...makePanel(),
+				status: to,
+				_openPane: 'commits',
+				setOpenPane: setOpenPane,
+			};
+			willUpdate.call(panel, new Map(from != null ? [['status', from]] : []));
+			assert.strictEqual(panel._openPane, open);
+		});
+	}
+
+	test('a later render in the same status leaves the panes as the reader set them', () => {
+		const panel: WillUpdateHarness = {
+			...makePanel(),
+			status: 'error',
+			_openPane: 'commits',
+			setOpenPane: setOpenPane,
+			hasUpdated: true,
+		};
+		willUpdate.call(panel, new Map());
+		assert.strictEqual(panel._openPane, 'commits');
+	});
+});
 
 suite('GlDetailsReviewModePanel per-result state', () => {
 	test("the agent's first finding keeps the reader's state and an in-flight two-pass analysis", () => {
@@ -182,7 +230,7 @@ type ErrorStateHarness = {
 	errorMessage?: string;
 	result?: AIReviewResult;
 	session: ReviewSession;
-	renderWithChecklist: (aiContent: TemplateResult) => TemplateResult;
+	renderPanes: (aiContent: TemplateResult) => TemplateResult;
 	renderDeepReviewStrip: () => typeof nothing;
 	renderFocusArea: (area: AIReviewFocusArea) => string;
 };
@@ -213,7 +261,7 @@ function renderErrorPane(result: AIReviewResult | undefined): { templates: Templ
 		errorMessage: 'rate limited',
 		result: result,
 		session: emptyReviewSession,
-		renderWithChecklist: aiContent => aiContent,
+		renderPanes: aiContent => aiContent,
 		renderDeepReviewStrip: () => nothing,
 		renderFocusArea: area => {
 			areas.push(area.id);
@@ -526,93 +574,5 @@ suite('GlDetailsReviewModePanel reading plan order', () => {
 			),
 			['a.ts'],
 		);
-	});
-});
-
-suite('GlDetailsReviewModePanel scope presets', () => {
-	const renderPresets: (this: object) => unknown = Reflect.get(
-		GlDetailsReviewModePanel.prototype,
-		'renderScopePresets',
-	);
-	const scopeSelectionIds: () => unknown = Reflect.get(GlDetailsReviewModePanel.prototype, 'scopeSelectionIds');
-
-	const row = (id: string, state: string) => ({ id: id, label: id, state: state });
-	const wip = [row('unstaged', 'uncommitted'), row('staged', 'uncommitted')];
-	const mergeBase = row('merge-base:m', 'merge-base');
-
-	function presets(items: object[], includeShas: string[] = [], includeUncommitted = true) {
-		const panel = {
-			scopeItems: items,
-			scope: {
-				type: 'wip',
-				includeStaged: includeUncommitted,
-				includeUnstaged: includeUncommitted,
-				includeShas: includeShas,
-			},
-			scopeSelectionIds: scopeSelectionIds,
-			selectScopePreset: () => {},
-		};
-		const result = renderPresets.call(panel);
-		if (result === nothing) return [];
-
-		// Each preset's template binds its tooltip, whether it is pressed, its click handler and its label
-		return collectTemplates(result)
-			.filter(t => t.strings.join('').includes('class="scope-preset"'))
-			.map(t => [t.values[3], t.values[1]]);
-	}
-
-	test('offers the uncommitted changes, the unpushed commits with them, and the whole branch', () => {
-		const items = [
-			...wip,
-			row('c3', 'unpushed'),
-			row('c2', 'pushed'),
-			row('c1', 'pushed'),
-			row('load-more', 'load-more'),
-			mergeBase,
-		];
-		assert.deepStrictEqual(presets(items), [
-			['Uncommitted', 'true'],
-			['Unpushed', 'false'],
-			['Branch', 'false'],
-		]);
-		assert.deepStrictEqual(
-			presets(items, ['c3', 'c2', 'c1']).map(([, pressed]) => pressed),
-			['false', 'false', 'true'],
-		);
-	});
-
-	test('leaves out a preset that picks what another does, and shows nothing when there is no choice', () => {
-		// No upstream: nothing is pushed, so the unpushed commits are the branch
-		const unpublished = [...wip, row('c2', 'unpushed'), row('c1', 'unpushed'), mergeBase];
-		assert.deepStrictEqual(
-			presets(unpublished).map(([label]) => label),
-			['Uncommitted', 'Branch'],
-		);
-
-		// No merge base: the list is only the latest commits, not the branch
-		const noBase = [...wip, row('c2', 'unpushed'), row('c1', 'pushed'), row('load-more', 'load-more')];
-		assert.deepStrictEqual(
-			presets(noBase).map(([label]) => label),
-			['Uncommitted', 'Unpushed'],
-		);
-
-		assert.deepStrictEqual(presets([...wip]), []);
-	});
-
-	test('shows a lone Branch preset on a pushed branch with a clean tree', () => {
-		const pushed = [row('c2', 'pushed'), row('c1', 'pushed'), row('load-more', 'load-more'), mergeBase];
-		assert.deepStrictEqual(presets(pushed, ['c2'], false), [['Branch', 'false']]);
-		assert.deepStrictEqual(presets(pushed, ['c2', 'c1'], false), [['Branch', 'true']]);
-	});
-
-	test('keeps Branch to the commits above the merge base once Load more lists it', () => {
-		const loaded = [
-			row('c2', 'pushed'),
-			row('c1', 'pushed'),
-			{ ...row('m2', 'pushed'), mergeBase: true },
-			row('m1', 'pushed'),
-		];
-		assert.deepStrictEqual(presets(loaded, ['c2', 'c1', 'm2'], false), [['Branch', 'false']]);
-		assert.deepStrictEqual(presets(loaded, ['c2', 'c1'], false), [['Branch', 'true']]);
 	});
 });

@@ -1,20 +1,20 @@
 {
 	"schemaVersion": 2,
 	"producer": "webpack --mode production --config-name webviews:common --config-name webviews --env analyzeBundle --env quick",
-	"sourceCommit": "caaf7efe0ad8aa2da70a9d8b29e508a8fe9e369c",
+	"sourceCommit": "03f13d614f04115fcf8fecf0a1a4f7e8d22c29ea",
 	"entrypoint": "graph",
 	"enforcedMetrics": ["entrypoint", "graph.css", "shared.js"],
-	"budgetRationale": "Re-pinned for three Commit Graph quick fixes (#5352, #5607, #2925): the entrypoint grows +9.2 KiB against the Review Changes pin, but only about 0.6 KiB of it is this change (graph.js +0.25 KiB, graph.css +0.39 KiB): main measured 3,257,438 bytes at caaf7ef (and the same at 1e435c5), inside its ceiling, so +8.5 KiB (mostly graph.js) had already accrued there since 2e2557e. This change's bytes are Compare Working Tree to Here using a commit, stash or tag row's own ref; the Changes column opt-in overlay's shrinkable spacers and size container queries that drop its help copy and Hide link whole on a short rows area; and the hidden branches/tags popover's capped, scrollable list with the shared scrollbar styles. Not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
+	"budgetRationale": "Re-pinned for the Review Changes three-pane layout: the entrypoint grows +15.0 KiB against the quick-fixes pin, of which about 6.9 KiB is this change, all of it graph.js; the branch measured 3,266,403 bytes before it (main at a020c50 plus the scope presets fix), so +8.2 KiB, mostly graph.js, had already accrued on main since caaf7ef and left 3.8 KiB under the ceiling. This change's bytes are the Review Changes panel drawing its own commits pane header (branch, working changes, tracking and pull request, with the scope presets as icon buttons or the scope summary), the collapsible commits, files and findings panes with their nested split and styles, and the content record that takes a stale finding or comment out of the diff. Not a new dependency or a module moving between chunks. Ceilings keep their prior headroom: 12 KiB above baseline on the entrypoint, 4 KiB on shared.js (loaded by every webview), and graph.css's accounted allowance.",
 	"baselineBytes": {
-		"entrypoint": 3258007,
-		"graph.js": 2102680,
-		"graph.css": 165789,
-		"shared.js": 989538
+		"entrypoint": 3273403,
+		"graph.js": 2117335,
+		"graph.css": 165824,
+		"shared.js": 990244
 	},
 	"maximumBytes": {
-		"entrypoint": 3270295,
-		"graph.js": 2102680,
-		"graph.css": 172670,
-		"shared.js": 993634
+		"entrypoint": 3285691,
+		"graph.js": 2117335,
+		"graph.css": 172705,
+		"shared.js": 994340
 	}
 }

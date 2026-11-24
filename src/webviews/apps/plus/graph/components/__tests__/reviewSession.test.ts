@@ -15,8 +15,9 @@ import {
 	getReviewReadingShortcut,
 	getReviewReplies,
 	getReviewThreadItems,
-	getStaleFindingIds,
+	getStaleFindingPaths,
 	isReviewComplete,
+	pickFindingsContent,
 	userFocusAreaId,
 	withFileExcluded,
 	withFilesViewed,
@@ -788,10 +789,12 @@ suite('reviewSession — findings on changed files', () => {
 		mode: 'single-pass',
 		focusAreas: [{ id: 'area', label: 'Area', rationale: '', severity: 'warning', files: [], findings: findings }],
 	} as unknown as AIReviewResult;
+	const flat = (stale: ReturnType<typeof getStaleFindingPaths>) =>
+		[...stale].flatMap(([id, paths]) => Array.from(paths, ([path, reason]) => [id, path, reason]));
 	const recorded = withFindingsContent(undefined, result.focusAreas[0].findings, [a, b, c])!;
 
-	test('records the content of each AI finding’s files, leaving out the reader’s comments and unknown content', () => {
-		assert.deepStrictEqual([...recorded.keys()], ['f1', 'f2']);
+	test('records the content of each finding’s files — the reader’s comments too — leaving out unknown content', () => {
+		assert.deepStrictEqual([...recorded.keys()], ['f1', 'f2', 'u1']);
 		assert.deepStrictEqual(
 			[...recorded.get('f2')!],
 			[
@@ -802,26 +805,31 @@ suite('reviewSession — findings on changed files', () => {
 	});
 
 	test('nothing is stale while the files are as they were', () => {
-		assert.strictEqual(getStaleFindingIds(result, recorded, [a, b, c]).size, 0);
+		assert.strictEqual(getStaleFindingPaths(result, recorded, [a, b, c]).size, 0);
 	});
 
 	test('a finding is stale once any file it points at moved on', () => {
 		const a2 = { path: 'src/a.ts', contentId: 'a2' };
-		assert.deepStrictEqual([...getStaleFindingIds(result, recorded, [a2, b, c])], ['f1', 'f2']);
+		assert.deepStrictEqual([...getStaleFindingPaths(result, recorded, [a2, b, c]).keys()], ['f1', 'f2', 'u1']);
 
 		const b2 = { path: 'src/b.ts', contentId: 'b2' };
-		assert.deepStrictEqual([...getStaleFindingIds(result, recorded, [a, b2, c])], ['f2']);
+		assert.deepStrictEqual(flat(getStaleFindingPaths(result, recorded, [a, b2, c])), [
+			['f2', 'src/b.ts', 'changed'],
+		]);
 	});
 
 	test('an unknown side leaves the finding as it was', () => {
-		// No current content id, or the file gone from the scope
 		assert.strictEqual(
-			getStaleFindingIds(result, recorded, [{ path: 'src/a.ts', contentId: undefined }, b]).size,
+			getStaleFindingPaths(result, recorded, [{ path: 'src/a.ts', contentId: undefined }, b]).size,
 			0,
 		);
-		assert.strictEqual(getStaleFindingIds(result, recorded, [b]).size, 0);
-		// Nothing recorded at all
-		assert.strictEqual(getStaleFindingIds(result, undefined, [{ path: 'src/a.ts', contentId: 'a2' }]).size, 0);
+		assert.strictEqual(getStaleFindingPaths(result, recorded, undefined).size, 0);
+		assert.strictEqual(getStaleFindingPaths(result, recorded, []).size, 0);
+		assert.strictEqual(
+			getStaleFindingPaths(result, recorded, [{ path: 'src/b.ts', contentId: undefined }]).size,
+			0,
+		);
+		assert.strictEqual(getStaleFindingPaths(result, undefined, [{ path: 'src/a.ts', contentId: 'a2' }]).size, 0);
 	});
 
 	test('a later report of a finding replaces its record; nothing to add keeps the same record', () => {
@@ -829,11 +837,75 @@ suite('reviewSession — findings on changed files', () => {
 		const again = withFindingsContent(recorded, [findings[0]], [a2, b]);
 		assert.notStrictEqual(again, recorded);
 		assert.deepStrictEqual([...again!.get('f1')!], [['src/a.ts', 'a2']]);
-		assert.deepStrictEqual([...getStaleFindingIds(result, again, [a2, b, c])], ['f2']);
+		assert.deepStrictEqual([...getStaleFindingPaths(result, again, [a2, b, c]).keys()], ['f2', 'u1']);
 
-		assert.strictEqual(withFindingsContent(recorded, [findings[3], findings[4]], [a, b]), recorded);
+		assert.strictEqual(withFindingsContent(recorded, [findings[2], findings[3]], [a, b, c]), recorded);
 		assert.strictEqual(withFindingsContent(recorded, [], [a, b]), recorded);
 		assert.strictEqual(withFindingsContent(recorded, [findings[0]], undefined), recorded);
+	});
+
+	test('a finding is stale while a file it points at is out of the scope, and not once it is back', () => {
+		assert.deepStrictEqual(flat(getStaleFindingPaths(result, recorded, [b, c])), [
+			['f1', 'src/a.ts', 'outside'],
+			['f2', 'src/a.ts', 'outside'],
+			['u1', 'src/a.ts', 'outside'],
+		]);
+		assert.deepStrictEqual(flat(getStaleFindingPaths(result, recorded, [a, c])), [['f2', 'src/b.ts', 'outside']]);
+		assert.strictEqual(getStaleFindingPaths(result, recorded, [a, b]).size, 0);
+	});
+
+	test('each file of a finding is stale on its own', () => {
+		const b2 = { path: 'src/b.ts', contentId: 'b2' };
+		assert.deepStrictEqual(
+			flat(getStaleFindingPaths(result, recorded, [b2, c])).filter(([id]) => id === 'f2'),
+			[
+				['f2', 'src/b.ts', 'changed'],
+				['f2', 'src/a.ts', 'outside'],
+			],
+		);
+	});
+
+	test('picking keeps only the named findings’ records', () => {
+		assert.deepStrictEqual([...pickFindingsContent(recorded, ['u1', 'gone'])!.keys()], ['u1']);
+		assert.strictEqual(pickFindingsContent(recorded, ['gone']), undefined);
+		assert.strictEqual(pickFindingsContent(undefined, ['u1']), undefined);
+	});
+
+	test('a finding gets no thread in a stale file, keeps the ones in its other files, and gets it back once the file is as it was', () => {
+		const withLines = {
+			...result,
+			focusAreas: [
+				{
+					...result.focusAreas[0],
+					findings: [
+						{ ...findings[0], lineRange: { start: 1, end: 2 } },
+						{
+							...findings[1],
+							locations: [
+								{ filePath: 'src/b.ts', lineRange: { start: 3, end: 3 } },
+								{ filePath: 'src/a.ts', lineRange: { start: 5, end: 6 } },
+							],
+						},
+						{ ...findings[2], lineRange: { start: 4, end: 4 } },
+						{ ...findings[4], lineRange: { start: 7, end: 7 } },
+					],
+				},
+			],
+		} as unknown as AIReviewResult;
+		const threads = (files: Parameters<typeof getStaleFindingPaths>[2]) =>
+			getReviewThreadItems(withLines, undefined, getStaleFindingPaths(withLines, recorded, files)).map(
+				i => `${i.id} ${i.path}`,
+			);
+
+		assert.deepStrictEqual(threads([{ path: 'src/a.ts', contentId: 'a2' }, b, c]), ['f2 src/b.ts', 'f3 src/c.ts']);
+		assert.deepStrictEqual(threads([b, c]), ['f2 src/b.ts', 'f3 src/c.ts']);
+		assert.deepStrictEqual(threads([a, b, c]), [
+			'f1 src/a.ts',
+			'f2 src/b.ts',
+			'f2#1 src/a.ts',
+			'f3 src/c.ts',
+			'u1 src/a.ts',
+		]);
 	});
 });
 
