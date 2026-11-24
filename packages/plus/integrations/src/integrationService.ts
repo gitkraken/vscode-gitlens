@@ -80,11 +80,27 @@ import type {
 import type { GitHostIntegration } from './models/gitHostIntegration.js';
 import type { Integration, IntegrationBase, IntegrationById } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
+import type {
+	IssueTrackerCreateOptions,
+	IssueTrackerCreateOptionsResult,
+	IssueTrackerDeleteOptions,
+	IssueTrackerIssueWriteOptions,
+	IssueTrackerIssueWriteOptionsResult,
+	IssueTrackerWriteConnection,
+	IssueTrackerWriteFailure,
+	IssueTrackerWriteOptions,
+	IssueTrackerWriteResult,
+	IssueTrackerWriteTargetOptions,
+	IssueTrackerWriteTargetResult,
+} from './models/issueTrackerWrites.js';
 import type { IntegrationKey, IntegrationResult, SearchMyPullRequestsOptions } from './models/publicIntegration.js';
 import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github.js';
+import { toJiraIssueWriteFailure } from './providers/jiraIssueWriteErrors.js';
+import type { JiraIssueWriter } from './providers/jiraIssueWrites.js';
+import { isJiraWriteIdentifier } from './providers/jiraIssueWrites.js';
 import { providersMetadata } from './providers/metadata.js';
 import type {
 	IssueFilter,
@@ -1588,6 +1604,67 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
 		return broadenIssues(this, options);
+	}
+
+	getIssueTrackerCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.getCreateOptions(input));
+	}
+
+	getIssueTrackerIssueWriteOptions(
+		options: IssueTrackerIssueWriteOptions,
+	): Promise<IssueTrackerIssueWriteOptionsResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.getIssueOptions(input));
+	}
+
+	writeIssueTrackerIssue(options: IssueTrackerWriteOptions): Promise<IssueTrackerWriteResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.write(input));
+	}
+
+	deleteIssueTrackerIssue(options: IssueTrackerDeleteOptions): Promise<IssueTrackerWriteResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.delete(input));
+	}
+
+	resolveIssueTrackerIssueWriteTarget(
+		options: IssueTrackerWriteTargetOptions,
+	): Promise<IssueTrackerWriteTargetResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.resolveTarget(input));
+	}
+
+	private async withJiraIssueWriter<T>(
+		options: IssueTrackerWriteConnection,
+		callback: (writer: JiraIssueWriter) => Promise<T>,
+	): Promise<T | IssueTrackerWriteFailure> {
+		if (options.providerId == null) return { ok: false, reason: 'invalid-input', mutationDispatched: false };
+		if (options.providerId !== IssuesCloudHostIntegrationId.Jira) {
+			return { ok: false, reason: 'unsupported', mutationDispatched: false };
+		}
+		if (
+			!isJiraWriteIdentifier(options.connectionId) ||
+			!isJiraWriteIdentifier(options.resourceId) ||
+			(options.expectedAccountId !== undefined && !isJiraWriteIdentifier(options.expectedAccountId))
+		) {
+			return { ok: false, reason: 'invalid-input', mutationDispatched: false };
+		}
+
+		try {
+			if (
+				this.getConfigured(options.providerId, { cloud: true }).some(
+					connection => connection.id === options.connectionId,
+				)
+			) {
+				const api = await this.getProvidersApi();
+				const writer = await api.getJiraIssueWriter(options);
+				if (writer != null) return await callback(writer);
+			}
+			return { ok: false, reason: 'no-connection', mutationDispatched: false };
+		} catch (ex) {
+			return toJiraIssueWriteFailure(ex);
+		}
 	}
 
 	async writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult> {

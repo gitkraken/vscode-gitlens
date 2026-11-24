@@ -20,7 +20,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { isIncompleteCollection, toCollectionScopeFailure, withValidSkippedItems } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
@@ -31,6 +31,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
@@ -56,6 +57,7 @@ import {
 } from './bitbucket-server/pullRequestSearch.js';
 import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
 import { requestJiraIssueByKey, requestJiraIssuesEtagFields } from './jiraIssueByKey.js';
+import { JiraIssueWriter } from './jiraIssueWrites.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { requestLinearIssuesEtagFields } from './linearIssuesEtag.js';
 import type { PagingMode } from './metadata.js';
@@ -613,25 +615,16 @@ export class ProvidersApi implements Disposable {
 		return isRepoIdsInput(input);
 	}
 
-	private async getProviderToken<T extends IntegrationIds>(
-		provider: ProviderInfo & { id: T },
-		options?: { createSessionIfNeeded?: boolean; connectionId?: string },
-	): Promise<TokenWithInfo<T> | undefined> {
-		// When a specific connection is requested, resolve that connection's cloud session (mirroring
-		// `Integration.resolveReadSession`); otherwise keep the plain descriptor so the primary is resolved.
-		// An empty string is not a real target, so it must also fall through to the primary path.
-		const providerDescriptor = options?.connectionId
-			? { domain: provider.domain, scopes: provider.scopes, connectionId: options.connectionId, cloud: true }
+	private async getProviderSession(
+		provider: ProviderInfo,
+		connectionId?: string,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const providerDescriptor = connectionId
+			? { domain: provider.domain, scopes: provider.scopes, connectionId: connectionId, cloud: true }
 			: { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
-			const session = await authProvider.getSession(providerDescriptor, {
-				createIfNeeded: options?.createSessionIfNeeded,
-			});
-			if (session == null) {
-				return undefined;
-			}
-			return toTokenWithInfo(provider.id, session);
+			return await authProvider.getSession(providerDescriptor, { createIfNeeded: undefined });
 		} catch {
 			return undefined;
 		}
@@ -650,17 +643,15 @@ export class ProvidersApi implements Disposable {
 			throw new Error(`Provider id mismatch: expected ${providerId} but got ${provider.id}`);
 		}
 
+		if (tokenOptInfo.accessToken) return { provider: provider, tokenWithInfo: tokenOptInfo };
+
 		const connectionId = 'connectionId' in tokenOptInfo ? tokenOptInfo.connectionId : undefined;
-		const tokenWithInfo = tokenOptInfo?.accessToken
-			? tokenOptInfo
-			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T }, {
-					connectionId: connectionId,
-				});
-		if (tokenWithInfo == null) {
+		const session = await this.getProviderSession(provider, connectionId);
+		if (session == null) {
 			throw new Error(`Not connected to provider ${providerId}`);
 		}
 
-		return { provider: provider, tokenWithInfo: tokenWithInfo };
+		return { provider: provider, tokenWithInfo: toTokenWithInfo(providerId, session) };
 	}
 
 	private async ensureProviderTokenAndFunction<T extends IntegrationIds>(
@@ -1281,6 +1272,17 @@ export class ProvidersApi implements Disposable {
 		} catch (e) {
 			return this.handleProviderError<ProviderAccount>(tokenWithInfo, e);
 		}
+	}
+
+	async getJiraIssueWriter(options: IssueTrackerWriteConnection): Promise<JiraIssueWriter | undefined> {
+		const provider = this.providers[options.providerId];
+		if (provider == null || provider.id !== options.providerId) return undefined;
+
+		const session = await this.getProviderSession(provider, options.connectionId);
+		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
+
+		const isSessionCurrent = this.authenticationService.trackStoredSession(options.providerId, session);
+		return JiraIssueWriter.connect(this.request, session.accessToken, options, isSessionCurrent);
 	}
 
 	async getJiraResourcesForCurrentUser(
