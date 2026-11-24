@@ -243,6 +243,23 @@ export type {
 	PullRequestWriteOptions,
 	PullRequestWriteTargetOptions,
 } from './manager.js';
+export type {
+	IssueTrackerCreateOptions,
+	IssueTrackerCreateOptionsResult,
+	IssueTrackerDeleteOptions,
+	IssueTrackerField,
+	IssueTrackerIssueReceipt,
+	IssueTrackerIssueWriteOptions,
+	IssueTrackerIssueWriteOptionsResult,
+	IssueTrackerStatus,
+	IssueTrackerTransition,
+	IssueTrackerWriteConnection,
+	IssueTrackerWriteFailure,
+	IssueTrackerWriteOptions,
+	IssueTrackerWriteResult,
+	IssueTrackerWriteTargetOptions,
+	IssueTrackerWriteTargetResult,
+} from './models/issueTrackerWrites.js';
 export type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 export type {
 	PullRequestCreateCapabilityResult,

@@ -68,7 +68,7 @@ function toAccount(member: JiraIssueMemberResponse | null | undefined): Provider
 	};
 }
 
-function toStatusCategory(key: string): 'TO_DO' | 'IN_PROGRESS' | 'DONE' {
+export function toStatusCategory(key: string): 'TO_DO' | 'IN_PROGRESS' | 'DONE' {
 	switch (key.toLowerCase()) {
 		case 'new':
 			return 'TO_DO';
@@ -90,7 +90,7 @@ function toJiraIssueState(status: JiraIssueStatusResponse): NonNullable<Provider
 	};
 }
 
-function toIssueWebUrl(resourceUrl: string, key: string): string {
+export function toIssueWebUrl(resourceUrl: string, key: string): string {
 	const url = new URL(resourceUrl);
 	url.pathname = `${trimTrailingSlashes(url.pathname)}/browse/${encodeURIComponent(key)}`;
 	url.search = '';
