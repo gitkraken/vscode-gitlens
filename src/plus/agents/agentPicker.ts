@@ -869,6 +869,8 @@ export async function* resolveAgentFlow(
 				intent: intent,
 				wizard: true,
 				action: picked === StepResultBreak ? 'back' : picked,
+				installable: container.kepler.canInstall,
+				reason: container.kepler.notInstallableReason,
 			});
 			if (picked === StepResultBreak) {
 				currentRoute = 'ask';

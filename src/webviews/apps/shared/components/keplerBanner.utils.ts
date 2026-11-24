@@ -1,4 +1,4 @@
-import type { Sources } from '../../../../constants.telemetry.js';
+import type { Sources, TelemetryEvents } from '../../../../constants.telemetry.js';
 import type { WalkthroughProgress } from '../../../../constants.walkthroughs.js';
 import { emitTelemetrySentEvent } from '../telemetry.js';
 
@@ -42,7 +42,11 @@ const shownSources = new Set<Sources>();
  * once per load of the webview and `source`. Rendered is not seen: the Welcome card sits in a collapsed step, and a
  * banner can be below the fold. Returns a function that stops watching.
  */
-export function trackKeplerCtaShown(el: Element, source: Sources, isInstallable: () => boolean): () => void {
+export function trackKeplerCtaShown(
+	el: Element,
+	source: Sources,
+	getOffer: () => TelemetryEvents['kepler/cta/shown'],
+): () => void {
 	if (shownSources.has(source)) return () => {};
 
 	const observer = new IntersectionObserver(
@@ -55,7 +59,7 @@ export function trackKeplerCtaShown(el: Element, source: Sources, isInstallable:
 			observer.disconnect();
 			emitTelemetrySentEvent<'kepler/cta/shown'>(el, {
 				name: 'kepler/cta/shown',
-				data: { installable: isInstallable() },
+				data: getOffer(),
 				source: { source: source },
 			});
 		},

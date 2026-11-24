@@ -23,6 +23,7 @@ import type {
 	KeplerInstallProgress,
 	KeplerInstallResult,
 	KeplerInstallStep,
+	KeplerNotInstallableReason,
 	KeplerRelease,
 } from './keplerRelease.js';
 import { getKeplerInstallFailureCode, KeplerInstallError, toMegabytes } from './keplerRelease.js';
@@ -130,13 +131,16 @@ export class KeplerService implements Disposable {
 	 * download page instead (remote windows — Kepler must be installed on the local machine).
 	 */
 	get canInstall(): boolean {
-		return (
-			this.available &&
-			!this.remote &&
-			!this.debugging &&
-			this.channel === 'production' &&
-			getKeplerReleaseTargetForHost() != null
-		);
+		return this.notInstallableReason == null;
+	}
+
+	get notInstallableReason(): KeplerNotInstallableReason | undefined {
+		if (!this.available) return 'unavailable';
+		if (this.remote) return 'remote';
+		if (this.channel !== 'production') return 'channel';
+		if (getKeplerReleaseTargetForHost() == null) return 'unsupported';
+
+		return undefined;
 	}
 
 	/**
@@ -164,7 +168,12 @@ export class KeplerService implements Disposable {
 	 * and `false` when the user cancelled — even if the cancel came too late to stop the install itself.
 	 */
 	install(source?: Source): Promise<boolean> {
-		if (!this.available) return Promise.resolve(false);
+		const reason = this.notInstallableReason;
+		if (reason === 'unavailable') {
+			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: reason }, source);
+			return Promise.resolve(false);
+		}
+
 		if (this.installed === true) {
 			// The installed context key can lag an install made by hand, leaving Install Kepler on
 			// offer; say so rather than appear to do nothing
@@ -173,12 +182,8 @@ export class KeplerService implements Disposable {
 			return Promise.resolve(true);
 		}
 
-		if (!this.canInstall) {
-			this.container.telemetry.sendEvent(
-				'kepler/install/skipped',
-				{ reason: this.remote ? 'remote' : this.channel !== 'production' ? 'channel' : 'unsupported' },
-				source,
-			);
+		if (reason != null) {
+			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: reason }, source);
 			void openUrl(urls.keplerDownload);
 			return Promise.resolve(false);
 		}

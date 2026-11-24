@@ -249,6 +249,7 @@ export class GlSettingsAgents extends SignalWatcher(LitElement) {
 				? html`<gl-kepler-banner
 						source="settings"
 						?installable=${walkthrough?.kepler.installable === true}
+						.notInstallableReason=${walkthrough?.kepler.notInstallableReason}
 						?installing=${walkthrough?.kepler.installing === true}
 					></gl-kepler-banner>`
 				: nothing
