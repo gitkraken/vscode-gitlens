@@ -136,8 +136,14 @@ async function withManager(
 		runtime: ReturnType<typeof createFakeRuntime>;
 		storeSelected: (token: string) => Promise<boolean>;
 	}) => Promise<void>,
-	{ primary = 'token-primary', selected = 'token-selected', enterpriseEnabled = false } = {},
+	options?: { primary?: string; selected?: string; enterpriseEnabled?: boolean; enterpriseBaseUrl?: string },
 ) {
+	const {
+		primary = 'token-primary',
+		selected = 'token-selected',
+		enterpriseEnabled = false,
+		enterpriseBaseUrl,
+	} = options ?? {};
 	const runtime = createFakeRuntime();
 	const configured = new ConfiguredIntegrationService(runtime);
 	const cloudProvider = GitCloudHostIntegrationId.GitHub;
@@ -146,6 +152,7 @@ async function withManager(
 		token: string,
 		providerId: typeof cloudProvider | typeof enterprise.providerId = cloudProvider,
 		domain = 'github.com',
+		baseUrl?: string,
 	) =>
 		configured.storeSession(providerId, {
 			id: id,
@@ -155,6 +162,7 @@ async function withManager(
 			cloud: true,
 			type: 'oauth',
 			domain: domain,
+			baseUrl: baseUrl,
 		});
 	await storeSession('primary', primary);
 	await storeSession('selected', selected);
@@ -162,7 +170,13 @@ async function withManager(
 		storeSession(id, token, enterprise.providerId, domain);
 	if (enterpriseEnabled) {
 		await storeEnterprise('enterprise-primary', primary);
-		await storeEnterprise(enterprise.connectionId, selected);
+		await storeSession(
+			enterprise.connectionId,
+			selected,
+			enterprise.providerId,
+			enterpriseDomain,
+			enterpriseBaseUrl,
+		);
 		await storeEnterprise('other-installation', 'token-other', 'https://other.example.test');
 	}
 
@@ -1283,6 +1297,52 @@ suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
 		);
 	});
 
+	test('rejects a configured context path before preparing an Enterprise pull request write', async () => {
+		await withManager(
+			() => assert.fail('a path-bearing connection must not reach GitHub'),
+			async ({ manager, calls }) => {
+				assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
+					ok: false,
+					reason: 'no-connection',
+				});
+				assert.deepEqual(await manager.resolvePullRequestWriteTarget(enterpriseTarget), {
+					ok: false,
+					reason: 'no-connection',
+				});
+				assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
+				assert.equal(calls.length, 0);
+			},
+			{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}/instance/api/v3` },
+		);
+	});
+
+	test('rejects a captured Enterprise credential whose context path changed after configuration', async () => {
+		await withManager(
+			() => assert.fail('the credential must stay on the approved root installation'),
+			async ({ manager, runtime, calls }) => {
+				const key = `integration.auth.cloud:${enterprise.providerId}|${enterprise.connectionId}`;
+				const stored = await runtime.storage.getSecret(key);
+				assert.ok(stored);
+				const selected = JSON.parse(stored) as ProviderAuthenticationSession;
+				await runtime.storage.storeSecret(
+					key,
+					JSON.stringify({
+						...selected,
+						baseUrl: `${enterpriseDomain}/instance`,
+					}),
+				);
+				const configured = manager
+					.getConfigured(enterprise.providerId)
+					.find(connection => connection.id === enterprise.connectionId);
+				assert.equal(configured?.baseUrl, enterpriseDomain);
+
+				assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
+				assert.equal(calls.length, 0);
+			},
+			{ enterpriseEnabled: true, enterpriseBaseUrl: enterpriseDomain },
+		);
+	});
+
 	test('pins the repository for create and checks both branches in the receipt', async () => {
 		await withManager(
 			call => {
@@ -1325,7 +1385,7 @@ suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
 				assert.equal(calls.filter(call => call.query.startsWith('mutation')).length, 1);
 				assert.deepEqual(invalidated, [{ id: enterprise.providerId, domain: enterpriseDomain }]);
 			},
-			{ enterpriseEnabled: true },
+			{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}/api/v3` },
 		);
 	});
 

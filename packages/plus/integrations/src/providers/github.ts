@@ -427,7 +427,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 			if (api == null) return { ok: false, reason: 'unsupported' };
 
 			const baseUrl = this.apiBaseUrlFor(session);
-			if ((baseUrl == null ? undefined : new URL(baseUrl).origin) !== installationOrigin) {
+			if (baseUrl !== (installationOrigin == null ? undefined : `${installationOrigin}/api/v3`)) {
 				return { ok: false, reason: 'no-connection' };
 			}
 
