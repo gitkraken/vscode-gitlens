@@ -153,66 +153,100 @@ async function readEnterpriseMergeSchema(graphql: GraphqlRequest) {
 		entry: { fields: Member[] } | null;
 		merge: { inputFields: Member[] } | null;
 	};
-	const schema = await graphql<Response>(
-		`
-			query PullRequestMergeSchema {
-				mutation: __type(name: "Mutation") {
-					...MergeSchemaFields
+	const [operations, branch, queue] = await Promise.all([
+		graphql<Pick<Response, 'mutation' | 'pr' | 'enqueue' | 'merge'>>(
+			`
+				query PullRequestMergeSchemaOperations {
+					mutation: __type(name: "Mutation") {
+						fields {
+							name
+						}
+					}
+					pr: __type(name: "PullRequest") {
+						fields {
+							name
+						}
+					}
+					enqueue: __type(name: "EnqueuePullRequestInput") {
+						inputFields {
+							name
+						}
+					}
+					merge: __type(name: "MergePullRequestInput") {
+						inputFields {
+							name
+						}
+					}
 				}
-				pr: __type(name: "PullRequest") {
-					...MergeSchemaFields
+			`,
+			{},
+		),
+		graphql<Pick<Response, 'ref' | 'legacy'>>(
+			`
+				query PullRequestMergeSchemaBranch {
+					ref: __type(name: "Ref") {
+						fields {
+							name
+						}
+					}
+					legacy: __type(name: "RefUpdateRule") {
+						fields {
+							name
+						}
+					}
 				}
-				ref: __type(name: "Ref") {
-					...MergeSchemaFields
+			`,
+			{},
+		),
+		graphql<Pick<Response, 'enqueuePayload' | 'entry'>>(
+			`
+				query PullRequestMergeSchemaQueue {
+					enqueuePayload: __type(name: "EnqueuePullRequestPayload") {
+						fields {
+							name
+						}
+					}
+					entry: __type(name: "MergeQueueEntry") {
+						fields {
+							name
+						}
+					}
 				}
-				legacy: __type(name: "RefUpdateRule") {
-					...MergeSchemaFields
-				}
-				enqueuePayload: __type(name: "EnqueuePullRequestPayload") {
-					...MergeSchemaFields
-				}
-				entry: __type(name: "MergeQueueEntry") {
-					...MergeSchemaFields
-				}
-				enqueue: __type(name: "EnqueuePullRequestInput") {
-					...MergeSchemaInputFields
-				}
-				merge: __type(name: "MergePullRequestInput") {
-					...MergeSchemaInputFields
-				}
-			}
-			fragment MergeSchemaFields on __Type {
-				fields {
-					name
-				}
-			}
-			fragment MergeSchemaInputFields on __Type {
-				inputFields {
-					name
-				}
-			}
-		`,
-		{},
-	);
-	if (schema == null || !Array.isArray(schema.mutation?.fields) || !Array.isArray(schema.pr?.fields)) {
+			`,
+			{},
+		),
+	]);
+	if (
+		!Array.isArray(operations?.mutation?.fields) ||
+		!Array.isArray(operations.pr?.fields) ||
+		operations.enqueue === undefined ||
+		operations.merge === undefined ||
+		branch?.ref === undefined ||
+		branch.legacy === undefined ||
+		queue?.enqueuePayload === undefined ||
+		queue.entry === undefined
+	) {
 		return undefined;
 	}
 
 	const has = (members: Member[] | undefined, ...names: string[]) =>
 		names.every(name => members?.some(member => member.name === name) === true);
-	const hasEnqueue = has(schema.mutation.fields, 'enqueuePullRequest');
+	const hasEnqueue = has(operations.mutation.fields, 'enqueuePullRequest');
 	return {
-		stack: has(schema.pr.fields, 'stack'),
-		queueFields: has(schema.pr.fields, 'isInMergeQueue', 'isMergeQueueEnabled'),
-		hasQueue: hasEnqueue || has(schema.pr.fields, 'isInMergeQueue') || has(schema.pr.fields, 'isMergeQueueEnabled'),
+		stack: has(operations.pr.fields, 'stack'),
+		queueFields: has(operations.pr.fields, 'isInMergeQueue', 'isMergeQueueEnabled'),
+		hasQueue:
+			hasEnqueue ||
+			has(operations.pr.fields, 'isInMergeQueue') ||
+			has(operations.pr.fields, 'isMergeQueueEnabled'),
 		canEnqueue:
 			hasEnqueue &&
-			has(schema.enqueue?.inputFields, 'pullRequestId', 'expectedHeadOid') &&
-			has(schema.enqueuePayload?.fields, 'mergeQueueEntry') &&
-			has(schema.entry?.fields, 'id', 'pullRequest'),
+			has(operations.enqueue?.inputFields, 'pullRequestId', 'expectedHeadOid') &&
+			has(queue.enqueuePayload?.fields, 'mergeQueueEntry') &&
+			has(queue.entry?.fields, 'id', 'pullRequest'),
 		canMerge:
-			has(schema.mutation.fields, 'mergePullRequest') &&
-			has(schema.merge?.inputFields, 'pullRequestId', 'expectedHeadOid', 'mergeMethod'),
-		linearHistory: has(schema.ref?.fields, 'refUpdateRule') && has(schema.legacy?.fields, 'requiresLinearHistory'),
+			has(operations.mutation.fields, 'mergePullRequest') &&
+			has(operations.merge?.inputFields, 'pullRequestId', 'expectedHeadOid', 'mergeMethod'),
+		linearHistory: has(branch.ref?.fields, 'refUpdateRule') && has(branch.legacy?.fields, 'requiresLinearHistory'),
 	};
 }

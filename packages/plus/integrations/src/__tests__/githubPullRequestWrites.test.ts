@@ -1195,23 +1195,27 @@ suite('IntegrationManager GitHub pull request writes', () => {
 	});
 });
 
-function enterpriseMergeSchema(options?: { queue?: boolean; expectedHead?: boolean }) {
+function enterpriseMergeSchema(query: string, options?: { queue?: boolean; expectedHead?: boolean }) {
 	const { queue = true, expectedHead = true } = options ?? {};
 	const fields = (...names: string[]) => ({ fields: names.map(name => ({ name: name })) });
-	return {
-		data: {
-			mutation: fields('mergePullRequest', ...(queue ? ['enqueuePullRequest'] : [])),
-			pr: fields(...(queue ? ['isInMergeQueue', 'isMergeQueueEnabled'] : [])),
-			ref: fields('refUpdateRule'),
-			legacy: fields('requiresLinearHistory'),
-			enqueue: queue
-				? { inputFields: [{ name: 'pullRequestId' }, ...(expectedHead ? [{ name: 'expectedHeadOid' }] : [])] }
-				: null,
-			enqueuePayload: queue ? fields('mergeQueueEntry') : null,
-			entry: queue ? fields('id', 'pullRequest') : null,
-			merge: { inputFields: [{ name: 'pullRequestId' }, { name: 'expectedHeadOid' }, { name: 'mergeMethod' }] },
-		},
+	const schema = {
+		mutation: fields('mergePullRequest', ...(queue ? ['enqueuePullRequest'] : [])),
+		pr: fields(...(queue ? ['isInMergeQueue', 'isMergeQueueEnabled'] : [])),
+		ref: fields('refUpdateRule'),
+		legacy: fields('requiresLinearHistory'),
+		enqueue: queue
+			? { inputFields: [{ name: 'pullRequestId' }, ...(expectedHead ? [{ name: 'expectedHeadOid' }] : [])] }
+			: null,
+		enqueuePayload: queue ? fields('mergeQueueEntry') : null,
+		entry: queue ? fields('id', 'pullRequest') : null,
+		merge: { inputFields: [{ name: 'pullRequestId' }, { name: 'expectedHeadOid' }, { name: 'mergeMethod' }] },
 	};
+	const aliases = Array.from(query.matchAll(/\b(\w+):\s*__type\b/g), match => match[1]);
+	const inputTypes = aliases.filter(alias => alias === 'enqueue' || alias === 'merge');
+	assert.ok(inputTypes.length <= 2, 'Enterprise Server limits __Type.inputFields to two selections');
+	assert.ok(aliases.length - inputTypes.length <= 2, 'Enterprise Server limits __Type.fields to two selections');
+
+	return { data: Object.fromEntries(Object.entries(schema).filter(([alias]) => aliases.includes(alias))) };
 }
 
 suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
@@ -1330,7 +1334,12 @@ suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
 		await withManager(
 			call => {
 				if (call.query.startsWith('query WriteViewer')) return viewer;
-				if (call.query.startsWith('query PullRequestMergeSchema')) return deniedBranchProtection;
+				if (call.query.startsWith('query PullRequestMergeSchema')) {
+					return call.query.startsWith('query PullRequestMergeSchemaBranch')
+						? deniedBranchProtection
+						: enterpriseMergeSchema(call.query);
+				}
+
 				if (call.query.startsWith('query PullRequestWriteTarget')) {
 					assert.doesNotMatch(call.query, /stack|viewerDefaultMergeMethod|isMergeQueueEnabled/);
 					return { data: { repository: repository, node: { ...enterpriseNode, state: state } } };
@@ -1393,7 +1402,7 @@ suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
 			call => {
 				if (call.query.startsWith('query WriteViewer')) return viewer;
 				if (call.query.startsWith('query PullRequestMergeSchema')) {
-					return enterpriseMergeSchema({ queue: false });
+					return enterpriseMergeSchema(call.query, { queue: false });
 				}
 
 				if (call.query.startsWith('GET ')) {
@@ -1470,7 +1479,7 @@ suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
 					if (call.query.startsWith('query WriteViewer')) return viewer;
 					if (call.query.startsWith('query PullRequestWriteTarget')) return targetResponse;
 					if (call.query.startsWith('query PullRequestMergeSchema')) {
-						return enterpriseMergeSchema({ expectedHead: expectedHead });
+						return enterpriseMergeSchema(call.query, { expectedHead: expectedHead });
 					}
 
 					if (call.query.startsWith('query PullRequestMergeFeatures')) {
