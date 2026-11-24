@@ -87,6 +87,7 @@ import type {
 import { pullRequestCheckRunsEtag } from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
 import { areDomainsOnSameHostname, isWebRemoteScheme } from '../utils/domain.utils.js';
+import { getGitHubEnterprisePullRequestWriteOrigin } from '../utils/integration.utils.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import { providersMetadata } from './metadata.js';
@@ -422,6 +423,16 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		try {
 			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
 			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+
+			if (
+				installationOrigin != null &&
+				getGitHubEnterprisePullRequestWriteOrigin(
+					session.baseUrl ?? (session.domain || this.domain),
+					session.protocol,
+				) !== installationOrigin
+			) {
+				return { ok: false, reason: 'no-connection' };
+			}
 
 			const api = await this.authenticationService.apis.github;
 			if (api == null) return { ok: false, reason: 'unsupported' };

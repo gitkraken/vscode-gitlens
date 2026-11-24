@@ -1297,51 +1297,73 @@ suite('IntegrationManager GitHub Enterprise Server pull request writes', () => {
 		);
 	});
 
-	test('rejects a configured context path before preparing an Enterprise pull request write', async () => {
-		await withManager(
-			() => assert.fail('a path-bearing connection must not reach GitHub'),
-			async ({ manager, calls }) => {
-				assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
-					ok: false,
-					reason: 'no-connection',
-				});
-				assert.deepEqual(await manager.resolvePullRequestWriteTarget(enterpriseTarget), {
-					ok: false,
-					reason: 'no-connection',
-				});
-				assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
-				assert.equal(calls.length, 0);
-			},
-			{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}/instance/api/v3` },
-		);
-	});
+	for (const path of ['/instance/api/v3', '/api/v4']) {
+		test(`rejects a configured Enterprise connection at ${path} before contacting GitHub`, async () => {
+			await withManager(
+				() => assert.fail('a path-bearing connection must not reach GitHub'),
+				async ({ manager, calls }) => {
+					assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
+						ok: false,
+						reason: 'no-connection',
+					});
+					assert.deepEqual(await manager.resolvePullRequestWriteTarget(enterpriseTarget), {
+						ok: false,
+						reason: 'no-connection',
+					});
+					assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
+					assert.equal(calls.length, 0);
+				},
+				{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}${path}` },
+			);
+		});
 
-	test('rejects a captured Enterprise credential whose context path changed after configuration', async () => {
-		await withManager(
-			() => assert.fail('the credential must stay on the approved root installation'),
-			async ({ manager, runtime, calls }) => {
-				const key = `integration.auth.cloud:${enterprise.providerId}|${enterprise.connectionId}`;
-				const stored = await runtime.storage.getSecret(key);
-				assert.ok(stored);
-				const selected = JSON.parse(stored) as ProviderAuthenticationSession;
-				await runtime.storage.storeSecret(
-					key,
-					JSON.stringify({
-						...selected,
-						baseUrl: `${enterpriseDomain}/instance`,
-					}),
-				);
-				const configured = manager
-					.getConfigured(enterprise.providerId)
-					.find(connection => connection.id === enterprise.connectionId);
-				assert.equal(configured?.baseUrl, enterpriseDomain);
+		test(`rejects an Enterprise credential moved to ${path} after configuration`, async () => {
+			await withManager(
+				() => assert.fail('the credential must stay on the approved root installation'),
+				async ({ manager, runtime, calls }) => {
+					const key = `integration.auth.cloud:${enterprise.providerId}|${enterprise.connectionId}`;
+					const stored = await runtime.storage.getSecret(key);
+					assert.ok(stored);
+					const selected = JSON.parse(stored) as ProviderAuthenticationSession;
+					await runtime.storage.storeSecret(
+						key,
+						JSON.stringify({
+							...selected,
+							baseUrl: `${enterpriseDomain}${path}`,
+						}),
+					);
+					const configured = manager
+						.getConfigured(enterprise.providerId)
+						.find(connection => connection.id === enterprise.connectionId);
+					assert.equal(configured?.baseUrl, enterpriseDomain);
 
-				assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
-				assert.equal(calls.length, 0);
-			},
-			{ enterpriseEnabled: true, enterpriseBaseUrl: enterpriseDomain },
-		);
-	});
+					assert.deepEqual(await manager.writePullRequest(edit), { ok: false, reason: 'no-connection' });
+					assert.equal(calls.length, 0);
+				},
+				{ enterpriseEnabled: true, enterpriseBaseUrl: enterpriseDomain },
+			);
+		});
+	}
+
+	for (const path of ['/api', '/api/v3']) {
+		test(`accepts the ${path} alias on the configured Enterprise connection and credential`, async () => {
+			await withManager(
+				call => (call.query.startsWith('query WriteViewer') ? viewer : { data: { repository: repository } }),
+				async ({ manager, calls }) => {
+					assert.deepEqual(await manager.getPullRequestCreateCapability(enterprise), {
+						ok: true,
+						repositoryId: repository.id,
+						canCreate: true,
+					});
+					assert.deepEqual(
+						calls.map(call => call.url.href),
+						[`${enterpriseDomain}/api/graphql`, `${enterpriseDomain}/api/graphql`],
+					);
+				},
+				{ enterpriseEnabled: true, enterpriseBaseUrl: `${enterpriseDomain}${path}` },
+			);
+		});
+	}
 
 	test('pins the repository for create and checks both branches in the receipt', async () => {
 		await withManager(

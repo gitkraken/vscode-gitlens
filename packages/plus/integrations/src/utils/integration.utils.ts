@@ -276,3 +276,14 @@ export function getSelfManagedBaseUrl(
 			return baseUrl;
 	}
 }
+
+export function getGitHubEnterprisePullRequestWriteOrigin(
+	domain: string | undefined,
+	protocol?: string,
+): string | undefined {
+	const baseUrl = baseUrlFromDomain(domain, protocol);
+	const url = baseUrl == null ? null : URL.parse(baseUrl);
+	if (url?.protocol !== 'http:' && url?.protocol !== 'https:') return undefined;
+
+	return url.pathname === '/' || url.pathname === '/api' || url.pathname === '/api/v3' ? url.origin : undefined;
+}

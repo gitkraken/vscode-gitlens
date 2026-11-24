@@ -956,9 +956,9 @@ For GitHub Enterprise Server, pass `providerId: 'cloud-github-enterprise'`, the 
 the full HTTP(S) installation origin as `domain`, and the expected GitHub login as `expectedLogin`
 to all three methods. The origin includes the scheme and any non-default port. The PR write API
 accepts installations served from the origin root. A path in the requested domain returns `invalid-input`.
-A context path on the configured connection or selected credential returns `no-connection` before a
-provider request. Core normalizes a stored `/api/v3` suffix, verifies the credential's live login,
-and requires `expectedRepositoryId` on create.
+Core accepts `/api` and `/api/v3` as aliases for the root installation on the configured connection
+and selected credential. Any other path on either returns `no-connection` before a provider request.
+Core verifies the credential's live login and requires `expectedRepositoryId` on create.
 
 | Action for `writePullRequest` | Required input and result                                                                                                                                          |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

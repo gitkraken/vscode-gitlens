@@ -155,8 +155,8 @@ import {
 } from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
+	getGitHubEnterprisePullRequestWriteOrigin,
 	getIntegrationIdForRemote,
-	getSelfManagedBaseUrl,
 	isCloudSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
 	isGitSelfManagedHostIntegrationId,
@@ -1681,14 +1681,13 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					: undefined;
 			const sessionDomain = connection.baseUrl ?? stored?.baseUrl ?? stored?.domain ?? configuredDomain;
 			const base = requiresOrigin
-				? getSelfManagedBaseUrl(providerId, sessionDomain, stored?.protocol)
+				? getGitHubEnterprisePullRequestWriteOrigin(sessionDomain, stored?.protocol)
 				: baseUrlFromDomain(sessionDomain, stored?.protocol);
 			if (typeof domain !== 'string' || base == null || !matchesInstallationOrigin(domain, base)) {
 				return { ok: false, reason: 'no-connection' };
 			}
 
 			installationOrigin = new URL(base).origin;
-			if (requiresOrigin && base !== installationOrigin) return { ok: false, reason: 'no-connection' };
 		}
 
 		const integration = await (
