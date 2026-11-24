@@ -297,7 +297,11 @@ export class JiraIssueWriter {
 		const transition = (await this.readTransitions(issue.id)).find(item => item.id === options.transitionId);
 		if (transition?.isAvailable !== true) throw new JiraIssueWriteError('transition-unavailable');
 
-		const fields = validateFields(options.fields, {}, transition.hasScreen ? transition.fields : []);
+		const fields = validateFields(
+			options.fields,
+			this.editableFields(options),
+			transition.hasScreen ? transition.fields : [],
+		);
 		return this.dispatch('POST', `${path}/transitions`, 204, readReceipt, {
 			transition: { id: transition.id },
 			fields: fields,

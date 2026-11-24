@@ -948,21 +948,22 @@ credential used for reads. If you supply `expectedAccountId`, the account return
 must match. Use the returned `accountId` for subsequent calls. Issue and project keys can repeat across
 sites, so retain the cloud ID alongside the canonical issue ID.
 
-| Method                                | Additional input                                                                                          | Success                                                                                                                           |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `getIssueTrackerCreateOptions`        | `project` (key or ID), optional `issueTypeId`                                                             | Canonical project, its `issueTypes` or the selected type's `fields`, and `truncated`.                                             |
-| `getIssueTrackerIssueWriteOptions`    | `issue` (key or ID), optional `expectedIssueId`                                                           | Issue receipt, `accountId`, editable `fields`, `transitions`, permission flags and `deleteCapability`.                            |
-| `writeIssueTrackerIssue`              | `action: 'create'`, `project`, `issueTypeId`, `summary`, optional `description` and `fields`              | Created issue receipt and `accountId`.                                                                                            |
-| `writeIssueTrackerIssue`              | `action: 'edit'`, `issue`, `expectedIssueId`, at least one change in `summary`, `description` or `fields` | Updated issue receipt and `accountId`.                                                                                            |
-| `writeIssueTrackerIssue`              | `action: 'transition'`, `issue`, `expectedIssueId`, `transitionId`, optional `fields`                     | Updated issue receipt and `accountId`.                                                                                            |
-| `resolveIssueTrackerIssueWriteTarget` | `issue`, optional `expectedIssueId` and `intent: 'delete'`                                                | Canonical issue receipt and `accountId` for a confirmation UI. Delete intent also checks the credential, permission and subtasks. |
-| `deleteIssueTrackerIssue`             | `issue`, `expectedIssueId`, `expectedAccountId`                                                           | Pre-delete issue receipt and `accountId` after Jira acknowledges the delete.                                                      |
+| Method                                | Additional input                                                                                                   | Success                                                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `getIssueTrackerCreateOptions`        | `project` (key or ID), optional `issueTypeId`                                                                      | Canonical project, its `issueTypes` or the selected type's `fields`, and `truncated`.                                             |
+| `getIssueTrackerIssueWriteOptions`    | `issue` (key or ID), optional `expectedIssueId`                                                                    | Issue receipt, `accountId`, editable `fields`, `transitions`, permission flags and `deleteCapability`.                            |
+| `writeIssueTrackerIssue`              | `action: 'create'`, `project`, `issueTypeId`, `summary`, optional `description` and `fields`                       | Created issue receipt and `accountId`.                                                                                            |
+| `writeIssueTrackerIssue`              | `action: 'edit'`, `issue`, `expectedIssueId`, at least one change in `summary`, `description` or `fields`          | Updated issue receipt and `accountId`.                                                                                            |
+| `writeIssueTrackerIssue`              | `action: 'transition'`, `issue`, `expectedIssueId`, `transitionId`, optional `summary`, `description` and `fields` | Updated issue receipt and `accountId`.                                                                                            |
+| `resolveIssueTrackerIssueWriteTarget` | `issue`, optional `expectedIssueId` and `intent: 'delete'`                                                         | Canonical issue receipt and `accountId` for a confirmation UI. Delete intent also checks the credential, permission and subtasks. |
+| `deleteIssueTrackerIssue`             | `issue`, `expectedIssueId`, `expectedAccountId`                                                                    | Pre-delete issue receipt and `accountId` after Jira acknowledges the delete.                                                      |
 
 Use the metadata for the exact project, issue type or transition you selected. Each field carries its
 ID, operations, required and default flags, and any schema or allowed values Jira sends. Create
 metadata is read in at most 20 requests of up to 50 entries each. Check `truncated` before treating the
 returned list as complete. Pass Jira REST field values as a map keyed by field ID. Use the top-level
-inputs for `summary`, `description`, `project` and `issueTypeId`. Jira REST v2 accepts Jira wiki markup
+inputs for `summary`, `description`, `project` and `issueTypeId`. A transition takes `summary` and `description` only when
+its screen sets them. Jira REST v2 accepts Jira wiki markup
 strings for rich-text fields. The caller is responsible for converting other formats.
 
 For an existing issue, retain the returned key and canonical ID together. Edit, transition and delete

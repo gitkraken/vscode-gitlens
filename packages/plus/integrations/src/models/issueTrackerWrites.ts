@@ -23,7 +23,7 @@ export type IssueTrackerWriteOptions =
 			IssueTrackerEditableFields & { action: 'create'; project: string; issueTypeId: string; summary: string })
 	| (IssueTrackerExistingIssue & IssueTrackerEditableFields & { action: 'edit'; summary?: string })
 	| (IssueTrackerExistingIssue &
-			Pick<IssueTrackerEditableFields, 'fields'> & { action: 'transition'; transitionId: string });
+			IssueTrackerEditableFields & { action: 'transition'; transitionId: string; summary?: string });
 
 export type IssueTrackerWriteFailure = {
 	ok: false;

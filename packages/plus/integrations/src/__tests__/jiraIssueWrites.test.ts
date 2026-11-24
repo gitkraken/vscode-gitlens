@@ -55,7 +55,7 @@ const transitions = [
 		hasScreen: true,
 		isAvailable: true,
 		isConditional: true,
-		fields: { resolution: field },
+		fields: { resolution: field, summary: { ...field, required: false } },
 	},
 	{ id: '55', name: 'Reopen', to: status, hasScreen: false, isAvailable: false },
 ];
@@ -477,6 +477,29 @@ suite('IntegrationManager Jira Cloud issue writes', () => {
 				assert.deepEqual(Object.keys(result.fieldErrors ?? {}), Object.keys(options.fields));
 			}
 			assert.equal(mutations().length, 0);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('sends a summary or description the transition screen sets, and refuses one it does not', async () => {
+		const { manager, mutations } = await setup();
+		try {
+			const result = await manager.writeIssueTrackerIssue({ ...transition, summary: 'Fixed title' });
+			assert.ok(result.ok);
+			const [posted] = mutations();
+			assert.equal(posted.path, '/issue/123/transitions');
+			assert.deepEqual(posted.body, {
+				transition: { id: '12' },
+				fields: { ...transition.fields, summary: 'Fixed title' },
+			});
+
+			const refused = await manager.writeIssueTrackerIssue({ ...transition, description: 'Not on screen' });
+			assert.ok(!refused.ok);
+			assert.equal(refused.reason, 'invalid-input');
+			assert.equal(refused.mutationDispatched, false);
+			assert.deepEqual(refused.fieldErrors, { description: 'field-not-settable' });
+			assert.equal(mutations().length, 1);
 		} finally {
 			manager.dispose();
 		}
