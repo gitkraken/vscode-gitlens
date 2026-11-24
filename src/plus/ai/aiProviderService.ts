@@ -837,6 +837,16 @@ export class AIProviderService implements AIService, Disposable {
 		return this.container.storage.get(`ai:scope:${scope}:model`);
 	}
 
+	// KEEP: compare only the target's own stored value, so picking a scope's inherited model still overrides it
+	private isStoredSelection(model: AIModel, scope: AIModelScope | undefined): boolean {
+		if (scope != null) {
+			return this.getScopedModelId(scope) === `${model.provider.id}:${model.id}`;
+		}
+
+		const configured = this.getConfiguredModel();
+		return configured?.provider === model.provider.id && configured?.model === model.id;
+	}
+
 	/**
 	 * Resolves `scope`'s model together with whether that model came from the scope's own stored
 	 * selection rather than the inherited default.
@@ -1354,8 +1364,9 @@ export class AIProviderService implements AIService, Disposable {
 		// subsequent reads (including same-scope re-reads from event handlers) skip the network.
 		this._modelCache.set(scope ?? 'global', model);
 
-		if (changed) {
-			if (options?.persist) {
+		const persist = options?.persist === true && !this.isStoredSelection(model, scope);
+		if (changed || persist) {
+			if (persist) {
 				if (scope != null) {
 					// Scoped persistence: only the scope's Memento key is updated. The global default
 					// `ai.model` config is intentionally NOT touched so other features keep their model.
