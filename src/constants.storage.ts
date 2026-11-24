@@ -19,6 +19,7 @@ import type { FeaturePreviews } from './features.js';
 import type { OnboardingStorage } from './onboarding/models/onboarding.js';
 import type { OrganizationSettings } from './plus/gk/models/organization.js';
 import type { PaidSubscriptionPlanIds, Subscription } from './plus/gk/models/subscription.js';
+import type { KeplerInstallStep, KeplerReleaseFileKind } from './plus/kepler/keplerRelease.js';
 import type { DeepLinkServiceState } from './uris/deepLinks/deepLink.js';
 import type {
 	GraphDisplayMode,
@@ -118,6 +119,7 @@ interface GlobalStorageCore {
 	'product:config': Stored<StoredProductConfig>;
 	'confirm:draft:storage': boolean;
 	'home:sections:collapsed': string[];
+	'kepler:installs': Record<string, StoredKeplerInstall>;
 	'launchpad:groups:collapsed': StoredLaunchpadGroup[];
 	'launchpad:indicator:hasLoaded': boolean;
 	'launchpad:indicator:hasInteracted': string;
@@ -189,6 +191,13 @@ export interface StoredGkCLIInstallInfo {
 // so the multi-account descriptor shape (id/primary/type/accountName) can't drift between the extension's
 // storage typing and the integrations package that owns it.
 export type { StoredConfiguredIntegrationDescriptor, StoredIntegrationConfigurations };
+
+export interface StoredKeplerInstall {
+	kind: KeplerReleaseFileKind;
+	startedAt: number;
+	step?: KeplerInstallStep;
+	heartbeatAt: number;
+}
 
 export interface StoredNotificationsCacheEntry {
 	snapshot: NotificationsSnapshot;

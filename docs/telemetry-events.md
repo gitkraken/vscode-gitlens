@@ -5821,6 +5821,21 @@ or
 }
 ```
 
+### kepler/install/abandoned
+
+> Sent when an install of Kepler that never reported an outcome has stopped — its window was closed or reloaded, or VS Code quit, while it ran. Sent by the next local window to start once the install has shown no sign of life for 2 minutes, which can be much later than it stopped
+
+```typescript
+{
+  // How long the install was known to be running, in milliseconds — from its start to its last sign of life, at most 30 seconds before it stopped
+  'duration': number,
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup',
+  // The step the install was last known to be in; absent when it had not started downloading
+  'step': 'download' | 'install' | 'register' | 'verify'
+}
+```
+
 ### kepler/install/action
 
 > Sent when the user picks a button in, or dismisses, the notification that ends Install Kepler
@@ -5907,6 +5922,8 @@ or
 
 ```typescript
 {
+  // Set when an install started from another window was still running; best-effort, since windows learn of each other's installs with a delay
+  'concurrent': true,
   // The kind of installer file used, which follows the platform
   'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup'
 }
