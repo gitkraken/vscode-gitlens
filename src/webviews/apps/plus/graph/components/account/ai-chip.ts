@@ -78,7 +78,7 @@ export class GlAiChip extends SignalWatcher(LitElement) {
 			}
 
 			/* Clips rather than wrapping (via .truncate on the element): model ids run long
-			   ("claude-sonnet-4-5-20250929") and the popover is width-capped, so a wrap would push the
+			   ("claude-haiku-4-5-20251001") and the popover is width-capped, so a wrap would push the
 			   provider name onto its own line. */
 			.model__name {
 				color: var(--color-foreground);

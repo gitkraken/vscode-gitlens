@@ -16,6 +16,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Changes _Commit Graph_ shortcut overrides (`gitlens.graph.shortcuts.overrides`) to accept modifier and key names in any case, as VS Code keybindings do &mdash; `Alt+KeyM`, `alt+arrowup` and `f3` now work; single characters still match exactly, so `h` and `H` stay distinct
 - Improves memory use and large-commit performance when reading commit history &mdash; search results, history, and file lists no longer hold on to Git's raw output (e.g. a filtered search on a large repository drops from about 95MB to 2MB), and commits with very large patches or file lists no longer slow down as they stream in ([#5659](https://github.com/gitkraken/vscode-gitlens/issues/5659))
 
+### Removed
+
+- Removes Claude Sonnet 4.5, which Anthropic retires on November 30, 2026 &mdash; if it's your selected model, GitLens asks you to pick another on your next AI action ([#6164](https://github.com/gitkraken/vscode-gitlens/issues/6164))
+
 ### Fixed
 
 - Fixes choosing an AI model for composing commits, reviewing changes, resolving conflicts, or as the default not being saved when it matched a model just chosen elsewhere &mdash; each choice is now saved independently ([#6332](https://github.com/gitkraken/vscode-gitlens/issues/6332))

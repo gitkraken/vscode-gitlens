@@ -112,21 +112,6 @@ const models: AnthropicModel[] = [
 		provider: provider,
 		hidden: true,
 	},
-	// Anthropic retires Sonnet 4.5 on 2026-11-30 — remove both entries after that date (#6164)
-	{
-		id: 'claude-sonnet-4-5',
-		name: 'Claude Sonnet 4.5',
-		maxTokens: { input: 200000, output: 64000 },
-		provider: provider,
-		hidden: true,
-	},
-	{
-		id: 'claude-sonnet-4-5-20250929',
-		name: 'Claude Sonnet 4.5',
-		maxTokens: { input: 200000, output: 64000 },
-		provider: provider,
-		hidden: true,
-	},
 	{
 		id: 'claude-opus-4-5',
 		name: 'Claude Opus 4.5',
