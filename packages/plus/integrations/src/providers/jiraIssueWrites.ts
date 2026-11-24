@@ -127,6 +127,7 @@ export class JiraIssueWriter {
 		request: ProviderRequestFunction,
 		accessToken: string,
 		options: IssueTrackerWriteConnection,
+		isSessionCurrent: () => Promise<boolean>,
 	): Promise<JiraIssueWriter> {
 		const { body: sites } = await request<JiraSite[]>({
 			url: 'https://api.atlassian.com/oauth/token/accessible-resources',
@@ -144,7 +145,7 @@ export class JiraIssueWriter {
 			throw new JiraIssueWriteError('unknown');
 		}
 
-		const writer = new JiraIssueWriter(request, accessToken, site);
+		const writer = new JiraIssueWriter(request, accessToken, site, isSessionCurrent);
 		const { accountId } = await writer.read<{ accountId: string }>('/myself');
 		if (typeof accountId !== 'string' || !accountId) throw new JiraIssueWriteError('unknown');
 
@@ -162,6 +163,7 @@ export class JiraIssueWriter {
 		private readonly request: ProviderRequestFunction,
 		private readonly accessToken: string,
 		private readonly site: JiraSite,
+		private readonly isSessionCurrent: () => Promise<boolean>,
 	) {}
 
 	async getCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult> {
@@ -518,6 +520,8 @@ export class JiraIssueWriter {
 		} catch {
 			return { ok: false, reason: 'invalid-input', mutationDispatched: false };
 		}
+
+		if (!(await this.isSessionCurrent())) return { ok: false, reason: 'no-connection', mutationDispatched: false };
 
 		let response;
 		try {

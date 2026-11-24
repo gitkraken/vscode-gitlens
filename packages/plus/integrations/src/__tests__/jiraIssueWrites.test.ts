@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { defer } from '@gitlens/utils/promise.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import { IssuesCloudHostIntegrationId } from '../constants.js';
 import type { IssueTrackerDeleteOptions, IssueTrackerWriteConnection, IssueTrackerWriteOptions } from '../index.js';
@@ -72,7 +73,7 @@ const receipt = {
 
 type Call = { method: string; url: URL; path: string; body: unknown; token: string | null; resourceId?: string };
 
-async function setup(respond?: (call: Call) => object | undefined) {
+async function setup(respond?: (call: Call) => object | undefined | Promise<object | undefined>) {
 	const runtime = createFakeRuntime();
 	const configured = new ConfiguredIntegrationService(runtime);
 	for (const id of ['primary', 'selected']) {
@@ -108,7 +109,7 @@ async function setup(respond?: (call: Call) => object | undefined) {
 		};
 		calls.push(call);
 		assert.equal(call.token, 'Bearer token-selected');
-		const response = respond?.(call);
+		const response = await respond?.(call);
 		if (response != null) return response instanceof Response ? response : Response.json(response);
 
 		switch (`${call.method} ${path}`) {
@@ -178,6 +179,7 @@ async function setup(respond?: (call: Call) => object | undefined) {
 	});
 	return {
 		manager: manager,
+		runtime: runtime,
 		calls: calls,
 		errors: errors,
 		mutations: () => calls.filter(call => call.method !== 'GET'),
@@ -335,6 +337,60 @@ suite('IntegrationManager Jira Cloud issue writes', () => {
 			manager.dispose();
 		}
 	});
+
+	test('treats a DELETE response without a 204 acknowledgement as uncertain', async () => {
+		const { manager, mutations } = await setup(({ method }) =>
+			method === 'DELETE' ? Response.json({}) : undefined,
+		);
+		try {
+			assert.deepEqual(await manager.deleteIssueTrackerIssue(deletion), {
+				ok: false,
+				reason: 'unknown',
+				applied: 'maybe',
+			});
+			assert.equal(mutations().length, 1);
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	for (const change of ['disconnect', 'rotate', 'rotate and restore'] as const) {
+		test(`refuses to dispatch a delete after credential ${change} during preflight`, async () => {
+			const preflight = defer<void>();
+			const resume = defer<void>();
+			const { manager, runtime, mutations } = await setup(async ({ path }) => {
+				if (path === '/mypermissions') {
+					preflight.fulfill();
+					await resume.promise;
+				}
+				return undefined;
+			});
+			const pending = manager.deleteIssueTrackerIssue(deletion);
+			const configured = new ConfiguredIntegrationService(runtime);
+			try {
+				await preflight.promise;
+				const { providerId, connectionId } = deletion;
+				if (change === 'disconnect') {
+					await configured.deleteConnection(providerId, connectionId, true);
+				} else {
+					const session = await configured.peekStoredSession(providerId, connectionId, true, 'atlassian.net');
+					assert.ok(session);
+					await configured.storeSession(providerId, { ...session, accessToken: 'rotated-token' });
+					if (change === 'rotate and restore') {
+						await configured.storeSession(providerId, session);
+					}
+				}
+				resume.fulfill();
+				assert.deepEqual(await pending, { ok: false, reason: 'no-connection', mutationDispatched: false });
+				assert.equal(mutations().length, 0);
+			} finally {
+				resume.fulfill();
+				await pending;
+				configured.dispose();
+				manager.dispose();
+			}
+		});
+	}
 
 	test('routes identical keys and IDs to the explicitly selected site', async () => {
 		const { manager, mutations } = await setup();
