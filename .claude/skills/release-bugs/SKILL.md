@@ -20,6 +20,7 @@ Known limit: GitLens 4.x releases have no stable tags in the repo, so a defect t
 - Never write to GitHub.
 - GitHub reads are REST only (`gh api <path>`). Never use `gh issue`/`gh pr` or GraphQL. On any rate limit, stop, run `gh api rate_limit`, and report which limit was hit and when it resets.
 - Write rows from the files the script produced (`file_path` entries, absolute paths). Never retype row data.
+- Run locally, not as a cloud routine. Cloud sessions can only call repo-scoped GitHub endpoints, so the scan can't read the GitKraken member list (`/orgs/gitkraken/members`) and fails. Issue `author_association` can't replace it: most members hide their membership, so to an outside reader their issues look like a contributor's.
 - Run from the repo root of the **primary** worktree. Each run uses its own folder: `RUN=.work/release-bugs/$(date -u +%Y%m%dT%H%M%SZ)`. `$RUN` below means that folder.
 
 ## Steps
