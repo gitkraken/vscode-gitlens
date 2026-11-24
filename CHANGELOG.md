@@ -10,15 +10,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Changes the icon for a pull request waiting in a merge queue to a pull request with a clock badge, so it reads as queued at a glance in the _Commit Graph_, views, hovers, autolinks, and _Launchpad_ ([#6126](https://github.com/gitkraken/vscode-gitlens/issues/6126))
 - Improves editing of multi-line settings in the Settings editor &mdash; the AI custom instructions and the commit and stash tooltip formats now use a multi-line text box ([#1586](https://github.com/gitkraken/vscode-gitlens/issues/1586))
-- Adds high contrast light defaults for all of GitLens' theme colors &mdash; blame annotations, branch and file decorations, pull request and issue icons, _Commit Graph_ lanes and markers, and _Launchpad_ indicators now meet high contrast levels instead of reusing the light theme's colors ([#2119](https://github.com/gitkraken/vscode-gitlens/issues/2119))
-- Removes an unused inline script from the _Interactive Rebase Editor_ and _Cloud Patch_ details webviews, so their state is only ever embedded as encoded data ([#6201](https://github.com/gitkraken/vscode-gitlens/issues/6201))
+- Adds high contrast light defaults for GitLens' theme colors &mdash; blame text, branch status decorations, pull request and issue icons, _Commit Graph_ lanes and pale markers, and _Launchpad_'s attention and mergeable indicators now stand out more clearly against white ([#2119](https://github.com/gitkraken/vscode-gitlens/issues/2119))
+- Removes an unused inline script from the _Interactive Rebase Editor_ and _Cloud Patch_ details webviews ([#6201](https://github.com/gitkraken/vscode-gitlens/issues/6201))
 - Hardens how commit messages and pull request and issue text are rendered in hovers, view tooltips, the _Commit Graph_ and _Inspect_ &mdash; links in that text can only open web or mail addresses, and only GitLens' own actions can run commands ([#6200](https://github.com/gitkraken/vscode-gitlens/issues/6200))
 - Changes _Commit Graph_ shortcut overrides (`gitlens.graph.shortcuts.overrides`) to accept modifier and key names in any case, as VS Code keybindings do &mdash; `Alt+KeyM`, `alt+arrowup` and `f3` now work; single characters still match exactly, so `h` and `H` stay distinct
-- Improves memory use and large-commit performance when reading commit history &mdash; search results, history, and file lists no longer hold on to Git's raw output (e.g. a filtered search on a large repository drops from about 95MB to 2MB), and commits with very large patches or file lists no longer slow down as they stream in ([#5659](https://github.com/gitkraken/vscode-gitlens/issues/5659))
+- Improves memory use and large-commit performance when reading commit history &mdash; GitLens retains less of Git's raw output, especially when a search keeps only a small share of the commits it reads, and commits with very large patches or file lists are parsed more efficiently ([#5659](https://github.com/gitkraken/vscode-gitlens/issues/5659))
 
 ### Removed
 
-- Removes Claude Sonnet 4.5, which Anthropic retires on November 30, 2026 &mdash; if it's your selected model, GitLens asks you to pick another on your next AI action ([#6164](https://github.com/gitkraken/vscode-gitlens/issues/6164))
+- Removes Claude Sonnet 4.5 from the Anthropic provider ahead of Anthropic's November 30, 2026 retirement &mdash; if a GitLens AI feature was set to use it, GitLens asks you to choose a replacement when you next run that feature's AI action ([#6164](https://github.com/gitkraken/vscode-gitlens/issues/6164))
 
 ### Fixed
 
@@ -77,9 +77,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes commit lists, _File History_, contributors, and the _Commit Graph_ sometimes showing cut-short results with nothing more to load after a Git read was cancelled partway through
 - Fixes _Create Patch_, _Copy as Patch_, cloud patches, stashing selected files, copying changes to a worktree, and AI commit messages and explanations getting wrong or empty changes when Git is configured with an external diff tool (`diff.external`), `diff.noprefix` or custom diff prefixes, `diff.suppressBlankEmpty`, or `diff.submodule=log`
 - Fixes commit details never loading, and commit lists stalling for minutes, for a commit that moves and edits thousands of files &mdash; GitLens now falls back to Git's default rename limit for that read
-- Fixes a page of commits coming back empty when one of its commits changes a very large number of files (around 100,000 or more)
+- Fixes a page of commits coming back empty when one of its commits changes an unusually large number of files
 - Fixes Git commands on Windows not stopping when they time out or are cancelled, such as a fetch from a remote that never responds
-- Fixes unexpected credential prompts, and waits of up to a minute, when looking up a remote's default branch for a repository missing `refs/remotes/<remote>/HEAD` &mdash; the lookup no longer prompts, gives up after 10 seconds, and isn't retried for a minute after it fails
+- Fixes unexpected credential prompts, and waits of up to a minute, when looking up a remote's default branch for a repository missing `refs/remotes/<remote>/HEAD` &mdash; the lookup no longer prompts, each network request times out after 10 seconds, and GitLens waits up to a minute after a failure before trying again
+- Fixes incorrect or missing file names in commit and stash file lists, diffs, blame, and _File History_, including names with quotes or tabs
 - Fixes a commit's pull request going missing from hovers, _Inspect_ and other views after a single failed lookup &mdash; a server error, network failure, or rate limit was remembered as the commit having no pull request until reload; failed lookups are now retried with a back-off, and _Open Pull Request on Remote_ reports a failed lookup instead of saying the commit has no pull request
   - Fixes GitHub pull requests not being found for a commit when the remote's owner is spelled in a different letter case than on GitHub
   - Fixes Bitbucket Cloud never showing its notice about the missing commit links app
