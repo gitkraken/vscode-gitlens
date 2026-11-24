@@ -27,6 +27,7 @@ import type { Subscription, SubscriptionAccount, SubscriptionStateString } from 
 import type { KeplerProviderId } from './plus/kepler/keplerProviders.js';
 import type {
 	KeplerInstallFailureReason,
+	KeplerInstallStep,
 	KeplerNotInstallableReason,
 	KeplerReleaseFileKind,
 } from './plus/kepler/keplerRelease.js';
@@ -673,7 +674,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off */
 	'kepler/session/open/failed': KeplerSessionOpenFailedEvent;
 	/** Sent when GitLens starts installing Kepler */
-	'kepler/install/started': KeplerInstallEvent;
+	'kepler/install/started': KeplerInstallStartedEvent;
+	/** Sent when an install of Kepler that never reported an outcome has stopped — its window was closed or reloaded, or VS Code quit, while it ran. Sent by the next local window to start once the install has shown no sign of life for 2 minutes, which can be much later than it stopped */
+	'kepler/install/abandoned': KeplerInstallAbandonedEvent;
 	/** Sent when GitLens finishes installing Kepler */
 	'kepler/install/completed': KeplerInstallCompletedEvent;
 	/** Sent when installing Kepler fails or is cancelled */
@@ -2827,6 +2830,18 @@ interface KeplerSessionOpenFailedEvent extends KeplerSessionOpenEvent {
 interface KeplerInstallEvent {
 	/** The kind of installer file used, which follows the platform */
 	kind: KeplerReleaseFileKind;
+}
+
+interface KeplerInstallStartedEvent extends KeplerInstallEvent {
+	/** Set when an install started from another window was still running; best-effort, since windows learn of each other's installs with a delay */
+	concurrent?: true;
+}
+
+interface KeplerInstallAbandonedEvent extends KeplerInstallEvent {
+	/** The step the install was last known to be in; absent when it had not started downloading */
+	step?: KeplerInstallStep;
+	/** How long the install was known to be running, in milliseconds — from its start to its last sign of life, at most 30 seconds before it stopped */
+	duration: number;
 }
 
 interface KeplerInstallOutcomeEvent extends KeplerInstallEvent {
