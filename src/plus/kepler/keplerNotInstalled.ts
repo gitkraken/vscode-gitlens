@@ -144,7 +144,13 @@ export async function promptKeplerNotInstalled(
 	const action = await pickAction(container, intent, alternatives);
 	container.telemetry.sendEvent(
 		'kepler/notInstalled/action',
-		{ intent: intent, wizard: false, action: action ?? 'dismiss' },
+		{
+			intent: intent,
+			wizard: false,
+			action: action ?? 'dismiss',
+			installable: container.kepler.canInstall,
+			reason: container.kepler.notInstallableReason,
+		},
 		source,
 	);
 

@@ -13,6 +13,7 @@ import type {
 	WalkthroughProgress,
 } from '../../constants.walkthroughs.js';
 import type { Container } from '../../container.js';
+import type { KeplerNotInstallableReason } from '../../plus/kepler/keplerRelease.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import type { EventVisibilityBuffer, SubscriptionTracker } from './eventVisibilityBuffer.js';
 import { createRpcEventSubscription } from './eventVisibilityBuffer.js';
@@ -37,7 +38,12 @@ export interface WalkthroughProgressPayload {
 	 * What the Kepler CTAs (the "Try Kepler" banner, the welcome card) offer. `installed` rides with
 	 * `installing` so the banner hides at once, before the walkthrough step catches up.
 	 */
-	readonly kepler: { readonly installable: boolean; readonly installing: boolean; readonly installed: boolean };
+	readonly kepler: {
+		readonly installable: boolean;
+		readonly notInstallableReason: KeplerNotInstallableReason | undefined;
+		readonly installing: boolean;
+		readonly installed: boolean;
+	};
 }
 
 /**
@@ -105,6 +111,7 @@ export class WalkthroughService implements WalkthroughProgressService {
 			onboardingOptedOut: configuration.get('advanced.skipOnboarding'),
 			kepler: {
 				installable: this.#container.kepler.canInstall,
+				notInstallableReason: this.#container.kepler.notInstallableReason,
 				installing: this.#container.kepler.installing,
 				installed: this.#container.kepler.installed === true,
 			},

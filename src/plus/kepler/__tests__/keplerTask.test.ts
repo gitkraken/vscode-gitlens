@@ -9,6 +9,7 @@ import '../../../container.js';
 import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Container } from '../../../container.js';
 import type { KeplerNotInstalledAction, KeplerNotInstalledItem } from '../keplerNotInstalled.js';
+import type { KeplerNotInstallableReason } from '../keplerRelease.js';
 import type { KeplerTaskItem } from '../keplerTask.js';
 import {
 	findKeplerRepoPathForPullRequest,
@@ -27,7 +28,12 @@ const repoPath = '/Users/keith/code/vscode-gitlens';
 
 function makeContainer(
 	sendEvent: sinon.SinonSpy,
-	kepler?: { installed?: boolean | undefined; available?: boolean; install?: sinon.SinonStub },
+	kepler?: {
+		installed?: boolean | undefined;
+		available?: boolean;
+		install?: sinon.SinonStub;
+		notInstallableReason?: KeplerNotInstallableReason;
+	},
 ): Container {
 	// `installed` defaults to `true` when omitted, but `{ installed: undefined }` is a deliberate
 	// "can't tell" override — `??` can't tell those two apart, so the key's presence is checked directly.
@@ -40,7 +46,8 @@ function makeContainer(
 			scheme: 'kepler-staging://',
 			installed: installed,
 			available: kepler?.available ?? true,
-			canInstall: true,
+			canInstall: kepler?.notInstallableReason == null,
+			notInstallableReason: kepler?.notInstallableReason,
 			getRelease: () => Promise.resolve(undefined),
 			install: kepler?.install ?? sinon.stub().resolves(false),
 		},
@@ -253,10 +260,32 @@ suite('startKeplerTask', () => {
 		// Dismissing it runs nothing
 		assert.strictEqual(executeCommand.callCount, 0);
 
-		assert.deepStrictEqual(sendEvent.firstCall.args[1], { intent: 'new-task', wizard: false, action: 'dismiss' });
+		assert.deepStrictEqual(sendEvent.firstCall.args[1], {
+			intent: 'new-task',
+			wizard: false,
+			action: 'dismiss',
+			installable: true,
+			reason: undefined,
+		});
 		const [name, data] = sendEvent.secondCall.args;
 		assert.strictEqual(name, 'kepler/task/start/failed');
 		assert.strictEqual(data['failure.reason'], 'not-installed');
+	});
+
+	test("installed === false: reports why the quick pick's Install Kepler opens the download page instead", async () => {
+		stubQuickPick(sandbox);
+
+		await startKeplerTask(makeContainer(sendEvent, { installed: false, notInstallableReason: 'remote' }), {
+			intent: 'new-task',
+		});
+
+		assert.deepStrictEqual(sendEvent.firstCall.args[1], {
+			intent: 'new-task',
+			wizard: false,
+			action: 'dismiss',
+			installable: false,
+			reason: 'remote',
+		});
 	});
 
 	test('installed === false: a repository task offers only Install Kepler and Learn More', async () => {

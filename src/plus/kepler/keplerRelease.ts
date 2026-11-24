@@ -269,6 +269,8 @@ export function toMegabytes(bytes: number): number {
 	return Math.round(bytes / 1_000_000);
 }
 
+export type KeplerNotInstallableReason = 'unavailable' | 'remote' | 'channel' | 'unsupported';
+
 /**
  * Which step of an install failed. `cancelled` = the user cancelled; `unsupported` = nothing
  * installable for this machine; `manifest` = the update manifest could not be read; `download` = the

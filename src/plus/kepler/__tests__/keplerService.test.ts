@@ -233,6 +233,8 @@ suite('KeplerService.installed', () => {
 		const { container, sendEvent } = makeUsageContainer({ prereleaseOrDebugging: true, alreadyTracked: false });
 		const service = new KeplerService(container, notInstalled, remote, notLocated);
 
+		assert.strictEqual(service.canInstall, false);
+		assert.strictEqual(service.notInstallableReason, reason);
 		assert.strictEqual(await service.install(), false);
 		assert.strictEqual(openExternal.callCount, 1);
 		assert.deepStrictEqual(
@@ -246,6 +248,35 @@ suite('KeplerService.installed', () => {
 
 	test('on a non-production channel, Install Kepler opens the download page and reports why', () =>
 		assertCannotInstall('channel', 'staging', false));
+
+	test('where Kepler cannot run at all, Install Kepler reports why and opens nothing', async () => {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const openExternal = sandbox.stub(env, 'openExternal').resolves(true);
+		const { container, sendEvent } = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
+		const service = new KeplerService(container, notInstalled, false, notLocated);
+		sandbox.stub(service, 'available').value(false);
+
+		assert.strictEqual(service.notInstallableReason, 'unavailable');
+		assert.strictEqual(await service.install(), false);
+		assert.strictEqual(openExternal.callCount, 0);
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args),
+			[['kepler/install/skipped', { reason: 'unavailable' }, undefined]],
+		);
+	});
+
+	test('gives no reason where GitLens can install Kepler', function () {
+		if (process.platform !== 'linux' && process.platform !== 'darwin' && process.platform !== 'win32') {
+			this.skip();
+		}
+
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const { container } = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
+		const service = new KeplerService(container, notInstalled, false, notLocated);
+
+		assert.strictEqual(service.notInstallableReason, undefined);
+		assert.strictEqual(service.canInstall, true);
+	});
 
 	test('does not take a half-installed Kepler for installed while an install runs; a second install joins it', () => {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
