@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Reports absent refs and unrelated histories as typed conflict detection errors when Git cannot run a merge-tree check (git-cli)
+
 ## [0.47.0] - 2026-11-24
 
 ### Added

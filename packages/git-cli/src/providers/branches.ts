@@ -114,6 +114,9 @@ export const defaultBranchLookupClock = { now: (): number => Date.now() };
 const branchActivityKeys = ['gk-last-accessed', 'gk-last-modified', 'gk-agent-last-activity'] as const;
 type BranchActivityKey = (typeof branchActivityKeys)[number];
 
+const mergeTreeRefNotFound = /^merge-tree: [^\r\n]+ - not something we can merge\s*$/i;
+const mergeTreeNoMergeBase = /^fatal: refusing to merge unrelated histories\s*$/i;
+
 /**
  * The most commits a base's reflog may reach off its new tip's history for a re-measure: every worktree's count
  * excludes each of them on its command line, and more come only from a long history force-pushed away, where a full
@@ -2129,7 +2132,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					if (isCancellationError(ex)) throw ex;
 
 					const msg: string = ex?.toString() ?? '';
-					if (GitErrors.notAValidObjectName.test(msg)) {
+					const stderr = ex instanceof GitError ? (ex.stderr ?? '') : '';
+					if (GitErrors.notAValidObjectName.test(msg) || mergeTreeRefNotFound.test(stderr)) {
 						scope?.error(
 							ex,
 							`'${targetBranch}' or '${branch}' not found - ensure the branches exist and are fully qualified (e.g. 'refs/heads/main')`,
@@ -2138,7 +2142,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					} else if (GitErrors.badRevision.test(msg)) {
 						scope?.error(ex, `Invalid branch name: ${msg.slice(msg.indexOf("'"))}`);
 						return createConflictDetectionError('refNotFound');
-					} else if (GitErrors.noMergeBase.test(msg)) {
+					} else if (GitErrors.noMergeBase.test(msg) || mergeTreeNoMergeBase.test(stderr)) {
 						scope?.error(
 							ex,
 							`Unable to merge '${branch}' and '${targetBranch}' as they have no common ancestor`,
@@ -2278,13 +2282,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (isCancellationError(ex)) throw ex;
 
 			const msg: string = ex?.toString() ?? '';
-			if (GitErrors.notAValidObjectName.test(msg)) {
+			const stderr = ex instanceof GitError ? (ex.stderr ?? '') : '';
+			if (GitErrors.notAValidObjectName.test(msg) || mergeTreeRefNotFound.test(stderr)) {
 				scope?.error(ex, `'${ours}' or '${theirs}' not found - ensure the branches/commits exist`);
 				return { ok: false, reason: 'refNotFound' };
 			} else if (GitErrors.badRevision.test(msg)) {
 				scope?.error(ex, `Invalid revision: ${msg.slice(msg.indexOf("'"))}`);
 				return { ok: false, reason: 'refNotFound' };
-			} else if (GitErrors.noMergeBase.test(msg)) {
+			} else if (GitErrors.noMergeBase.test(msg) || mergeTreeNoMergeBase.test(stderr)) {
 				scope?.error(ex, `Unable to merge '${ours}' and '${theirs}' as they have no common ancestor`);
 				return { ok: false, reason: 'noMergeBase' };
 			} else if (ex instanceof GitError && ex.stdout) {
