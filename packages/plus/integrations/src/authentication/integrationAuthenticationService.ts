@@ -88,17 +88,17 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): () => Promise<boolean> {
 		const store = this.configuredIntegrationService;
-		const mark = store.getIssueWriteMark();
+		const mark = store.getStoredWriteMark();
 		const identity = getSessionIdentity(session);
 		return async () => {
-			if (store.isIssueWriteRetiredSince(id, session, mark)) return false;
+			if (store.isStoredWriteRetiredSince(id, session, mark)) return false;
 
 			const current = await store
 				.peekStoredSession(id, session.id, session.cloud ?? false, session.domain)
 				.catch(() => undefined);
 			return (
 				current != null &&
-				!store.isIssueWriteRetiredSince(id, session, mark) &&
+				!store.isStoredWriteRetiredSince(id, session, mark) &&
 				getSessionIdentity(current) === identity &&
 				current.account?.id === session.account?.id
 			);

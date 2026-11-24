@@ -61,6 +61,7 @@ import { getCachedIssue } from './issueCache.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from './issueReads.js';
 import type { IssuesIntegration } from './issuesIntegration.js';
 import type {
+	IntegrationCacheDescriptor,
 	IntegrationConnectedKey,
 	IntegrationCredential,
 	IntegrationKey,
@@ -261,6 +262,10 @@ export abstract class IntegrationBase<
 
 	protected getSessionFingerprint(session: ProviderAuthenticationSession): string {
 		return fnv1aHash64(session.accessToken);
+	}
+
+	protected getPullRequestCacheDescriptor(_session: ProviderAuthenticationSession): IntegrationCacheDescriptor {
+		return this;
 	}
 
 	get connectionExpired(): boolean | undefined {
@@ -1581,18 +1586,21 @@ export abstract class IntegrationBase<
 
 		if ((await this.prepareSessionLookup()) != null) return undefined;
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const { throwOnError, ...cacheOptions } = options ?? {};
 
 		const issueOrPR = this.ctx.cache.getIssueOrPullRequest(
 			link.key,
 			options?.type,
 			resource,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderLinkedIssueOrPullRequest(
-							this._session!,
+							session,
 							resource,
 							link,
 							options?.type,
@@ -1600,7 +1608,6 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getIssueOrPullRequest');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer — and a missed issue/PR never expires from the cache.
 						cacheable.invalidate();
 						this.handleProviderException('getIssueOrPullRequest', ex, { scope: scope });
 						if (throwOnError) throw ex;
@@ -1784,18 +1791,20 @@ export abstract class IntegrationBase<
 			return undefined;
 		}
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const pr = await this.ctx.cache.getPullRequest(
 			id,
 			resource,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderPullRequest?.(this._session!, resource, id);
+						const result = await this.getProviderPullRequest?.(session, resource, id);
 						this.resetRequestExceptionCount('getPullRequest');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer — and the by-id bucket never expires a miss.
 						cacheable.invalidate();
 						this.handleProviderException('getPullRequest', ex, { scope: scope });
 						if (options?.throwOnError) throw ex;

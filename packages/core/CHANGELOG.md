@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds GitHub Enterprise Server pull request writes to `IntegrationManager`. Create, edit, close, reopen, merge, and enqueue use the selected installation and verified login. Core checks the server's merge capabilities and the target branch's policy before offering merge or enqueue. Confirmed Enterprise receipts include the installation origin (plus/integrations, plus/git-github)
+
 ## [0.46.0] - 2026-11-23
 
 ### Added
