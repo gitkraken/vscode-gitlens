@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-11-24
+
 ### Added
 
+- Adds Jira Cloud issue writes to `IntegrationManager`: `getIssueTrackerCreateOptions`, `getIssueTrackerIssueWriteOptions`, `writeIssueTrackerIssue` (create, edit and workflow transitions), `deleteIssueTrackerIssue` and `resolveIssueTrackerIssueWriteTarget`. Each call names the connection and the site's cloud ID and uses the same credential as reads. Create and edit metadata, available transitions and the account's permissions come from Jira; writes go by the canonical issue ID, so a moved key, a stale ID or the same key on another site is refused without writing. Failures carry typed reasons, including Jira's field errors, unavailable transitions and a missing delete scope that leaves the credential valid (plus/integrations)
 - Adds GitHub Enterprise Server pull request writes to `IntegrationManager`. Create, edit, close, reopen, merge, and enqueue use the selected installation and verified login. Core checks the server's merge capabilities and the target branch's policy before offering merge or enqueue. Confirmed Enterprise receipts include the installation origin (plus/integrations, plus/git-github)
 
 ## [0.46.0] - 2026-11-23
@@ -1425,7 +1428,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.46.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.47.0...HEAD
+[0.47.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.46.0...gitkraken:releases/core/v0.47.0
 [0.46.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.45.0...gitkraken:releases/core/v0.46.0
 [0.45.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.44.0...gitkraken:releases/core/v0.45.0
 [0.44.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.43.0...gitkraken:releases/core/v0.44.0
