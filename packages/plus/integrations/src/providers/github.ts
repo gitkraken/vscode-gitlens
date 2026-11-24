@@ -1899,6 +1899,37 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 		return this._domain;
 	}
 
+	private readonly _removedSessions = new WeakSet<ProviderAuthenticationSession>();
+
+	getCachedPullRequestScope(origin: string): IntegrationCacheDescriptor | undefined {
+		const session = this._session;
+		if (
+			!session?.accessToken ||
+			this.connectionExpired === true ||
+			this._removedSessions.has(session) ||
+			session.id !==
+				this.authenticationService.getPrimaryConnectionId(this.authProvider.id, this.authProviderDescriptor)
+		) {
+			return undefined;
+		}
+
+		const descriptor = this.getPullRequestCacheDescriptor(session);
+		return descriptor.installationOrigin === origin ? descriptor : undefined;
+	}
+
+	override onSessionsRemoving(connectionId?: string, cloud?: boolean): void {
+		const session = this._session;
+		if (
+			session != null &&
+			(connectionId == null || connectionId === session.id) &&
+			(cloud == null || cloud === session.cloud)
+		) {
+			this._removedSessions.add(session);
+		}
+
+		super.onSessionsRemoving(connectionId, cloud);
+	}
+
 	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
 		return this.getSelfManagedApiBaseUrl(session);
 	}

@@ -9,9 +9,10 @@ import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { fnv1aHash64 } from '@gitlens/utils/hash.js';
 import { CacheController } from '@gitlens/utils/promiseCache.js';
+import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import type { IntegrationCacheDescriptor, IntegrationManagerCacheProvider } from '../index.js';
+import type { GitHostIntegration, IntegrationCacheDescriptor, IntegrationManagerCacheProvider } from '../index.js';
 import { createIntegrationManager } from '../index.js';
 import type { IntegrationService } from '../integrationService.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -299,6 +300,96 @@ suite('public integration manager cache', () => {
 			assert.equal(captured?.sessionFingerprint, fnv1aHash64(replacement.accessToken));
 		} finally {
 			manager.dispose();
+		}
+	});
+
+	test('scopes an Enterprise linked pull request when the caller hints that it is an issue', async () => {
+		const { cache: _internalCache, ...context } = createFakeRuntime();
+		const domain = 'ghe.example.test:8443';
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const linked = { id: '1', type: 'pullrequest' } satisfies Partial<PullRequest> as PullRequest;
+		let captured: IntegrationCacheDescriptor | undefined;
+		const manager = createIntegrationManager({
+			...context,
+			cache: {
+				getCurrentAccount: (_integration, loader) => loader(new CacheController()).value,
+				getIssueOrPullRequest: (_id, type, _resource, descriptor, loader) => {
+					assert.equal(type, 'issue');
+					captured = descriptor;
+					return loader(new CacheController()).value;
+				},
+			},
+		}) as IntegrationService;
+		try {
+			const integration = await manager.get(providerId, selected.baseUrl);
+			const stubbed = integration as unknown as {
+				_session: ProviderAuthenticationSession;
+				getProviderLinkedIssueOrPullRequest: (session: ProviderAuthenticationSession) => Promise<PullRequest>;
+			};
+			stubbed._session = selected;
+			stubbed.getProviderLinkedIssueOrPullRequest = async value => {
+				assert.equal(value, selected);
+				return linked;
+			};
+
+			const result = await integration.getLinkedIssueOrPullRequest(
+				{ key: 'octo/repo', owner: 'octo', name: 'repo' },
+				{ id: '1', key: '1' },
+				{ type: 'issue' },
+			);
+			assert.equal(result, linked);
+			assert.equal(captured?.installationOrigin, selected.baseUrl);
+			assert.equal(captured?.sessionFingerprint, fnv1aHash64(selected.accessToken));
+		} finally {
+			manager.dispose();
+		}
+	});
+
+	test('exposes a cached-only Enterprise scope for the selected, non-retired local session', async () => {
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = () => assert.fail('getting the scope must not make a request');
+		const domain = 'ghe.example.test:8443';
+		const providerId = GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const selected = { ...session, domain: domain, baseUrl: `http://${domain}` };
+		const configured = new ConfiguredIntegrationService(runtime);
+		await configured.storeSession(providerId, selected);
+		const { cache: _internalCache, ...context } = runtime;
+		const manager = createIntegrationManager(context) as IntegrationService;
+		try {
+			const integration = await manager.get(providerId, selected.baseUrl);
+			const view: GitHostIntegration = integration;
+			const stubbed = integration as unknown as { _session?: ProviderAuthenticationSession };
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+
+			stubbed._session = selected;
+			assert.equal(view.getCachedPullRequestScope?.(`https://${domain}`), undefined);
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl)?.installationOrigin, selected.baseUrl);
+			assert.equal(
+				view.getCachedPullRequestScope?.(selected.baseUrl)?.sessionFingerprint,
+				fnv1aHash64(selected.accessToken),
+			);
+
+			stubbed._session = { ...selected, expiresAt: new Date(0) };
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+			stubbed._session = { ...selected, id: 'secondary' };
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+
+			stubbed._session = selected;
+			integration.onSessionsRemoving('secondary', true);
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl)?.installationOrigin, selected.baseUrl);
+			integration.onSessionsRemoving(selected.id, selected.cloud);
+			assert.equal(view.getCachedPullRequestScope?.(selected.baseUrl), undefined);
+
+			const replacement = { ...selected, accessToken: 'replacement' };
+			stubbed._session = replacement;
+			assert.equal(
+				view.getCachedPullRequestScope?.(selected.baseUrl)?.sessionFingerprint,
+				fnv1aHash64(replacement.accessToken),
+			);
+		} finally {
+			manager.dispose();
+			configured.dispose();
 		}
 	});
 

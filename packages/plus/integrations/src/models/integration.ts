@@ -1595,7 +1595,7 @@ export abstract class IntegrationBase<
 			link.key,
 			options?.type,
 			resource,
-			options?.type === 'issue' ? this : this.getPullRequestCacheDescriptor(session),
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {

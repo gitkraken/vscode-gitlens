@@ -119,9 +119,11 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 	}
 
 	/** Returns the resolved cached value without triggering a fetch on cache miss */
-	private peek<T extends Cache>(cache: T, key: CacheKey<T>): CacheValue<T> | undefined {
+	private peek<T extends Cache>(cache: T, key: CacheKey<T>, etag?: string): CacheValue<T> | undefined {
 		const item = this._cache.get(`${cache}:${key}`);
 		if (item == null || isPromise(item.value)) return undefined;
+		if (etag != null && (item.etag !== etag || (item.expiresAt && item.expiresAt < Date.now()))) return undefined;
+
 		return item.value;
 	}
 
@@ -193,7 +195,7 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		cacheable: Cacheable<IssueOrPullRequest>,
 		options?: ExpiryOptions,
 	): CacheResult<IssueOrPullRequest> {
-		const address = this.getPullRequestCacheAddress(resource, integration, type);
+		const address = this.getPullRequestCacheAddress(resource, integration);
 		if (address == null) return cacheable(new CacheController()).value;
 
 		const { key, etag, prefix } = address;
@@ -345,10 +347,11 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		repo: ResourceDescriptor,
 		integration: IntegrationCacheDescriptor | undefined,
 	): PullRequest | undefined {
-		if (integration?.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) return undefined;
+		const address = this.getPullRequestCacheAddress(repo, integration);
+		if (address == null) return undefined;
 
-		const { key } = this.getResourceKeyAndEtag(repo, integration);
-		return this.peek('prByBranch', `branch:${branch}:${key}`);
+		const { key, etag, prefix } = address;
+		return this.peek('prByBranch', `branch:${prefix}${branch}:${key}`, prefix ? etag : undefined);
 	}
 
 	peekPullRequestForSha(
@@ -356,10 +359,11 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 		repo: ResourceDescriptor,
 		integration: IntegrationCacheDescriptor | undefined,
 	): PullRequest | undefined {
-		if (integration?.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) return undefined;
+		const address = this.getPullRequestCacheAddress(repo, integration);
+		if (address == null) return undefined;
 
-		const { key } = this.getResourceKeyAndEtag(repo, integration);
-		return this.peek('prsBySha', `sha:${sha}:${key}`);
+		const { key, etag, prefix } = address;
+		return this.peek('prsBySha', `sha:${prefix}${sha}:${key}`, prefix ? etag : undefined);
 	}
 
 	peekIssue(
@@ -503,9 +507,8 @@ export class CacheProvider implements Disposable, IntegrationManagerCacheProvide
 	private getPullRequestCacheAddress(
 		resource: ResourceDescriptor,
 		integration: IntegrationCacheDescriptor | undefined,
-		type?: IssueOrPullRequestType,
 	) {
-		if (type === 'issue' || integration?.id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
+		if (integration?.id !== GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
 			return { ...this.getResourceKeyAndEtag(resource, integration), prefix: '' };
 		}
 

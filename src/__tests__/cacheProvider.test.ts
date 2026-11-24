@@ -177,6 +177,37 @@ suite('CacheProvider', () => {
 		assert.strictEqual(await cache.getIssueOrPullRequest('2', 'issue', resource, http, fail), issue);
 	});
 
+	test('invalidates an Enterprise pull request when the linked lookup used an issue hint', async () => {
+		const cache = new CacheProvider({} as never);
+		const resource = { key: 'org/repo' };
+		const domain = 'ghe.example.test:8443';
+		const http = { ...createIntegration(domain), installationOrigin: `http://${domain}` };
+		const https = { ...createIntegration(domain), installationOrigin: `https://${domain}` };
+		const old = createPullRequest('Old');
+		const refreshed = createPullRequest('Refreshed');
+		const sibling = createPullRequest('Sibling');
+
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, http, () => ({ value: old })),
+			old,
+		);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, https, () => ({ value: sibling })),
+			sibling,
+		);
+
+		cache.deletePullRequests({ id: http.id, domain: http.installationOrigin });
+
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, http, () => ({ value: refreshed })),
+			refreshed,
+		);
+		assert.strictEqual(
+			await cache.getIssueOrPullRequest('1', 'issue', resource, https, () => assert.fail('retain the sibling')),
+			sibling,
+		);
+	});
+
 	test('a pending Enterprise linked lookup cannot restore a pull request after invalidation', async () => {
 		const cache = new CacheProvider({} as never);
 		const resource = { key: 'org/repo' };
@@ -218,20 +249,22 @@ suite('CacheProvider', () => {
 		const secondLoad = () => ({ value: second });
 		const fail = () => assert.fail('a repeated proved read must reuse its cache entry');
 
+		const wrongOrigin = { ...proved, installationOrigin: 'http://ghe.example.test' };
+		const replacement = { ...proved, sessionFingerprint: 'replacement' };
 		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, bare, firstLoad), first);
 		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, proved, secondLoad), second);
 		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, proved, fail), second);
-		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, bare), undefined);
-		assert.strictEqual(cache.peekPullRequestForSha('abc', resource, bare), undefined);
-		assert.strictEqual(
-			await cache.getPullRequestForBranch(
-				'main',
-				resource,
-				{ ...proved, sessionFingerprint: 'replacement' },
-				firstLoad,
-			),
-			first,
-		);
+		assert.strictEqual(await cache.getPullRequestForSha('abc', resource, proved, secondLoad), second);
+		for (const descriptor of [bare, wrongOrigin, replacement]) {
+			assert.strictEqual(cache.peekPullRequestForBranch('main', resource, descriptor), undefined);
+			assert.strictEqual(cache.peekPullRequestForSha('abc', resource, descriptor), undefined);
+		}
+
+		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, proved), second);
+		assert.strictEqual(cache.peekPullRequestForSha('abc', resource, proved), second);
+		assert.strictEqual(await cache.getPullRequestForBranch('main', resource, replacement, firstLoad), first);
+		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, replacement), first);
+		assert.strictEqual(cache.peekPullRequestForBranch('main', resource, proved), undefined);
 		assert.deepStrictEqual(
 			await cache.getPullRequestsForBranchName('main', resource, bare, () => ({ value: [first] })),
 			[first],

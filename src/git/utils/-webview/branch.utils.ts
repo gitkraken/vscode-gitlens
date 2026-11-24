@@ -5,6 +5,7 @@ import type { GitRemote } from '@gitlens/git/models/remote.js';
 import type { GitWorktree } from '@gitlens/git/models/worktree.js';
 import type { MergeTarget } from '@gitlens/git/providers/branches.js';
 import { createRevisionRange } from '@gitlens/git/utils/revision.utils.js';
+import type { IntegrationCacheDescriptor } from '@gitlens/integrations/index.js';
 import {
 	getAzureRepositoryIdentity,
 	getIntegrationIdForRemote,
@@ -221,24 +222,27 @@ export async function getBranchAssociatedPullRequest(
 	const remote = await getBranchRemote(container, branch);
 	if (remote?.provider == null) return undefined;
 
-	if (
-		options?.cached &&
-		getIntegrationIdForRemote(remote.provider) === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
-	) {
-		return undefined;
-	}
-
 	const integration = await getRemoteIntegration(remote);
 
 	if (options?.cached) {
+		let descriptor: IntegrationCacheDescriptor | undefined = integration;
+		if (getIntegrationIdForRemote(remote.provider) === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise) {
+			const fetchUrl = remote.urls.find(url => url.type === 'fetch')?.url;
+			const origin = fetchUrl == null ? undefined : URL.parse(fetchUrl)?.origin;
+			if (origin == null) return undefined;
+
+			descriptor = integration?.getCachedPullRequestScope?.(origin);
+			if (descriptor == null) return undefined;
+		}
+
 		if (branch.upstream?.missing) {
 			if (!branch.sha) return undefined;
-			return container.cache.peekPullRequestForSha(branch.sha, remote.provider.repoDesc, integration);
+			return container.cache.peekPullRequestForSha(branch.sha, remote.provider.repoDesc, descriptor);
 		}
 		return container.cache.peekPullRequestForBranch(
 			branch.trackingWithoutRemote ?? branch.nameWithoutRemote,
 			remote.provider.repoDesc,
-			integration,
+			descriptor,
 		);
 	}
 
