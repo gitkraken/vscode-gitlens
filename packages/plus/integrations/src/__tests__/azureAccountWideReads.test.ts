@@ -10,7 +10,7 @@ import type {
 	ProviderAuthenticationSession,
 	TokenWithInfo,
 } from '../authentication/models.js';
-import { GitCloudHostIntegrationId } from '../constants.js';
+import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '../errors.js';
 import { createIntegrationService as createIntegrationManager } from '../integrationService.js';
 import type { IntegrationResult } from '../models/publicIntegration.js';
@@ -1114,15 +1114,19 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 	test('reads the groups from the identity routes, with the credential provider-apis would send', async () => {
 		const runtime = createFakeRuntime();
 		const requests: { method: string; url: string; authorization: string; body?: string }[] = [];
+		const discoveryUrls: string[] = [];
 		let memberOf: unknown = ['desc;a', 'desc;b'];
 		let batch: (descriptors: string[]) => unknown = descriptors => ({
 			value: descriptors.map(d => ({ id: d.replace('desc;', 'id-') })),
 		});
 		runtime.http.fetch = (input, init) => {
 			const discovery = azureRestDiscoveryResponse(input);
-			if (discovery != null) return Promise.resolve(discovery);
-
 			const url = String(input);
+			if (discovery != null) {
+				discoveryUrls.push(url);
+				return Promise.resolve(discovery);
+			}
+
 			requests.push({
 				method: init?.method ?? 'GET',
 				url: url,
@@ -1131,7 +1135,7 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 			});
 			const answer = url.includes('/_apis/identitybatch')
 				? batch((JSON.parse(init!.body as string) as { descriptors: string[] }).descriptors)
-				: { value: [{ id: 'me', memberOf: memberOf }] };
+				: { value: [{ id: 'me', memberOf: memberOf, url: 'https://other.test/_apis/identities/me' }] };
 			return Promise.resolve(
 				new Response(JSON.stringify(answer), { status: 200, headers: { 'content-type': 'application/json' } }),
 			);
@@ -1146,50 +1150,68 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 			type: 'oauth',
 			scopes: [],
 		};
+		const pat: TokenWithInfo<GitSelfManagedHostIntegrationId.AzureDevOpsServer> = {
+			...token,
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			cloud: false,
+			type: 'pat',
+		};
 		const basic = `Basic ${Buffer.from(':secret').toString('base64')}`;
 
-		assert.deepEqual(await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), ['id-a', 'id-b']);
-		assert.deepEqual(requests, [
-			{
-				method: 'GET',
-				url: 'https://vssps.dev.azure.com/My%20Org/_apis/identities?identityIds=me&queryMembership=Expanded&api-version=5.0',
-				authorization: basic,
-				body: undefined,
-			},
-			{
-				method: 'POST',
-				url: 'https://vssps.dev.azure.com/My%20Org/_apis/identitybatch?api-version=5.0-preview.1',
-				authorization: basic,
-				body: JSON.stringify({ descriptors: ['desc;a', 'desc;b'], queryMembership: 'None' }),
-			},
-		]);
-
-		// Azure DevOps Server: below the collection, on the installation's own host.
-		requests.length = 0;
-		await api.getAzureGroupIdsForUser(token, 'Default Collection', 'me', {
-			isPAT: true,
-			baseUrl: 'https://server.test/tfs/',
-		});
-		assert.deepEqual(
-			requests.map(r => r.url.split('?')[0]),
+		for (const [baseUrl, identityBase, discoveryUrl] of [
+			[undefined, 'https://vssps.dev.azure.com'],
+			['https://dev.azure.com', 'https://vssps.dev.azure.com'],
+			['https://server.test/tfs/', 'https://server.test/tfs', 'https://server.test/tfs/My%20Org/_apis/IMS'],
 			[
-				'https://server.test/tfs/Default%20Collection/_apis/identities',
-				'https://server.test/tfs/Default%20Collection/_apis/identitybatch',
+				'https://dev.azure.com.example.test',
+				'https://dev.azure.com.example.test',
+				'https://dev.azure.com.example.test/My%20Org/_apis/IMS',
 			],
-		);
+			['http://dev.azure.com', 'http://dev.azure.com'],
+			['https://dev.azure.com:8443', 'https://dev.azure.com:8443'],
+			['https://dev.azure.com/tfs', 'https://dev.azure.com/tfs'],
+		] as const) {
+			requests.length = 0;
+			discoveryUrls.length = 0;
+			const isPAT = baseUrl != null;
+			const authorization = isPAT ? basic : 'Bearer secret';
+			assert.deepEqual(
+				await api.getAzureGroupIdsForUser(isPAT ? pat : token, 'My Org', 'me', {
+					isPAT: isPAT,
+					baseUrl: baseUrl,
+				}),
+				['id-a', 'id-b'],
+			);
+			assert.deepEqual(discoveryUrls, discoveryUrl == null ? [] : [discoveryUrl], baseUrl ?? 'OAuth');
+			assert.deepEqual(
+				requests,
+				[
+					{
+						method: 'GET',
+						url: `${identityBase}/My%20Org/_apis/identities?identityIds=me&queryMembership=Expanded&api-version=5.0`,
+						authorization: authorization,
+						body: undefined,
+					},
+					{
+						method: 'POST',
+						url: `${identityBase}/My%20Org/_apis/identitybatch?api-version=5.0-preview.1`,
+						authorization: authorization,
+						body: JSON.stringify({ descriptors: ['desc;a', 'desc;b'], queryMembership: 'None' }),
+					},
+				],
+				baseUrl ?? 'OAuth',
+			);
+		}
 
-		// No groups: no batch read.
 		requests.length = 0;
 		memberOf = [];
 		assert.deepEqual(await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), []);
 		assert.equal(requests.length, 1);
 
-		// A group Azure no longer resolves (deleted) can't be anyone's reviewer, so it is skipped.
 		memberOf = ['desc;a', 'desc;gone'];
 		batch = () => ({ value: [{ id: 'id-a' }, null] });
 		assert.deepEqual(await api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }), ['id-a']);
 
-		// Many groups: resolved in batches of 100, never one oversized request.
 		requests.length = 0;
 		memberOf = Array.from({ length: 150 }, (_, i) => `desc;${i}`);
 		batch = descriptors => ({ value: descriptors.map(d => ({ id: d.replace('desc;', 'id-') })) });
@@ -1202,7 +1224,6 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 			[100, 50],
 		);
 
-		// A later batch that comes back short fails the read, as the first would.
 		batch = descriptors => ({
 			value: descriptors.slice(0, descriptors.length === 50 ? 49 : undefined).map(d => ({ id: d })),
 		});
@@ -1212,7 +1233,6 @@ suite('Azure DevOps group reviewer reads (#5917)', () => {
 		);
 
 		memberOf = ['desc;a', 'desc;b'];
-		// Anything else that can't be matched to a reviewer fails rather than narrowing the read.
 		batch = () => ({ value: [{ id: 'id-a' }] });
 		await assert.rejects(
 			api.getAzureGroupIdsForUser(token, 'My Org', 'me', { isPAT: true }),
