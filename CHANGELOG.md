@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes translucent theme colors in the _Commit Graph_ being flattened onto the editor background instead of showing as the theme defines them
 - Fixes <kbd>Escape</kbd> not closing the _Commit Graph_'s overlay side bar while focus is on the rows and nothing is selected
 - Fixes the _Commit Graph_ never retrying avatars that failed to load
+- Fixes GitLens using a removed repository's or worktree's Git data for a new repository later created at the same path, when the removal happened while GitLens was still looking that path up
 
 ## [19.7.0] - 2026-11-24
 

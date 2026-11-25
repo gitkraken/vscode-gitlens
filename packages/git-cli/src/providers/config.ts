@@ -34,6 +34,12 @@ import { isFolder, isGitAnswer, isGitUnanswered, throwIfUnanswered } from '../ex
 import { isGitDirMovedByEnv, readGitDirs, readGitDirsOrReject } from '../exec/gitDirResolver.js';
 import { KeyedSequencer } from '../exec/indexLock.js';
 
+type RepositoryInfo =
+	| { repoPath: string; gitDir: string; commonGitDir: string | undefined; superprojectPath: string | undefined }
+	| [safe: true, repoPath: string]
+	| [safe: false]
+	| [];
+
 const mappedAuthorRegex = /(.+)\s<(.+)>/;
 const emptyArray: readonly never[] = Object.freeze([]);
 
@@ -643,15 +649,17 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 		let gitDir: GitDir;
 		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath);
 		if (fsGitDirs != null) {
+			this.throwIfClosedSince(repoPath, closeGeneration);
+
 			gitDir = toGitDir(fsGitDirs);
-			if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
-				this.cache.gitDir.set(repoPath, gitDir);
-			}
+			this.cache.gitDir.set(repoPath, gitDir);
 			return gitDir;
 		}
 
 		const repoInfo = await this.getRepositoryInfo(repoPath);
 		if (!Array.isArray(repoInfo) && repoInfo != null) {
+			this.throwIfClosedSince(repoPath, closeGeneration);
+
 			gitDir = {
 				uri: fileUri(repoInfo.gitDir),
 				commonUri: repoInfo.commonGitDir ? fileUri(repoInfo.commonGitDir) : undefined,
@@ -665,6 +673,8 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 			// the host trusts the path, the next call reads its real git dir
 			if (!this.isTrusted(repoPath)) return gitDir;
 
+			this.throwIfClosedSince(repoPath, closeGeneration);
+
 			const gitDirPath = gitDir.uri.toString(true);
 			scope?.warn(`rev-parse failed for '${repoPath}'; falling back to '${gitDirPath}'`);
 			this.context.hooks?.operations?.onGitDirResolveFailed?.(
@@ -673,11 +683,15 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 				`rev_parse returned ${JSON.stringify(repoInfo)}`,
 			);
 		}
-		if (this.cache.getCloseGeneration(repoPath) === closeGeneration) {
-			this.cache.gitDir.set(repoPath, gitDir);
-		}
+		this.cache.gitDir.set(repoPath, gitDir);
 
 		return gitDir;
+	}
+
+	private throwIfClosedSince(repoPath: string, closeGeneration: number): void {
+		if (this.cache.getCloseGeneration(repoPath) !== closeGeneration) {
+			throw new Error(`'${repoPath}' was closed while its git dir was read`);
+		}
 	}
 
 	/**
@@ -692,10 +706,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 
 		const closeGeneration = this.cache.getCloseGeneration(repoPath);
 		const fsGitDirs = await this.readGitDirsWithoutGit(repoPath, true);
-		// As in `readGitDir`: unregistered mid-read, the path may come back as another repository's checkout
-		if (this.cache.getCloseGeneration(repoPath) !== closeGeneration) {
-			throw new Error(`'${repoPath}' was closed while its git dir was read`);
-		}
+		this.throwIfClosedSince(repoPath, closeGeneration);
 		if (fsGitDirs == null) return false;
 
 		if (this.cache.gitDir.get(repoPath) == null) {
@@ -1358,14 +1369,33 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 	 * `[]` when git says `cwd` isn't a repository it can use, or `cwd` isn't a folder. Rejects when git gives no answer
 	 * (it ran past its time limit, was killed or couldn't start), which says nothing about `cwd`.
 	 */
-	async getRepositoryInfo(
-		cwd: string,
-	): Promise<
-		| { repoPath: string; gitDir: string; commonGitDir: string | undefined; superprojectPath: string | undefined }
-		| [safe: true, repoPath: string]
-		| [safe: false]
-		| []
-	> {
+	async getRepositoryInfo(cwd: string): Promise<RepositoryInfo> {
+		const stampedPaths = getPathAndAncestors(cwd);
+		const closeGeneration = this.getCloseGeneration(stampedPaths);
+
+		const info = await this.readRepositoryInfo(cwd);
+		if (Array.isArray(info)) return info;
+		// KEEP: a toplevel outside the stamped paths (a symlink's target, another casing) can't tell an unregister mid-read
+		if (!stampedPaths.includes(info.repoPath)) return info;
+		if (this.getCloseGeneration(stampedPaths) !== closeGeneration) return info;
+
+		this.cache.gitDir.set(info.repoPath, {
+			uri: fileUri(info.gitDir),
+			commonUri: info.commonGitDir ? fileUri(info.commonGitDir) : undefined,
+			parentUri: info.superprojectPath ? fileUri(info.superprojectPath) : undefined,
+		});
+		return info;
+	}
+
+	private getCloseGeneration(paths: readonly string[]): number {
+		let generation = 0;
+		for (const path of paths) {
+			generation += this.cache.getCloseGeneration(path);
+		}
+		return generation;
+	}
+
+	private async readRepositoryInfo(cwd: string): Promise<RepositoryInfo> {
 		let result;
 
 		if (!this.isTrusted(cwd)) {
@@ -1462,7 +1492,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					const repoPath = result?.commonPath ?? result?.path;
 					if (repoPath?.length) {
 						const workTree = await this.git.rev_parse__work_tree_of_git_dir(repoPath);
-						return workTree ? this.getRepositoryInfo(workTree) : [true, repoPath];
+						return workTree ? this.readRepositoryInfo(workTree) : [true, repoPath];
 					}
 				}
 			}
@@ -1477,7 +1507,7 @@ export class ConfigGitSubProvider implements GitConfigSubProvider {
 					exists = await fsExists(cwd);
 				} while (!exists);
 
-				return this.getRepositoryInfo(cwd);
+				return this.readRepositoryInfo(cwd);
 			}
 			return emptyArray as [];
 		}
@@ -1624,4 +1654,15 @@ function toGitDir(fsGitDirs: { readonly gitDir: string; readonly commonGitDir: s
 		commonUri: commonPath !== path ? fileUri(commonPath) : undefined,
 		parentUri: undefined,
 	};
+}
+
+function getPathAndAncestors(path: string): string[] {
+	const paths: string[] = [];
+	while (true) {
+		paths.push(normalizePath(path));
+		const parent = dirname(path);
+		if (parent === path) return paths;
+
+		path = parent;
+	}
 }

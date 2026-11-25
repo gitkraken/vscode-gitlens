@@ -144,6 +144,8 @@ export class CliGitProvider implements GitProvider {
 	/** By common git dir, the folders whose worktrees are ignored there: a common git dir never moves while it is open */
 	private readonly _ignoredWorktreeRoots = new Map<string, Promise<readonly string[]>>();
 	private readonly _indexRefresher: IndexRefresher;
+	private readonly _unregisterListener: { dispose(): void };
+	private readonly _resetListener: { dispose(): void };
 
 	constructor(options: CliGitProviderOptions) {
 		// Every typed write announces itself through `onReset`, so the provider clears its own state there
@@ -206,6 +208,10 @@ export class CliGitProvider implements GitProvider {
 		this._git.bindHeadReader(path => readHeadState(path, this.context.fs, this._cache));
 		// Bound even with no folder registered, so a `Git` shared with another provider never keeps that one's folders
 		this._git.bindIgnoredWorktreeRootsReader(path => this.getIgnoredWorktreeRoots(path));
+		this._unregisterListener = this._cache.onDidUnregisterRepoPath(repoPath =>
+			this._git.clearPendingCommands([repoPath]),
+		);
+		this._resetListener = this._cache.onDidReset(() => this._git.clearPendingCommands());
 	}
 
 	/** The underlying cache instance (for repo path registration, etc.) */
@@ -1330,6 +1336,8 @@ export class CliGitProvider implements GitProvider {
 	}
 
 	dispose(): void {
+		this._unregisterListener.dispose();
+		this._resetListener.dispose();
 		this._onDidAnnounceChanges.dispose();
 		this._indexRefresher.dispose();
 		this._git.dispose();
