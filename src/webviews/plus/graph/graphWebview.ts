@@ -3448,6 +3448,7 @@ export class GraphWebviewProvider implements WebviewProvider<State, State, Graph
 		this._producers.fireRefsMetadataChanged();
 		this._panels.notifySidebarInvalidated();
 		this._panels.notifyDidChangeOverview();
+		this._mergeTarget.onPullRequestChanged();
 		this._data.updateState(true);
 	}
 

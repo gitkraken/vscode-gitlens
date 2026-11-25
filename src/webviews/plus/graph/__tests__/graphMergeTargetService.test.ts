@@ -1,7 +1,14 @@
 import * as assert from 'assert';
-import type { GraphMergeTargetIdentity } from '../graphMergeTargetService.js';
-import { canKeepVerdictWhileRecomputing } from '../graphMergeTargetService.js';
-import type { GraphCurrentBranchMergeTarget } from '../protocol.js';
+import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
+import type { GlRepository } from '../../../../git/models/repository.js';
+import type { GraphMergeTargetIdentity, GraphMergeTargetServiceContext } from '../graphMergeTargetService.js';
+import {
+	canKeepVerdictWhileRecomputing,
+	GraphMergeTargetService,
+	hasMergedPullRequest,
+} from '../graphMergeTargetService.js';
+import type { GraphCurrentBranchMergeTarget, GraphCurrentBranchMergeTargetState } from '../protocol.js';
 import { isCurrentBranchMergeTargetFor } from '../protocol.js';
 
 const identity: GraphMergeTargetIdentity = { repoPath: '/repo', branch: 'feature', tipSha: 'aaa', generation: 1 };
@@ -95,5 +102,106 @@ suite('graph merge-target verdict — continuity while recomputing', () => {
 			false,
 		);
 		assert.strictEqual(canKeepVerdictWhileRecomputing(undefined, undefined, identity, 'origin/feature'), false);
+	});
+});
+
+function liveUpstreamBranch(sha: string, ahead: number): GitBranch {
+	return {
+		repoPath: '/repo',
+		name: 'feature',
+		sha: sha,
+		current: true,
+		detached: false,
+		remoteName: 'origin',
+		upstream: { name: 'origin/feature', missing: false, state: { ahead: ahead, behind: 0 } },
+	} as unknown as GitBranch;
+}
+
+function pullRequest(state: PullRequest['state']): PullRequest {
+	return { state: state } as unknown as PullRequest;
+}
+
+suite('graph merge-target verdict — live upstream gate', () => {
+	test('stays lazy while the pull request is open', async () => {
+		let byNameRead = false;
+		const merged = await hasMergedPullRequest(
+			liveUpstreamBranch('aaa', 1),
+			() => Promise.resolve(pullRequest('opened')),
+			() => {
+				byNameRead = true;
+				return Promise.resolve([pullRequest('merged')]);
+			},
+		);
+		assert.strictEqual(merged, false);
+		assert.strictEqual(byNameRead, false);
+	});
+
+	test('computes once the pull request merged', async () => {
+		const merged = await hasMergedPullRequest(
+			liveUpstreamBranch('aaa', 0),
+			() => Promise.resolve(pullRequest('merged')),
+			() => Promise.resolve(undefined),
+		);
+		assert.strictEqual(merged, true);
+	});
+
+	test('computes for a merged pull request found by head name when the branch is ahead', async () => {
+		const merged = await hasMergedPullRequest(
+			liveUpstreamBranch('aaa', 2),
+			() => Promise.resolve(undefined),
+			() => Promise.resolve([pullRequest('opened'), pullRequest('merged')]),
+		);
+		assert.strictEqual(merged, true);
+	});
+
+	test('reads by head name only when the branch is ahead', async () => {
+		let byNameRead = false;
+		const merged = await hasMergedPullRequest(
+			liveUpstreamBranch('aaa', 0),
+			() => Promise.resolve(undefined),
+			() => {
+				byNameRead = true;
+				return Promise.resolve([pullRequest('merged')]);
+			},
+		);
+		assert.strictEqual(merged, false);
+		assert.strictEqual(byNameRead, false);
+	});
+
+	test('drops a verdict for another identity before waiting on the pull request', async () => {
+		let branch = liveUpstreamBranch('aaa', 1);
+		const published: GraphCurrentBranchMergeTargetState[] = [];
+		const context = {
+			container: {
+				git: {
+					getRepositoryService: () => ({ remotes: { getRemote: () => new Promise(() => {}) } }),
+				},
+			},
+			host: { ready: true, visible: true },
+			fireCurrentBranchMergeTargetChanged: (state: GraphCurrentBranchMergeTargetState) => published.push(state),
+			fireMergeTargetsChanged: () => {},
+		} as unknown as GraphMergeTargetServiceContext;
+		const repo = {
+			path: '/repo',
+			git: { branches: { getBranch: () => Promise.resolve(branch) } },
+		} as unknown as GlRepository;
+
+		const service = new GraphMergeTargetService(context);
+		try {
+			service.setRepository(repo);
+			await new Promise(resolve => setTimeout(resolve, 0));
+			assert.strictEqual(published.at(-1)?.verdict?.tipSha, 'aaa');
+
+			branch = liveUpstreamBranch('bbb', 1);
+			service.onPullRequestChanged();
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			const verdict = published.at(-1)?.verdict;
+			assert.strictEqual(verdict?.tipSha, 'bbb');
+			assert.strictEqual(verdict.liveUpstream, true);
+			assert.strictEqual(verdict.status, undefined);
+		} finally {
+			service.dispose();
+		}
 	});
 });

@@ -1,12 +1,17 @@
 import type { MergeTargetsChangeEvent } from '@gitlens/git/cache.js';
 import type { GitBranch } from '@gitlens/git/models/branch.js';
+import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import type { Deferrable } from '@gitlens/utils/debounce.js';
 import { debounce } from '@gitlens/utils/debounce.js';
 import { Logger } from '@gitlens/utils/logger.js';
+import { pauseOnCancelOrTimeout } from '@gitlens/utils/promise.js';
 import type { Container } from '../../../container.js';
 import type { GlRepository, RepositoryChangeEvent } from '../../../git/models/repository.js';
-import { getBranchAssociatedPullRequest } from '../../../git/utils/-webview/branch.utils.js';
+import {
+	getBranchAssociatedPullRequest,
+	getBranchPullRequestsByHeadName,
+} from '../../../git/utils/-webview/branch.utils.js';
 import type { OverviewBranchMergeTarget } from '../../shared/overviewBranches.js';
 import { getBranchMergeTargetStatusInfo } from '../../shared/overviewEnrichment.utils.js';
 import type { WebviewHost } from '../../webviewProvider.js';
@@ -48,6 +53,9 @@ interface VerdictComputation {
 /** Long enough for the status' own 5s pull request deadline, so pending clears by the verdict whenever it can */
 const pendingTimeout = 10_000;
 
+const pullRequestGateTimeout = 5_000;
+const remotesChangedPullRequestExpiry = 60_000;
+
 function isSameIdentity(a: GraphMergeTargetIdentity, b: GraphMergeTargetIdentity): boolean {
 	return a.repoPath === b.repoPath && a.branch === b.branch && a.tipSha === b.tipSha && a.generation === b.generation;
 }
@@ -76,6 +84,20 @@ export function canKeepVerdictWhileRecomputing(
 	return previous != null && !previous.pending && isSameIdentity(previous, next) && previousUpstream === nextUpstream;
 }
 
+export async function hasMergedPullRequest(
+	branch: GitBranch,
+	getAssociatedPullRequest: () => Promise<PullRequest | undefined>,
+	getPullRequestsByHeadName: () => Promise<PullRequest[] | undefined>,
+): Promise<boolean> {
+	const pr = await getAssociatedPullRequest().catch(() => undefined);
+	if (pr != null) return pr.state === 'merged';
+	if (!branch.upstream?.state.ahead) return false;
+
+	// KEEP: the by-ref read finds nothing once the host deletes a merged head branch, and Push would recreate it
+	const prs = await getPullRequestsByHeadName().catch(() => undefined);
+	return prs?.some(p => p.state === 'merged') ?? false;
+}
+
 /**
  * The merge-target verdict for the Graph's bound repository's current branch, computed once on the host for the
  * header and for the WIP details of that branch, so they can't disagree. Also forwards the repository's merge-target
@@ -85,11 +107,6 @@ export function canKeepVerdictWhileRecomputing(
  * show those ask for them on demand). Recomputed, debounced, when the current tip, the target's tip (or its local
  * counterpart's), the upstream or the merge target itself changes, on a branch switch or rebind, and once the pull
  * request evidence settles; a newer computation cancels an older one. Does nothing while the Graph is hidden.
- *
- * Those triggers compute eagerly only for a branch with no upstream or a gone one, the only case the header reads the
- * verdict for (whether to offer Publish). The merged check can take seconds on a large repo, so for a branch with a
- * live upstream a trigger only marks the verdict stale (dropping it if the identity moved), and it's computed when
- * {@link getStatus} asks for it.
  */
 export class GraphMergeTargetService {
 	private _repository: GlRepository | undefined;
@@ -110,6 +127,7 @@ export class GraphMergeTargetService {
 	private _deferred = false;
 	/** The pull request settled after the latest computation answered without it */
 	private _evidenceSettled = false;
+	private _remotesChanged = false;
 	private readonly _refreshDebounced: Deferrable<() => void>;
 
 	constructor(private readonly context: GraphMergeTargetServiceContext) {
@@ -141,6 +159,7 @@ export class GraphMergeTargetService {
 
 		this._repository = repository;
 		this._branchName = undefined;
+		this._remotesChanged = false;
 		this._refreshDebounced.cancel();
 		this._readController?.abort();
 		this.cancelComputation();
@@ -175,8 +194,18 @@ export class GraphMergeTargetService {
 		// `remotes`), and the upstream, including a prune marking it gone (`remotes`, `config`)
 		if (!e.changed('head', 'heads', 'remotes', 'config')) return;
 
+		if (e.changed('remotes')) {
+			this._remotesChanged = true;
+		}
 		this._stale = true;
 		this.schedule(false);
+	}
+
+	onPullRequestChanged(): void {
+		this._stale = true;
+		// KEEP: a pull request change moves none of the verdict's inputs, so it must skip their dedupe
+		this._evidenceSettled = true;
+		this.schedule(true);
 	}
 
 	onVisible(): void {
@@ -248,10 +277,6 @@ export class GraphMergeTargetService {
 		}
 	}
 
-	/**
-	 * Reads what decides the verdict, and recomputes it only when something did move. Unless on `demand`, only for a
-	 * branch whose verdict the header reads (see the class comment).
-	 */
 	private async refresh(demand: boolean = false): Promise<void> {
 		const repo = this._repository;
 		if (repo == null) return;
@@ -286,14 +311,20 @@ export class GraphMergeTargetService {
 			};
 
 			if (!demand && branch.upstream != null && !branch.upstream.missing) {
-				// The header doesn't read it, so leave it for a request. A verdict for another identity would only
-				// mislead, so drop it; one for this identity stays, possibly outdated, which `_stale` covers.
+				// KEEP: drop another identity's verdict before the pull request wait, which can take seconds
 				if (this._verdict == null || !isSameIdentity(this._verdict, identity)) {
 					this.cancelComputation();
 					this.publish({ ...identity, targetRef: undefined, status: undefined, liveUpstream: true });
 				}
-				this._stale = true;
-				return;
+
+				const merged = await this.readPullRequestGate(branch, controller);
+				if (signal.aborted) return;
+
+				// KEEP: the merged check can take seconds (#6205), so only a merged pull request runs it eagerly
+				if (!merged) {
+					this._stale = true;
+					return;
+				}
 			}
 
 			const previousInputs = this._verdict?.branch === branch.name ? this._inputs : undefined;
@@ -418,6 +449,39 @@ export class GraphMergeTargetService {
 				this.publish({ ...identity, targetRef: undefined, status: undefined, liveUpstream: liveUpstream });
 			},
 		);
+	}
+
+	private async readPullRequestGate(branch: GitBranch, controller: AbortController): Promise<boolean> {
+		const expiryOverride = this._remotesChanged ? remotesChangedPullRequestExpiry : undefined;
+		this._remotesChanged = false;
+
+		const result = await pauseOnCancelOrTimeout(
+			hasMergedPullRequest(
+				branch,
+				() =>
+					getBranchAssociatedPullRequest(this.container, branch, {
+						expiryOverride: expiryOverride,
+					}),
+				() =>
+					getBranchPullRequestsByHeadName(this.container, branch, {
+						expiryOverride: expiryOverride,
+					}),
+			),
+			controller.signal,
+			pullRequestGateTimeout,
+		);
+		if (!result.paused) return result.value;
+
+		if (result.reason === 'timedout') {
+			const onSettled = (): void => {
+				if (this._readController !== controller) return;
+
+				this._stale = true;
+				this.schedule(true);
+			};
+			result.value.then(onSettled, onSettled);
+		}
+		return false;
 	}
 
 	private async readInputs(

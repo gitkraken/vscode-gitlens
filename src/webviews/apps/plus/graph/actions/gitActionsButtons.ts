@@ -1482,17 +1482,17 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		const queued = isPullRequestQueued(this.branchState?.pr);
-		if (!this.branchState || (!this.isBehind && (!this.isAhead || queued))) {
-			return nothing;
-		}
+		if (!this.branchState) return nothing;
+
+		const canPush = this.isAhead && !isPullRequestQueued(this.branchState.pr) && !isBranchLanded(this._graphState);
+		if (!this.isBehind && !canPush) return nothing;
 
 		const action = this.isBehind ? 'pull' : 'push';
 
 		return html`
 			${action === 'pull' ? this.renderPull() : this.renderPush()}
 			${
-				this.isAhead && this.isBehind && !queued && !isBranchLanded(this._graphState)
+				this.isBehind && canPush
 					? html`
 							<gl-button
 								appearance="toolbar"

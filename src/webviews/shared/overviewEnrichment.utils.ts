@@ -201,7 +201,7 @@ export async function getBranchMergeTargetStatusInfo(
 	// The tip SHA is required — without it the graph's scope anchor can't be placed.
 	if (targetBranch?.sha == null) return undefined;
 
-	const [countsResult, conflictResult, mergedStatusResult] = await Promise.allSettled([
+	const [countsResult, conflictResult] = await Promise.allSettled([
 		svc.commits.getLeftRightCommitCount(
 			createRevisionRange(targetBranch.name, branch.ref, '...'),
 			{ excludeMerges: true },
@@ -210,23 +210,26 @@ export async function getBranchMergeTargetStatusInfo(
 		options?.landedOnly
 			? undefined
 			: getMergeTargetPotentialConflicts(container, branch, targetBranch.name, cancellation),
-		svc.branches.getBranchMergedStatus?.(branch, targetBranch, cancellation),
 	]);
 
 	const counts = getSettledValue(countsResult);
 	const status = counts != null ? { ahead: counts.right, behind: counts.left } : undefined;
-	const rawMergedStatus = getSettledValue(mergedStatusResult);
 
 	let reflogWork: Promise<BranchReflogWork> | undefined;
 	const getReflogWork = (): Promise<BranchReflogWork> =>
 		(reflogWork ??= readBranchReflogWork(svc, branch, cancellation));
 
-	// Zero unique commits vs. the target reads as "merged" to `git merge-base --is-ancestor`, but that is
-	// also true of a brand-new branch, so the branch's reflog decides whether it was really merged.
-	const mergedStatus =
-		rawMergedStatus?.merged && status?.ahead === 0
-			? await getZeroAheadMergedStatus(branch, rawMergedStatus, getReflogWork)
-			: rawMergedStatus;
+	// KEEP: lazy — the merged check can take seconds, so it runs only when the pull request can't decide
+	let mergedStatus: Promise<GitBranchMergedStatus | undefined> | undefined;
+	const getMergedStatus = (): Promise<GitBranchMergedStatus | undefined> =>
+		(mergedStatus ??= readBranchMergedStatus(
+			svc,
+			branch,
+			targetBranch,
+			status?.ahead,
+			getReflogWork,
+			cancellation,
+		));
 
 	// Decided apart from `mergedStatus`, which vscode.dev can't compute, so a pull request still decides there
 	const verdict = await getBranchLandedVerdict(
@@ -237,7 +240,7 @@ export async function getBranchMergeTargetStatusInfo(
 		targetBranch.nameWithoutRemote,
 		status?.ahead,
 		associatedPullRequest,
-		mergedStatus,
+		getMergedStatus,
 		getReflogWork,
 		deadline,
 		cancellation,
@@ -249,7 +252,7 @@ export async function getBranchMergeTargetStatusInfo(
 		sha: targetBranch.sha,
 		name: targetBranch.name,
 		status: status,
-		mergedStatus: mergedStatus,
+		mergedStatus: await mergedStatus,
 		landed: verdict.landed,
 		successor: verdict.successor,
 		mergedElsewhere: verdict.mergedElsewhere,
@@ -261,6 +264,27 @@ export async function getBranchMergeTargetStatusInfo(
 }
 
 type BranchReflogWork = ReturnType<typeof getBranchReflogWork>;
+
+async function readBranchMergedStatus(
+	svc: GitRepositoryService,
+	branch: GitBranch,
+	targetBranch: GitBranch,
+	ahead: number | undefined,
+	getReflogWork: () => Promise<BranchReflogWork>,
+	cancellation?: AbortSignal,
+): Promise<GitBranchMergedStatus | undefined> {
+	let rawMergedStatus: GitBranchMergedStatus | undefined;
+	try {
+		rawMergedStatus = await svc.branches.getBranchMergedStatus?.(branch, targetBranch, cancellation);
+	} catch {
+		return undefined;
+	}
+
+	// KEEP: zero ahead reads as merged for a brand-new branch too, so the reflog decides
+	return rawMergedStatus?.merged && ahead === 0
+		? getZeroAheadMergedStatus(branch, rawMergedStatus, getReflogWork)
+		: rawMergedStatus;
+}
 
 async function readBranchReflogWork(
 	svc: GitRepositoryService,
@@ -316,7 +340,7 @@ async function getBranchLandedVerdict(
 	targetWithoutRemote: string,
 	ahead: number | undefined,
 	associatedPullRequest: Promise<PullRequest | undefined>,
-	mergedStatus: GitBranchMergedStatus | undefined,
+	getMergedStatus: () => Promise<GitBranchMergedStatus | undefined>,
 	getReflogWork: () => Promise<BranchReflogWork>,
 	deadline: number,
 	cancellation?: AbortSignal,
@@ -355,6 +379,7 @@ async function getBranchLandedVerdict(
 		}
 	}
 
+	const mergedStatus = await getMergedStatus();
 	if (mergedStatus?.merged) {
 		return { landed: { via: 'git', confidence: mergedStatus.confidence, tipSha: tip } };
 	}

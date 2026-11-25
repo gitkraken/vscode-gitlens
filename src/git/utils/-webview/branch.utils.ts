@@ -270,6 +270,7 @@ export async function getBranchAssociatedPullRequest(
 export async function getBranchPullRequestsByHeadName(
 	container: Container,
 	branch: GitBranch,
+	options?: { expiryOverride?: number },
 ): Promise<PullRequest[] | undefined> {
 	if (branch.upstream == null) return undefined;
 
@@ -319,6 +320,7 @@ export async function getBranchPullRequestsByHeadName(
 				}
 			})(),
 		}),
+		options,
 	);
 }
 
