@@ -29,9 +29,6 @@ export interface VirtualScrollOptions {
  *  - Middle rows use `scrollToIndex(index, 'nearest')`.
  *  - Focus is restored to the container after the scroll settles (a programmatic scroll otherwise
  *    steals focus from the keyboard user).
- *
- * Reusable core (L1). Replaces `tree-view`'s `scrollToItem` + the `_scrolling` guard +
- * `kickVirtualizerAfterFirstLayout`.
  */
 export class VirtualScrollController implements ReactiveController {
 	private _scrolling = false;
@@ -150,7 +147,12 @@ export class VirtualScrollController implements ReactiveController {
 		const virtualizer = this.options.getVirtualizer();
 		if (virtualizer == null) return;
 
-		await virtualizer.layoutComplete;
+		try {
+			await virtualizer.layoutComplete;
+		} catch {
+			return;
+		}
+
 		reslice();
 	}
 }

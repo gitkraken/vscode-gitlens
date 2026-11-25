@@ -879,19 +879,12 @@ tree-item publishes per row state as --gl-tree-row-bg. */
 		if (changedProperties.has('treeItems')) {
 			const prev = changedProperties.get('treeItems') as TreeModelFlat[] | undefined;
 			if (!prev?.length && (this.treeItems?.length ?? 0) > 0) {
-				void this.kickVirtualizerAfterFirstLayout();
+				void this._scroll.kickAfterFirstLayout(() => {
+					if (this.treeItems?.length) {
+						this.treeItems = this.treeItems.slice();
+					}
+				});
 			}
-		}
-	}
-
-	private async kickVirtualizerAfterFirstLayout(): Promise<void> {
-		const virtualizer = this.virtualizerRef.value;
-		if (!virtualizer) return;
-
-		await virtualizer.layoutComplete;
-		// Re-check after await — the model could have been swapped to empty mid-wait.
-		if (this.treeItems?.length) {
-			this.treeItems = this.treeItems.slice();
 		}
 	}
 
