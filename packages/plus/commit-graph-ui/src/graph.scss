@@ -1003,6 +1003,18 @@ gl-commit-graph {
 		pointer-events: auto;
 	}
 
+	.gl-graph__row.has-persistent-inset:not(:hover, .is-focused, .is-selected)
+		.gl-graph__row-actions--has-persistent::before {
+		display: none;
+	}
+
+	.gl-graph__row.has-persistent-inset .gl-graph__zone.is-last,
+	.gl-graph__row.has-persistent-inset .gl-graph__list-content {
+		padding-inline-end: calc(
+			var(--gl-graph-row-persistent-actions, 1) * var(--gl-graph-persistent-action-width, 2rem) + 0.8rem
+		);
+	}
+
 	// Gated buttons: hidden + out of the tab order / a11y tree at rest (`display:none` reserves no space,
 	// so the strip is only as wide as its persistent buttons until revealed)...
 	.gl-graph__row-actions--has-persistent .gl-graph__row-action--gated {

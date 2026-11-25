@@ -57,14 +57,14 @@ await verifyPackedPackage({
 			scope: '@gitkraken',
 			name: 'commit-graph-ui',
 			// One entrypoint per shape in the exports map — attw skips wildcard entries unless they are
-			// named, and the CSS ones have no types to resolve. `debug.js` and `rows/*.js`/`gutter/*.js`/
-			// `scope/*.js`/`extensions/*/*.js` are internal (`workspaceExports`, not `exports`) and must
-			// not appear here.
+			// named, and the CSS ones have no types to resolve. `rows/*.js`/`gutter/*.js`/`scope/*.js`/
+			// `extensions/*/*.js` are internal (`workspaceExports`, not `exports`) and must not appear here.
 			publishGates: {
 				attwEntrypoints: [
 					'./graph.js',
 					'./register.js',
 					'./overviewBar.js',
+					'./debug.js',
 					'./profile.js',
 					'./contracts/rows.js',
 					'./extensions/refs.js',

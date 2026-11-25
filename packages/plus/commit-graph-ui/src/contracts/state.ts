@@ -11,6 +11,19 @@ export type GraphSearchMode = 'normal' | 'filter';
 export type GraphRevealMode = 'always' | 'if-changed';
 export type GraphRowStats = CommitGraphRowStats;
 
+export interface GraphRevealOptions {
+	readonly mode?: GraphRevealMode;
+	readonly flash?: boolean;
+	readonly select?: boolean;
+	readonly focus?: boolean;
+}
+
+export interface GraphScrollState {
+	readonly sha: string;
+	readonly offset: number;
+	readonly scrollTop: number;
+}
+
 export type GraphScrollMarkerTypes =
 	| 'selection'
 	| 'head'
@@ -114,6 +127,7 @@ export const includeNoRefsKey = 'gk.empty-set-marker' as const;
 
 export type { ExcludedRemote } from '../extensions/refs/pills.js';
 export { getExcludedRemotes } from '../extensions/refs/pills.js';
+export { applyGraphSelectionChange } from '../rows/selection.js';
 export { hasDirtyCounts } from '../rows/wip.js';
 export type GraphPinnedRef = GraphRefOptData & { sha?: string };
 

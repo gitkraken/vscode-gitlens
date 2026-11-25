@@ -55,6 +55,12 @@ import {
 	scopeAnchorRoles,
 	secondaryWipRoles,
 } from './markers.js';
+import {
+	isZoneCellSuppressed,
+	lastVisibleZoneIndex,
+	persistentRowActionCount,
+	supportsRowAction,
+} from './persistentActions.js';
 import { wipRowFullLabel, wipRowState, wipZoneSuppressFromIndex } from './wip.js';
 import '@gitlens/components/components/codeIcon.js';
 
@@ -931,53 +937,6 @@ function renderActionStatus(icon: string | null | undefined, spin: boolean): Tem
 const unpulledTooltip = (): string => l10n.t('Not yet pulled from the upstream');
 const unpulledAriaText = (): string => l10n.t('not yet pulled');
 
-/** Whether a row's action strip has a PERSISTENT member (a host-supplied workdir action that says so, or
- *  an unpushed/unpulled commit) — i.e. it switches to per-button `--has-persistent` mode instead of the
- *  whole-strip hover/focus/selected fade. NOT simply `kind === 'workdir'` — a workdir row whose actions are
- *  all gated is JUST as hover-gated as a commit row.
- *  Exported so callers outside the row template (the sticky-timeline pill's yield-to-row check) read the
- *  EXACT same decision `renderRowActions` makes below, rather than re-deriving/drifting from it.
- *
- *  A paused op / conflicts state does NOT belong here: since the read-only paused-op indicator moved into
- *  the WIP stats pill (`wipStatsAdornmentProvider.ts`), nothing paused-op-related lives in the action
- *  strip any more — the strip's persistence is driven solely by the host's descriptors below. */
-/** Named rather than positional: the signature otherwise carries interchangeable `boolean | undefined`
- *  flags, and transposing any two of them at a call site type-checks clean. */
-export interface PersistentRowActionsInput {
-	kind: ProcessedGraphRow['kind'];
-	wipActions?: readonly GraphRowAction[];
-	isUnpushed?: boolean;
-	isUnpulled?: boolean;
-	supportedRowActions?: readonly GraphBuiltInRowAction[];
-}
-
-export function hasPersistentRowActions({
-	kind,
-	wipActions,
-	isUnpushed,
-	isUnpulled,
-	supportedRowActions,
-}: PersistentRowActionsInput): boolean {
-	if (kind === 'workdir') {
-		if (wipActions == null) return false;
-
-		for (const action of wipActions) {
-			if (action.persistent) return true;
-		}
-		return false;
-	}
-	if (kind === 'stash') return false;
-	return (isUnpushed === true && supportsRowAction(supportedRowActions, 'push-to-commit')) || isUnpulled === true;
-}
-
-/** Whether the host serves a built-in row button; an undeclared list serves every one. */
-export function supportsRowAction(
-	supportedRowActions: readonly GraphBuiltInRowAction[] | undefined,
-	action: GraphBuiltInRowAction,
-): boolean {
-	return supportedRowActions == null || supportedRowActions.includes(action);
-}
-
 /** One host-supplied action button. `status` is either a code-icon name (rendered on the shared corner
  *  chip; `'loading'` spins) or a host template dropped in as-is. */
 function renderWipRowAction(action: GraphRowAction): TemplateResult {
@@ -1002,31 +961,18 @@ function renderWipRowAction(action: GraphRowAction): TemplateResult {
 	</button>`;
 }
 
-// Row-action strip (right-aligned): per row kind — workdir renders the HOST's action descriptors
-// (`ctx.wipActions`) verbatim, stash gets Apply/Drop, commit/merge gets Undo (leaf worktree tip) /
-// Open-Changes / Push-to-Commit (unpushed). Buttons carry data-row-action / data-wip-open;
-// gl-commit-graph's click delegation turns them into the gl-graph-rowaction / gl-graph-wiprowopen events
-// the wrapper routes to the host. Which workdir buttons exist, what they mean and when they light up
-// is the product's call — the kernel knows only the descriptor shape.
-//
-// Per-button visibility (matches the legacy adornment): each button is `--persistent` (always shown) or
-// `--gated` (revealed only on row hover/focus/selected). When a row has ANY persistent member the strip
-// adds `--has-persistent` and switches to per-button mode (CSS, zero JS); otherwise it keeps the whole-
-// strip fade. Persistent cases: a workdir descriptor that says so, the unpushed badge.
-//
-// The on-row tip indicator (HEAD / upstream / merge-target rows) is NOT a strip member — it renders as a
-// left-edge rail (`renderRowMarkerRail`) sibling of the anchor, so it never contends with these buttons.
-function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): TemplateResult | typeof nothing {
+function renderRowActions(
+	row: ProcessedGraphRow,
+	ctx: RowRenderContext,
+	hasPersistent: boolean,
+): TemplateResult | typeof nothing {
 	const supported = (action: GraphBuiltInRowAction): boolean => supportsRowAction(ctx.supportedRowActions, action);
 	let actions: TemplateResult;
 	let hasActions: boolean;
-	let hasPersistent = false;
 	switch (row.kind) {
 		case 'workdir': {
 			const wipActions = ctx.wipActions;
 			hasActions = (wipActions?.length ?? 0) > 0;
-			hasPersistent = hasPersistentRowActions({ kind: row.kind, wipActions: wipActions });
-
 			actions = html`${wipActions?.map(renderWipRowAction) ?? nothing}`;
 			break;
 		}
@@ -1061,21 +1007,9 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			}`;
 			break;
 		default: {
-			// commit / merge: Undo Commit (leaf worktree tip only) + Open All Changes (Alt = with working
-			// tree, resolved in the click handler) + the always-on unpushed Push-to-Commit badge OR the
-			// always-on unpulled indicator. Both are persistent and rendered LAST so they stay pinned to the
-			// right edge while the gated actions grow leftward; on rows that are neither, the whole strip
-			// stays hover-only (no persistent member). They share the trailing slot because they're mutually
-			// exclusive by construction — a commit can't be both ahead-of-upstream-only and upstream-only.
 			const undo = ctx.undoTarget;
 			const isUnpushed = ctx.isUnpushed === true;
 			const isUnpulled = ctx.isUnpulled === true;
-			hasPersistent = hasPersistentRowActions({
-				kind: row.kind,
-				isUnpushed: isUnpushed,
-				isUnpulled: isUnpulled,
-				supportedRowActions: ctx.supportedRowActions,
-			});
 			const showUndo = undo != null && supported('undo-commit');
 			const showJump = ctx.hasJumpableWipRow === true && supported('jump-to-working-changes');
 			const showPush = isUnpushed && supported('push-to-commit');
@@ -1137,9 +1071,6 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 						</button>`
 					: nothing
 			}${
-				// Read-only mirror of the push badge — a span, not a button: nothing to click, nothing to
-				// focus. It stays `aria-hidden` and the fact rides the ROW's aria-label instead (see
-				// `unpulledAriaSuffix` in `renderRow`), so it adds no tab stop to the roving-tabindex tree.
 				isUnpulled
 					? html`<span
 							class="gl-graph__row-action gl-graph__row-action--persistent unpulled-indicator"
@@ -1154,9 +1085,6 @@ function renderRowActions(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	}
 	if (!hasActions && ctx.supportedRowActions != null) return nothing;
 
-	// Gated buttons leave the tab order + a11y tree at rest (whole-strip `visibility:hidden` in default
-	// mode; per-button `display:none` in `--has-persistent` mode) and become reachable on hover/focus/
-	// selected; persistent buttons are always present + reachable. So no aria-hidden is needed.
 	return html`<div class="gl-graph__row-actions ${hasPersistent ? 'gl-graph__row-actions--has-persistent' : ''}">
 		${actions}
 	</div>`;
@@ -1436,6 +1364,16 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	if (ctx.skeleton) {
 		rowClasses += ' gl-graph__row--skeleton';
 	}
+	const persistentActionCount = ctx.skeleton
+		? 0
+		: persistentRowActionCount({
+				kind: row.kind,
+				wipActions: ctx.wipActions,
+				isUnpushed: ctx.isUnpushed,
+				isUnpulled: ctx.isUnpulled,
+				supportedRowActions: ctx.supportedRowActions,
+			});
+	let persistentInset = false;
 	// Tint the whole anchor row by its role (target = colored, base = monochromatic, focal = brand) so
 	// the anchor reads across the row, not just at the marker pill.
 	if (ctx.isAnchor && ctx.anchorKind != null) {
@@ -1528,25 +1466,29 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 	let leadingGraph: TemplateResult | typeof nothing = graphColumn;
 	if (ctx.style === 'list') {
 		body = renderListBody(row, ctx, inlineGutter, inlineRefs, relativeDate);
+		if (persistentActionCount > 0) {
+			persistentInset = true;
+			rowClasses += ' has-persistent-inset';
+		}
 	} else {
-		// Expanded: one cell per visible zone. The inline gutter hosts in the lanes' slot (`laneZoneIdx` —
-		// the graph's grouped host, by id) so inlining combines into that column; inline refs sit at the
-		// head of the first content zone. The cell holding the gutter is flush (no left padding).
+		const lastZoneIdx =
+			persistentActionCount > 0
+				? lastVisibleZoneIndex(
+						ctx.zones,
+						wipSuppressFromIdx,
+						ctx.graphPlacement === 'grouped' ? laneZoneIdx : -1,
+						ctx.refsHostId,
+						ctx.graphPlacement === 'column' ? Math.min(ctx.graphColumnPos, ctx.zones.length) : 0,
+					)
+				: -1;
+		if (lastZoneIdx >= 0) {
+			persistentInset = true;
+			rowClasses += ' has-persistent-inset';
+		}
 		const cells: (TemplateResult | typeof nothing)[] = ctx.zones.map((zone, zoneIndex) => {
 			const gutterHere = ctx.graphPlacement === 'grouped' && zoneIndex === laneZoneIdx;
-			// Grouped refs render on their HOST zone by id (so the group moves as a unit); fall back to the
-			// first zone only when no host is set (refs as a column → `inlineRefs` is `nothing` anyway).
 			const refsHere = ctx.refsHostId != null ? zone.id === ctx.refsHostId : zoneIndex === 0;
-			// Suppress the cell outright (no div at all, not even an empty flex:0 one) rather than filter it
-			// out of `cells` — filtering would shift every index after it, breaking the graph-column splice's
-			// `graphColumnPos` below. `nothing` in an array slot costs no layout width, so the array keeps
-			// its zone-index alignment for free.
-			if (
-				zoneIndex >= wipSuppressFromIdx &&
-				!gutterHere &&
-				!refsHere &&
-				(zone.id === 'author' || zone.id === 'datetime' || zone.id === 'sha' || zone.id === 'changes')
-			) {
+			if (isZoneCellSuppressed(zone, zoneIndex, wipSuppressFromIdx, gutterHere, refsHere)) {
 				return nothing;
 			}
 
@@ -1563,7 +1505,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			const stackHere = promoted && (refsHere || gutterHere);
 			const cellClass = `gl-graph__zone gl-graph__zone--${zone.id}${gutterHere ? ' is-flush' : ''}${
 				stackHere ? ' gl-graph__zone--stacked' : ''
-			}`;
+			}${zoneIndex === lastZoneIdx ? ' is-last' : ''}`;
 			const zoneContent = renderZoneContent(zone, row, ctx, relativeDate);
 			const body = stackHere
 				? html`<div class="gl-graph__zone-stack">
@@ -1641,6 +1583,7 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 			// inside the resizable viewport; inline mode ignores these (spans the full row).
 			'--row-graph-left': `${isGraphColumn ? graphLeadOffset : 0}px`,
 			'--row-graph-width': `${isGraphColumn ? ctx.graphColumnWidth : 0}px`,
+			...(persistentInset ? { '--gl-graph-row-persistent-actions': `${persistentActionCount}` } : undefined),
 		})}
 	>
 		${
@@ -1654,6 +1597,6 @@ export function renderRow(row: ProcessedGraphRow, ctx: RowRenderContext): Templa
 				: nothing
 		}
 		${ctx.isBucketBoundary ? html`<div class="gl-graph__row-timeline-sep" aria-hidden="true"></div>` : nothing}
-		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx)}
+		${leadingGraph}${body}${ctx.skeleton ? nothing : renderRowActions(row, ctx, persistentActionCount > 0)}
 	</div>`;
 }
