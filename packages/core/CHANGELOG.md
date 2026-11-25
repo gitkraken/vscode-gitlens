@@ -11,8 +11,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Saves the git dirs `getRepositoryInfo` finds, which it didn't before, skipping the save when a repository at the path read or any of its parents was closed during the lookup. A host that saved them itself can drop that save, which kept the old repository's git dirs for a path re-created as another repository's checkout (git-cli)
 - Drops the git runs in flight for a repository when it is closed, and every run in flight when the cache is reset, so a lookup made after either starts its own run instead of joining one that started before it and getting the old answer. `Cache` now fires `onDidUnregisterRepoPath` and `onDidReset`, which `CliGitProvider` listens to (git, git-cli)
 - Rejects `getGitDir` when its path is closed while the git dir is read, instead of answering the old repository's git dir without caching it. This is a contract change: a caller that awaits it without a catch now sees the rejection (git-cli)
+- Lists each `KeymapDispatcher.sheetEntries` row once when several registrars register the same bindings on one dispatcher (utils)
 
 ## [0.48.0] - 2026-11-24
+
+### Added
+
+- Adds `createRegistrar` to `KeymapDispatcher`, a handle whose scopes, bindings and overlays live under scope names private to it and are all removed by its `dispose`, and a `root` option that leaves keydowns from outside that element alone (utils)
+- Adds `msUntilFromNowChanges` to `utils/date.js`, the time until `fromNow` reads differently; `getPluralLocale` to `utils/plural.js`; and `utils/wheel.js` with `normalizeWheelDelta` (utils)
+
+### Changed
+
+- `pausedOperationStatusStringsByType` translates its labels when they are read instead of at import, so they follow a translator configured after load (utils)
 
 ## [0.47.1] - 2026-11-24
 

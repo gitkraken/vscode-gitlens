@@ -88,6 +88,16 @@ suite('KeymapDispatcher Test Suite', () => {
 			assert.strictEqual(rows.length, 1);
 			assert.strictEqual(rows[0].ids, undefined);
 		});
+
+		test('two registrars registering the same bindings list each row once', () => {
+			const dispatcher = new KeymapDispatcher<TestScope>({ isMac: false });
+			dispatcher.createRegistrar().registerBindings(pairDescriptors);
+			dispatcher.createRegistrar().registerBindings(pairDescriptors);
+
+			const rows = dispatcher.sheetEntries();
+			assert.strictEqual(rows.length, 1);
+			assert.deepStrictEqual(rows[0].keys, ['mod+ArrowUp', 'sep:/', 'ArrowDown']);
+		});
 	});
 
 	suite('root', () => {
