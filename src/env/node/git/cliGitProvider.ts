@@ -87,7 +87,6 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import { setContext } from '../../../system/-webview/context.js';
 import { getBestPath, isDescendant, isFolderUri, relative, splitPath } from '../../../system/-webview/path.js';
 import { UriSet } from '../../../system/-webview/uriMap.js';
-import { gate } from '../../../system/decorators/gate.js';
 
 const RepoSearchWarnings = {
 	doesNotExist: /no such file or directory/i,
@@ -893,7 +892,7 @@ export class GlCliGitProvider implements GlGitProvider {
 
 		scope?.info(`found ${root ? 'root ' : ''}repository in '${uri.fsPath}'`);
 		// A git that gave no answer skips only this repository; a later read or discovery finds it again
-		const gitDir = await this.provider.config.getGitDir?.(uri.fsPath).catch((ex: unknown) => {
+		const gitDir = await this.provider.config.getGitDir?.(normalizePath(uri.fsPath)).catch((ex: unknown) => {
 			scope?.warn(`Unable to get gitDir for '${uri.toString(true)}': ${String(ex)}`);
 			return undefined;
 		});
@@ -1322,28 +1321,20 @@ export class GlCliGitProvider implements GlGitProvider {
 	private readonly fromCanonicalMap = new Map<string, Uri>();
 	protected readonly unsafePaths = new Set<string>();
 
-	@gate()
 	@trace({ exit: true })
 	async findRepositoryUri(uri: Uri, isDirectory?: boolean): Promise<Uri | undefined> {
 		const scope = getScopedLogger();
 
 		let repoPath: string | undefined;
-		let gitDirInfo:
-			| { gitDir: string; commonGitDir: string | undefined; superprojectPath: string | undefined }
-			| undefined;
 		try {
 			isDirectory ??= await isFolderUri(uri);
-			// If the uri isn't a directory, go up one level
 			if (!isDirectory) {
 				uri = Uri.joinPath(uri, '..');
 			}
 
-			// Use combined rev-parse to get both repoPath and gitDir in a single spawn
 			const result = await this.provider.config.getRepositoryInfo(uri.fsPath);
 
-			// Handle the different return types
 			if (Array.isArray(result)) {
-				// Tuple result: [safe: true, repoPath] or [safe: false] or []
 				const [safe, path] = result as [boolean | undefined, string | undefined];
 				if (safe === true) {
 					this.unsafePaths.delete(uri.fsPath);
@@ -1352,16 +1343,9 @@ export class GlCliGitProvider implements GlGitProvider {
 					this.unsafePaths.add(uri.fsPath);
 					return undefined;
 				}
-				// No gitDir info for tuple results (bare repo fallback case)
 			} else if (result != null) {
-				// Object result with full info
 				this.unsafePaths.delete(uri.fsPath);
 				repoPath = result.repoPath;
-				gitDirInfo = {
-					gitDir: result.gitDir,
-					commonGitDir: result.commonGitDir,
-					superprojectPath: result.superprojectPath,
-				};
 			}
 
 			if (!repoPath) return undefined;
@@ -1369,7 +1353,6 @@ export class GlCliGitProvider implements GlGitProvider {
 			const repoUri = Uri.file(repoPath);
 
 			// On Git 2.25+ if you call `rev-parse --show-toplevel` on a mapped drive, instead of getting the mapped drive path back, you get the UNC path for the mapped drive.
-			// So try to normalize it back to the mapped drive path, if possible
 			if (isWindows && repoUri.authority.length !== 0 && uri.authority.length === 0) {
 				const match = driveLetterRegex.exec(uri.path);
 				if (match != null) {
@@ -1393,38 +1376,15 @@ export class GlCliGitProvider implements GlGitProvider {
 								),
 							);
 
-							// Pre-populate the gitDir cache for Windows mapped drive path
-							const resultUri = Uri.file(repoPath);
-							if (gitDirInfo != null) {
-								const gitDir: GitDir = {
-									uri: Uri.file(gitDirInfo.gitDir),
-									commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
-									parentUri: gitDirInfo.superprojectPath
-										? Uri.file(gitDirInfo.superprojectPath)
-										: undefined,
-								};
-								this.cache.gitDir.set(resultUri.fsPath, gitDir);
-							}
-							return resultUri;
+							return Uri.file(repoPath);
 						}
 					} catch {}
 				}
 
-				// Pre-populate the gitDir cache for Windows fallback path
-				const fallbackUri = Uri.file(normalizePath(uri.fsPath));
-				if (gitDirInfo != null) {
-					const gitDir: GitDir = {
-						uri: Uri.file(gitDirInfo.gitDir),
-						commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
-						parentUri: gitDirInfo.superprojectPath ? Uri.file(gitDirInfo.superprojectPath) : undefined,
-					};
-					this.cache.gitDir.set(fallbackUri.fsPath, gitDir);
-				}
-				return fallbackUri;
+				return Uri.file(normalizePath(uri.fsPath));
 			}
 
-			// Check if we are a symlink and if so, use the symlink path (not its resolved path)
-			// This is because VS Code will provide document Uris using the symlinked path
+			// KEEP: VS Code gives document Uris by their symlinked path, so the link is mapped to git's resolved toplevel
 			const canonicalUri = this.toCanonicalMap.get(repoPath);
 			if (canonicalUri == null) {
 				let symlink;
@@ -1458,7 +1418,6 @@ export class GlCliGitProvider implements GlGitProvider {
 					});
 				});
 
-				// If we found a symlink, keep track of the mappings
 				if (symlink != null) {
 					this.toCanonicalMap.set(repoPath, Uri.file(symlink));
 					this.fromCanonicalMap.set(symlink, Uri.file(repoPath));
@@ -1467,18 +1426,7 @@ export class GlCliGitProvider implements GlGitProvider {
 
 			if (!repoPath) return undefined;
 
-			// Pre-populate the gitDir cache
-			const resultUri = Uri.file(repoPath);
-			if (gitDirInfo != null) {
-				const gitDir: GitDir = {
-					uri: Uri.file(gitDirInfo.gitDir),
-					commonUri: gitDirInfo.commonGitDir ? Uri.file(gitDirInfo.commonGitDir) : undefined,
-					parentUri: gitDirInfo.superprojectPath ? Uri.file(gitDirInfo.superprojectPath) : undefined,
-				};
-				this.cache.gitDir.set(resultUri.fsPath, gitDir);
-			}
-
-			return resultUri;
+			return Uri.file(repoPath);
 		} catch (ex) {
 			// No answer isn't "no repository": the caller decides, and shouldn't remember it as one
 			if (isGitUnanswered(ex)) throw ex;

@@ -92,8 +92,54 @@ suite('GlCliGitProvider discovery', () => {
 		const findRepositoryUri = GlCliGitProvider.prototype.findRepositoryUri;
 
 		function fakeThisReading(getRepositoryInfo: () => Promise<unknown>): unknown {
-			return { provider: { config: { getRepositoryInfo: getRepositoryInfo } }, unsafePaths: new Set<string>() };
+			return {
+				fromCanonicalMap: new Map<string, Uri>(),
+				provider: { config: { getRepositoryInfo: getRepositoryInfo } },
+				toCanonicalMap: new Map<string, Uri>(),
+				unsafePaths: new Set<string>(),
+			};
 		}
+
+		function holdRead<T>(): { started: Promise<void>; start: () => Promise<T>; settle: (value: T) => void } {
+			let markStarted!: () => void;
+			const started = new Promise<void>(resolve => {
+				markStarted = resolve;
+			});
+			let settle!: (value: T) => void;
+			const result = new Promise<T>(resolve => {
+				settle = resolve;
+			});
+			return {
+				started: started,
+				start: () => {
+					markStarted();
+					return result;
+				},
+				settle: settle,
+			};
+		}
+
+		const root = '/gitlens-test-does-not-exist/repo';
+		function repositoryInfo(gitDir: string): unknown {
+			return { repoPath: root, gitDir: gitDir, commonGitDir: undefined, superprojectPath: undefined };
+		}
+
+		test('a call made while a lookup is in flight reads again rather than joining it', async () => {
+			const read = holdRead<unknown>();
+			let calls = 0;
+			const fakeThis = fakeThisReading(() => {
+				calls++;
+				return calls === 1 ? read.start() : Promise.resolve(repositoryInfo(`${root}/.git-new`));
+			});
+
+			const first = findRepositoryUri.call(fakeThis, Uri.file(`${root}/src`), true);
+			await read.started;
+			const second = findRepositoryUri.call(fakeThis, Uri.file(`${root}/src`), true);
+			read.settle(repositoryInfo(`${root}/.git-old`));
+			await Promise.all([first, second]);
+
+			assert.strictEqual(calls, 2);
+		});
 
 		test('rejects, rather than answering no repository, when git gives no answer', async () => {
 			const uri = Uri.file('/gitlens-test-does-not-exist');

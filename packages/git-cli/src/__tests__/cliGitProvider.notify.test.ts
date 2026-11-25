@@ -242,6 +242,25 @@ suite('CliGitProvider — what an announced change resets', () => {
 		);
 	});
 
+	test('an unregister drops the pending runs in and under the path, so a lookup after it never joins one from before', () => {
+		const pending = seedPending([repoPath, `${repoPath}/src`, otherPath]);
+
+		cache.unregisterRepoPath(repoPath);
+
+		assert.deepStrictEqual(
+			Array.from(pending.values(), p => p.cwd),
+			[otherPath],
+		);
+	});
+
+	test('a reset drops every pending run, so a lookup after it never joins one from before', () => {
+		const pending = seedPending([repoPath, otherPath]);
+
+		cache.reset();
+
+		assert.strictEqual(pending.size, 0);
+	});
+
 	test("a worktree write's HEAD reaches each sibling announced, which evicts none of the shared caches for it", async () => {
 		const applied = sinon.spy(cache, 'applyRepositoryChanges');
 		const announced: [string, RepositoryChange[]][] = [];

@@ -522,6 +522,8 @@ export class Cache implements Disposable {
 	private _gkConfigSnapshots = new Map<string, Map<string, string>>();
 
 	private readonly _onDidChangeMergeTargets = new Emitter<MergeTargetsChangeEvent>();
+	private readonly _onDidUnregisterRepoPath = new Emitter<string>();
+	private readonly _onDidReset = new Emitter<void>();
 	/**
 	 * Fires when a `.git/gk/config` write changed a branch's merge-relevant keys — never for a write that only touched
 	 * other keys (activity timestamps). Core's own key store fires it once, as the write completes (see
@@ -533,6 +535,14 @@ export class Cache implements Disposable {
 	 */
 	get onDidChangeMergeTargets(): Event<MergeTargetsChangeEvent> {
 		return this._onDidChangeMergeTargets.event;
+	}
+
+	get onDidUnregisterRepoPath(): Event<string> {
+		return this._onDidUnregisterRepoPath.event;
+	}
+
+	get onDidReset(): Event<void> {
+		return this._onDidReset.event;
 	}
 
 	/**
@@ -574,6 +584,8 @@ export class Cache implements Disposable {
 		this._readValidatorUsage = undefined;
 		this._repoPathRegistrar = undefined;
 		this._onDidChangeMergeTargets.dispose();
+		this._onDidUnregisterRepoPath.dispose();
+		this._onDidReset.dispose();
 	}
 
 	/**
@@ -1979,6 +1991,8 @@ export class Cache implements Disposable {
 				this._worktreesByCommonPath.delete(commonPath);
 			}
 		}
+
+		this._onDidUnregisterRepoPath.fire(repoPath);
 	}
 
 	@debug({ onlyExit: true })
@@ -2011,6 +2025,8 @@ export class Cache implements Disposable {
 		this._registrations.clear();
 		this._caches = createEmptyCaches();
 		this.onDropped(undefined);
+
+		this._onDidReset.fire(undefined);
 	}
 
 	/**

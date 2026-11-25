@@ -43,8 +43,8 @@ function describe(gitDir: GitDir | undefined): Record<string, string | undefined
 
 /**
  * A linked worktree at `worktreePath` of repository A is removed while its git dir is being read, and the path comes
- * back as a worktree of repository B. The read that started before the removal answers A to its own caller, but must
- * not leave that answer cached for the path.
+ * back as a worktree of repository B. The read that started before the removal rejects rather than answer A, and
+ * leaves nothing cached for the path.
  */
 suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 	const worktreePath = '/repos/a.worktrees/w';
@@ -90,7 +90,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			close();
 			read.settle(gitDirsA);
 
-			assert.deepStrictEqual(describe(await inFlight), describe(gitDirA), 'the read answers its own caller');
+			await assert.rejects(inFlight, /was closed while its git dir was read/);
 		}
 
 		test('an unregister mid-read leaves no git dir cached', async () => {
@@ -115,7 +115,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			assert.strictEqual(describe(cache.gitDir.get(worktreePath)), undefined);
 		});
 
-		test('a reset mid-read of a path never registered leaves no git dir cached', async () => {
+		test('a reset mid-read of a path never registered rejects, leaving no git dir cached', async () => {
 			const neverRegistered = '/repos/c';
 			const read = holdRead<GitDirs | undefined>();
 			readGitDirs.onFirstCall().callsFake(read.start);
@@ -124,7 +124,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			await read.started;
 			cache.reset();
 			read.settle({ gitDir: '/repos/c/.git', commonGitDir: '/repos/c/.git' });
-			await inFlight;
+			await assert.rejects(inFlight, /was closed while its git dir was read/);
 
 			assert.strictEqual(describe(cache.gitDir.get(neverRegistered)), undefined);
 		});
@@ -141,7 +141,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			read.settle(gitDirsA);
 
 			const gitDirB = { uri: gitDirsB.gitDir, commonUri: gitDirsB.commonGitDir, parentUri: undefined };
-			assert.deepStrictEqual(describe(await beforeClose), describe(gitDirA), 'the read answers its own caller');
+			await assert.rejects(beforeClose, /was closed while its git dir was read/);
 			assert.deepStrictEqual(describe(await afterClose), gitDirB);
 			assert.deepStrictEqual(describe(cache.gitDir.get(worktreePath)), gitDirB);
 			assert.strictEqual(readGitDirs.callCount, 2);
@@ -158,7 +158,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			const afterClose = provider.getDefaultWorktreePath(worktreePath);
 			read.settle(gitDirsA);
 
-			assert.strictEqual(await beforeClose, '/repos/a');
+			assert.strictEqual(await beforeClose, undefined);
 			assert.strictEqual(await afterClose, '/repos/b');
 		});
 
@@ -199,11 +199,7 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 			cache.unregisterRepoPath(worktreePath);
 			read.settle([]);
 
-			assert.deepStrictEqual(
-				describe(await inFlight),
-				{ uri: `${worktreePath}/.git`, commonUri: undefined, parentUri: undefined },
-				'the read answers its own caller',
-			);
+			await assert.rejects(inFlight, /was closed while its git dir was read/);
 		}
 
 		test('an unregister mid-read leaves no git dir cached', async () => {
@@ -221,6 +217,65 @@ suite('ConfigGitSubProvider.getGitDir across an unregister', () => {
 				parentUri: undefined,
 			});
 		});
+	});
+});
+
+suite('ConfigGitSubProvider.getRepositoryInfo saving the git dirs', () => {
+	const toplevel = '/repos/a';
+	const revParse = `${toplevel}\n${toplevel}/.git\n${toplevel}/.git\n`;
+
+	let cache: Cache;
+	let provider: ConfigGitSubProvider;
+	let run: sinon.SinonStub<unknown[], Promise<{ stdout: string }>>;
+
+	setup(() => {
+		cache = new Cache();
+		run = sinon.stub();
+		provider = new ConfigGitSubProvider(
+			{ hooks: {} } as unknown as GitServiceContext,
+			{ isPathTrusted: () => true, run: run } as unknown as Git,
+			cache,
+			{ getAbsoluteUri: (path: string) => fileUri(path) } as unknown as CliGitProviderInternal,
+		);
+		cache.registerRepoPath(fileUri(toplevel), { uri: fileUri(`${toplevel}/.git`) });
+	});
+
+	teardown(() => {
+		sinon.restore();
+		cache.dispose();
+	});
+
+	test('saves the git dirs under the toplevel found from a subfolder', async () => {
+		run.resolves({ stdout: revParse });
+
+		await provider.getRepositoryInfo(`${toplevel}/src`);
+
+		assert.deepStrictEqual(describe(cache.gitDir.get(toplevel)), {
+			uri: `${toplevel}/.git`,
+			commonUri: undefined,
+			parentUri: undefined,
+		});
+	});
+
+	test('saves nothing for a toplevel unregistered mid-read', async () => {
+		const read = holdRead<{ stdout: string }>();
+		run.callsFake(read.start);
+
+		const reading = provider.getRepositoryInfo(`${toplevel}/src`);
+		await read.started;
+		cache.unregisterRepoPath(toplevel);
+		read.settle({ stdout: revParse });
+		await reading;
+
+		assert.strictEqual(cache.gitDir.get(toplevel), undefined);
+	});
+
+	test('saves nothing for a toplevel outside the path read and its ancestors', async () => {
+		run.resolves({ stdout: '/repos/elsewhere\n/repos/elsewhere/.git\n/repos/elsewhere/.git\n' });
+
+		await provider.getRepositoryInfo(`${toplevel}/src`);
+
+		assert.strictEqual(cache.gitDir.get('/repos/elsewhere'), undefined);
 	});
 });
 
