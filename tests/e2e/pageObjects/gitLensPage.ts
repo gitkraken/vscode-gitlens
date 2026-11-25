@@ -314,6 +314,39 @@ export class GitLensPage extends VSCodePage {
 		}, expectedText);
 	}
 
+	async getFileAnnotationGlyphs(): Promise<{ line: string; decoration: string; fill?: string }[] | undefined> {
+		return this.page.evaluate(() => {
+			const editor = document.querySelector('.editor-group-container.active .monaco-editor');
+			if (editor == null) return undefined;
+
+			const lines = new Map<string, string>();
+			for (const line of editor.querySelectorAll<HTMLElement>('.view-lines .view-line')) {
+				lines.set(line.style.top, (line.textContent ?? '').replace(/\s/g, ' ').trimEnd());
+			}
+
+			return Array.from(
+				editor.querySelectorAll<HTMLElement>('.glyph-margin-widgets .cgmr[class*="ced-"]'),
+				glyph => {
+					let image = window.getComputedStyle(glyph).backgroundImage;
+					try {
+						for (let i = 0; i < 3 && image.includes('%'); i++) {
+							image = decodeURIComponent(image);
+						}
+					} catch {}
+					return {
+						line: lines.get(glyph.style.top) ?? `<no line at ${glyph.style.top}>`,
+						decoration: [...glyph.classList].find(c => c.startsWith('ced-')) ?? '',
+						fill: /fill='(rgb\(\d+,\d+,\d+\))'/.exec(image)?.[1],
+					};
+				},
+			).sort((a, b) => a.line.localeCompare(b.line, undefined, { numeric: true }));
+		});
+	}
+
+	editorTitleAction(label: string): Locator {
+		return this.page.locator(`.editor-group-container.active .editor-actions [aria-label^="${label}"]`);
+	}
+
 	// ============================================================================
 	// Webviews
 	// ============================================================================
