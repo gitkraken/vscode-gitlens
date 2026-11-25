@@ -193,6 +193,38 @@ export class VSCodePage {
 		);
 	}
 
+	async showFileAtLine(file: string, line: number): Promise<void> {
+		await this.evaluate(
+			async (vscode, file, line) => {
+				const [uri] = await vscode.workspace.findFiles(`**/${file}`, null, 1);
+				if (uri == null) throw new Error(`File not found: ${file}`);
+
+				const editor = await vscode.window.showTextDocument(uri, { preview: false });
+				editor.selection = new vscode.Selection(line, 0, line, 0);
+				editor.revealRange(new vscode.Range(line, 0, line, 0));
+			},
+			file,
+			line,
+		);
+	}
+
+	async getActiveGitLensDiffRefs(): Promise<{ original?: string; modified?: string } | undefined> {
+		return this.evaluate(vscode => {
+			const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input as
+				| { original?: Uri; modified?: Uri }
+				| undefined;
+			if (input?.original == null || input.modified == null) return undefined;
+
+			const ref = (uri: Uri): string | undefined => {
+				if (uri.scheme !== 'gitlens' || !uri.authority) return undefined;
+
+				const bytes = new Uint8Array(uri.authority.match(/../g)!.map(h => parseInt(h, 16)));
+				return (JSON.parse(new TextDecoder().decode(bytes)) as { ref?: string }).ref;
+			};
+			return { original: ref(input.original), modified: ref(input.modified) };
+		});
+	}
+
 	async getActiveTabLabel(): Promise<string | undefined> {
 		return this.evaluate(vscode => vscode.window.tabGroups.activeTabGroup.activeTab?.label);
 	}
