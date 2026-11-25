@@ -20,6 +20,21 @@ export function countLoadedIncludedRefs(
 	return { loaded: loaded, total: total };
 }
 
+export function countRenderedSearchResults(
+	resultIds: Readonly<Record<string, unknown>> | undefined,
+	renderedShas: ReadonlyMap<string, unknown> | undefined,
+): number {
+	if (resultIds == null || renderedShas == null) return 0;
+
+	let count = 0;
+	for (const sha of Object.keys(resultIds)) {
+		if (renderedShas.has(sha)) {
+			count++;
+		}
+	}
+	return count;
+}
+
 /** The sha to page toward: the first of `anchors` not loaded or `ineligible`, else `mergeBaseSha`; `undefined` stops
  *  paging. */
 export function pickScopePageTarget(

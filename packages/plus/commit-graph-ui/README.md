@@ -111,8 +111,8 @@ bar pill's `hasWorkingChanges`) from them.
 Ref metadata (upstream ahead/behind, pull requests, issues) is asked for lazily: the element dispatches
 `gl-graph-missingrefsmetadata` with the ids and types it lacks for the refs on rows in view, asking for each pair
 once, so a ref is asked for when it first scrolls into view. Answer with `addRefsMetadata(answered)`, which merges
-per ref id and keeps earlier answers (`null` for an id = asked, and there's none) and redraws only the rows those
-refs are on, then `settleMissingRefsMetadata(requested, answered)` so anything left unanswered is asked again with
+per ref id and type and keeps earlier answers, so an answer can carry only the types asked for (`null` for a type clears it; `null` for an id =
+asked, and there's none, and leaves earlier answers in place) and redraws only the rows those refs are on, then `settleMissingRefsMetadata(requested, answered)` so anything left unanswered is asked again with
 backoff. Assigning `refsMetadata` replaces the whole map, and `null` turns the feature off. To refresh answers, assign a map without them and increment `refsMetadataResetToken`, and the element asks again for whatever the new map lacks (an empty map needs no increment). `config.refsMetadataRange` widens what is asked for. `'rendered'` (the default) asks only for refs on rows in
 view. `'loaded'` also asks for the `pullRequest` type for every loaded row's refs, once per ref, so a marker drawn
 for every row (a minimap, say) has them; it costs one host lookup per loaded ref, where the default costs one per ref
