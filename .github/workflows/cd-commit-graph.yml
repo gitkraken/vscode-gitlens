@@ -1,0 +1,100 @@
+name: Publish Commit Graph
+
+on:
+    push:
+        tags:
+            - 'releases/commit-graph/v*.*.*'
+    workflow_dispatch:
+        inputs:
+            dry_run:
+                description: 'Dry-run (runs pnpm publish --dry-run instead of actually publishing)'
+                type: boolean
+                default: true
+
+jobs:
+    publish:
+        name: Publish @gitkraken/commit-graph and @gitkraken/commit-graph-ui
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v7
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v7
+              with:
+                  node-version: '24'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Setup pnpm
+              uses: pnpm/setup@v2
+              with:
+                  install: false
+
+            - name: Verify package versions and tag
+              env:
+                  EVENT_NAME: ${{ github.event_name }}
+                  GITHUB_REF: ${{ github.ref }}
+              run: |
+                  ENGINE_VERSION=$(node -p "require('./packages/plus/commit-graph/package.json').version")
+                  UI_VERSION=$(node -p "require('./packages/plus/commit-graph-ui/package.json').version")
+                  if [ "$ENGINE_VERSION" != "$UI_VERSION" ]; then
+                    echo "::error::@gitkraken/commit-graph ($ENGINE_VERSION) and @gitkraken/commit-graph-ui ($UI_VERSION) must have the same version."
+                    exit 1
+                  fi
+                  if [ "$EVENT_NAME" = "push" ]; then
+                    EXPECTED_TAG="refs/tags/releases/commit-graph/v${ENGINE_VERSION}"
+                    if [ "$GITHUB_REF" != "$EXPECTED_TAG" ]; then
+                      echo "::error::Tag $GITHUB_REF does not match the package version ($ENGINE_VERSION). Expected $EXPECTED_TAG."
+                      exit 1
+                    fi
+                  fi
+
+            - name: Install
+              run: pnpm install --frozen-lockfile
+
+            - name: Check dependency hygiene
+              run: pnpm run check:deps
+
+            - name: Type-check and lint
+              run: pnpm --filter @gitkraken/commit-graph --filter @gitkraken/commit-graph-ui run check
+
+            - name: Test
+              run: pnpm --filter @gitkraken/commit-graph --filter @gitkraken/commit-graph-ui run test
+
+            - name: Build packages
+              run: pnpm run build:graph-packages
+
+            - name: Verify packed packages as external consumers
+              run: pnpm run verify:graph-packages
+
+            - name: Pack tarballs (artifact)
+              run: |
+                  pnpm --filter @gitkraken/commit-graph pack --pack-destination packages/plus/commit-graph
+                  pnpm --filter @gitkraken/commit-graph-ui pack --pack-destination packages/plus/commit-graph-ui
+
+            - name: Upload tarball artifact
+              uses: actions/upload-artifact@v7
+              with:
+                  name: commit-graph-tarballs
+                  path: |
+                      packages/plus/commit-graph/*.tgz
+                      packages/plus/commit-graph-ui/*.tgz
+                  retention-days: 30
+
+            # pnpm, not npm: the manifests' `catalog:` and `workspace:*` specifiers are only rewritten to
+            # concrete versions by pnpm at pack time — `npm publish` would ship them verbatim and every
+            # consumer would fail with EUNSUPPORTEDPROTOCOL. `--no-git-checks` because releases
+            # publish from a tag (detached HEAD).
+            - name: Publish (dry-run)
+              if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+              run: pnpm -r --filter @gitkraken/commit-graph --filter @gitkraken/commit-graph-ui publish --access public --no-git-checks --dry-run
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GITKRAKEN }}
+
+            - name: Publish
+              if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)
+              run: pnpm -r --filter @gitkraken/commit-graph --filter @gitkraken/commit-graph-ui publish --access public --no-git-checks
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GITKRAKEN }}

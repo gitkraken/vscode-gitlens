@@ -31434,6 +31434,7 @@
 		"patch-pre": "node ./scripts/applyPreReleasePatch.mjs",
 		"prep-release": "node ./scripts/prep-release.mjs",
 		"prep-core-release": "node ./scripts/prep-core-release.mjs",
+		"prep-commit-graph-release": "node ./scripts/prep-commit-graph-release.mjs",
 		"pub": "vsce publish --no-dependencies",
 		"pub-pre": "vsce publish --no-dependencies --pre-release",
 		"rebuild": "pnpm run reset && pnpm run build",

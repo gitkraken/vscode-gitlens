@@ -563,9 +563,11 @@ page's, such as a webview in an iframe, sets it.
   measurement is too noisy for a defensible automated gate, so compare candidate and baseline runs from
   the same controlled runner by hand (see `docs/testing.md`).
 
-`debug.js` exposes `getGraphDebugDiagnostics()` and `createGraphDebugSnapshot()`. The graph records into it only
-in a build whose bundler defines a global `DEBUG` as `true` (it checks `typeof DEBUG !== 'undefined' && DEBUG`),
-and then publishes `window.__gitkrakenCommitGraphDebug` with `records()`, `snapshot()` and `clear()`.
+`debug.js` exposes `getGraphDebugDiagnostics()`, whose `markRowsApplied`, `transferRowsApplied`, `markPageRequested`,
+`beginNavigation` and `endNavigation` let a host mark its own row and navigation timings, plus the `GraphDebugApi` and
+`GraphDebugRecord` types for the global. The graph records into it only in a build whose bundler defines a global
+`DEBUG` as `true` (it checks `typeof DEBUG !== 'undefined' && DEBUG`), and then publishes
+`window.__gitkrakenCommitGraphDebug` with `records()`, `snapshot()` and `clear()`.
 
 ## Build and verification
 
