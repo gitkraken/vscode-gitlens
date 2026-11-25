@@ -253,8 +253,6 @@ export class KeymapDispatcher<TScope extends string> {
 			byId.set(binding.id, binding);
 		}
 
-		// A partner's display segment — its live effective keys once overridden, otherwise the
-		// `with` entry's own default display (falling back to the partner's own keys).
 		const partnerSegment = (
 			partnerBinding: KeyBinding<string, KeyboardEvent>,
 			partner: { keys?: readonly SheetDisplayEntry[] },
@@ -262,8 +260,8 @@ export class KeymapDispatcher<TScope extends string> {
 			partnerBinding.overridden ? partnerBinding.keys : (partner.keys ?? partnerBinding.keys);
 
 		const rows: KeymapSheetRow[] = [];
-		// Walk descriptors (not just `this.bindings`) so a visible descriptor disabled by an override
-		// can still surface a row when one of its `with` partners is still registered.
+		const shownRows = new Set<string>();
+		// KEEP: walk descriptors, not `this.bindings`, so a disabled owner still shows through a live `with` partner.
 		for (const group of this.registrationGroups) {
 			for (const descriptor of group) {
 				if (descriptor.sheet === 'hidden') continue;
@@ -284,7 +282,7 @@ export class KeymapDispatcher<TScope extends string> {
 
 				for (const partner of sheet.with ?? []) {
 					const partnerBinding = byId.get(partner.id);
-					if (partnerBinding == null) continue; // disabled (or unregistered) partner contributes nothing
+					if (partnerBinding == null) continue;
 
 					if (keys.length > 0) {
 						keys.push('sep:/');
@@ -293,9 +291,13 @@ export class KeymapDispatcher<TScope extends string> {
 					ids.push(partner.id);
 				}
 
-				// The owner is disabled AND no `with` partner survived — nothing left to show.
 				if (binding == null && ids.length === 0) continue;
 
+				// KEEP: registrars sharing one dispatcher (one per graph) register the same rows; list each once.
+				const rowKey = [sheet.group, sheet.label, ...keys].join('\0');
+				if (shownRows.has(rowKey)) continue;
+
+				shownRows.add(rowKey);
 				rows.push({
 					group: sheet.group,
 					label: sheet.label,
