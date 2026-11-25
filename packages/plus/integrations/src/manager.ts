@@ -46,6 +46,18 @@ import type {
 	IssuesIntegration,
 	SearchMyPullRequestsOptions,
 } from './models/publicIntegration.js';
+import type {
+	WorkItemAddress,
+	WorkItemCreateOptions,
+	WorkItemCreateOptionsResult,
+	WorkItemDeleteOptions,
+	WorkItemDeleteResult,
+	WorkItemWriteOptions,
+	WorkItemWriteOptionsResult,
+	WorkItemWriteResult,
+	WorkItemWriteTargetOptions,
+	WorkItemWriteTargetResult,
+} from './models/workItemWrites.js';
 import type { IssueFilter, IssueSorting, PullRequestFilter, SupportedFilters } from './providerFilters.js';
 import type { IssueEtagInclude, PullRequestEtagInclude } from './reads/etag.js';
 import type {
@@ -1240,6 +1252,12 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
+	getWorkItemCreateOptions(options: WorkItemCreateOptions): Promise<WorkItemCreateOptionsResult>;
+	getWorkItemWriteOptions(options: WorkItemAddress): Promise<WorkItemWriteOptionsResult>;
+	writeWorkItem(options: WorkItemWriteOptions): Promise<WorkItemWriteResult>;
+	resolveWorkItemWriteTarget(options: WorkItemWriteTargetOptions): Promise<WorkItemWriteTargetResult>;
+	deleteWorkItem(options: WorkItemDeleteOptions): Promise<WorkItemDeleteResult>;
+
 	getIssueTrackerCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult>;
 	getIssueTrackerIssueWriteOptions(
 		options: IssueTrackerIssueWriteOptions,

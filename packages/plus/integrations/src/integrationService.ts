@@ -94,9 +94,25 @@ import type {
 	IssueTrackerWriteTargetResult,
 } from './models/issueTrackerWrites.js';
 import type { IntegrationKey, IntegrationResult, SearchMyPullRequestsOptions } from './models/publicIntegration.js';
+import type {
+	WorkItemAddress,
+	WorkItemCreateOptions,
+	WorkItemCreateOptionsResult,
+	WorkItemDeleteOptions,
+	WorkItemDeleteResult,
+	WorkItemWriteOptions,
+	WorkItemWriteOptionsResult,
+	WorkItemWriteResult,
+	WorkItemWriteScope,
+	WorkItemWriteTargetOptions,
+	WorkItemWriteTargetResult,
+} from './models/workItemWrites.js';
 import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
+import type { AzureDevOpsIntegration } from './providers/azureDevOps.js';
+import { isWorkItemWriteScope, toWorkItemWriteFailure } from './providers/azureWorkItemWriteErrors.js';
+import type { AzureWorkItemWriter } from './providers/azureWorkItemWrites.js';
 import type { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github.js';
 import { toJiraIssueWriteFailure } from './providers/jiraIssueWriteErrors.js';
 import type { JiraIssueWriter } from './providers/jiraIssueWrites.js';
@@ -351,6 +367,7 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		return this.getConfigured(id, { cloud: true }).some(c => !before.has(c.id));
 	}
 
+	get(id: GitCloudHostIntegrationId.AzureDevOps): Promise<AzureDevOpsIntegration>;
 	get(id: GitCloudHostIntegrationId.GitHub): Promise<GitHubIntegration>;
 	get(
 		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
@@ -1604,6 +1621,53 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
 		return broadenIssues(this, options);
+	}
+
+	getWorkItemCreateOptions(options: WorkItemCreateOptions): Promise<WorkItemCreateOptionsResult> {
+		const input = { ...options };
+		return this.withWorkItemWriter(input, writer => writer.getCreateOptions(input));
+	}
+
+	getWorkItemWriteOptions(options: WorkItemAddress): Promise<WorkItemWriteOptionsResult> {
+		const input = { ...options };
+		return this.withWorkItemWriter(input, writer => writer.getWriteOptions(input));
+	}
+
+	writeWorkItem(options: WorkItemWriteOptions): Promise<WorkItemWriteResult> {
+		const input = { ...options };
+		return this.withWorkItemWriter(input, writer => writer.write(input));
+	}
+
+	resolveWorkItemWriteTarget(options: WorkItemWriteTargetOptions): Promise<WorkItemWriteTargetResult> {
+		const input = { ...options };
+		return this.withWorkItemWriter(input, writer => writer.resolveTarget(input));
+	}
+
+	deleteWorkItem(options: WorkItemDeleteOptions): Promise<WorkItemDeleteResult> {
+		const input = { ...options };
+		return this.withWorkItemWriter(input, writer => writer.delete(input));
+	}
+
+	private async withWorkItemWriter<T>(
+		input: WorkItemWriteScope,
+		run: (writer: AzureWorkItemWriter) => Promise<T>,
+	): Promise<T | IssueTrackerWriteFailure> {
+		if (input.providerId !== GitCloudHostIntegrationId.AzureDevOps) {
+			return { ok: false, reason: 'unsupported', mutationDispatched: false };
+		}
+		if (!isWorkItemWriteScope(input)) {
+			return { ok: false, reason: 'invalid-input', mutationDispatched: false };
+		}
+
+		try {
+			const integration = await this.get(input.providerId);
+			const writer = await integration.getWorkItemWriter(input);
+			return writer == null
+				? { ok: false, reason: 'no-connection', mutationDispatched: false }
+				: await run(writer);
+		} catch (ex) {
+			return toWorkItemWriteFailure(ex);
+		}
 	}
 
 	getIssueTrackerCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult> {

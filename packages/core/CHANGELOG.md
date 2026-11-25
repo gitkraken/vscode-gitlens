@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds Azure DevOps Services work item writes to `IntegrationManager`. Discover project types, fields and workflow states, then create, edit, change state or move verified work items to the Recycle Bin on the selected connection (plus/integrations)
+
 ## [0.49.0] - 2026-11-25
 
 ### Fixed

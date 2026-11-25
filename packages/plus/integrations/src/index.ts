@@ -260,6 +260,26 @@ export type {
 	IssueTrackerWriteTargetOptions,
 	IssueTrackerWriteTargetResult,
 } from './models/issueTrackerWrites.js';
+export type {
+	WorkItemAddress,
+	WorkItemCreateOptions,
+	WorkItemCreateOptionsResult,
+	WorkItemDeleteCapability,
+	WorkItemDeleteOptions,
+	WorkItemDeleteResult,
+	WorkItemDeleteTargetChanged,
+	WorkItemDeletion,
+	WorkItemReceipt,
+	WorkItemState,
+	WorkItemWriteContext,
+	WorkItemWriteField,
+	WorkItemWriteOptions,
+	WorkItemWriteOptionsResult,
+	WorkItemWriteResult,
+	WorkItemWriteScope,
+	WorkItemWriteTargetOptions,
+	WorkItemWriteTargetResult,
+} from './models/workItemWrites.js';
 export type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 export type {
 	PullRequestCreateCapabilityResult,
