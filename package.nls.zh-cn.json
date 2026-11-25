@@ -2040,6 +2040,7 @@
 	"config.views.searchAndCompare.pullRequests.enabled.markdownDescription": "指定是否在 _搜索和比较_ 视图中查询与提交关联的拉取请求。需要连接到受支持的远程服务（例如 GitHub）",
 	"config.views.searchAndCompare.pullRequests.showForCommits.markdownDescription": "指定是否在 _搜索和比较_ 视图中显示与提交关联的拉取请求（如有）。需要连接到受支持的远程服务（例如 GitHub）",
 	"config.views.showComparisonContributors.markdownDescription": "指定是否在视图的比较结果中显示 _贡献者_ 部分",
+	"config.views.showContributorsFiles.markdownDescription": "指定是否在视图的比较结果中显示每位贡献者修改过的文件",
 	"config.views.showContributorsStatistics.markdownDescription": "指定是否在视图的 _贡献者_ 部分中显示贡献者统计信息。计算可能需要一些时间，具体取决于仓库大小",
 	"config.views.showCurrentBranchOnTop.markdownDescription": "指定是否始终在视图顶部显示当前分支",
 	"config.views.showRelativeDateMarkers.markdownDescription": "指定是否在视图中的修订（提交）历史记录上显示相对日期标记（_少于一周前_、_超过一周前_、_超过一个月前_ 等）",

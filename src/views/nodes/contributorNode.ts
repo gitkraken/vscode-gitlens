@@ -10,6 +10,7 @@ import { formatPlural } from '@gitlens/utils/plural.js';
 import { getPresenceDataUri } from '../../avatars.js';
 import { GlyphChars } from '../../constants.js';
 import type { GitUri } from '../../git/gitUri.js';
+import type { FilesQueryResults } from '../../git/queryResults.js';
 import { formatCurrentUserDisplayName } from '../../git/utils/-webview/commit.utils.js';
 import { getContributorAvatarUri } from '../../git/utils/-webview/contributor.utils.js';
 import { configuration } from '../../system/-webview/configuration.js';
@@ -21,9 +22,18 @@ import { ContextValues, getViewNodeId, ViewNode } from './abstract/viewNode.js';
 import { CommitNode } from './commitNode.js';
 import { LoadMoreNode, MessageNode } from './common.js';
 import { FileRevisionAsCommitNode } from './fileRevisionAsCommitNode.js';
+import { ResultsFilesNode } from './resultsFilesNode.js';
 import { insertDateMarkers } from './utils/-webview/node.utils.js';
 
 const markdownCodeToken = '\ue000code\ue001';
+
+export type ContributorFilesComparison = {
+	ref1: string;
+	ref2: string;
+	query: () => Promise<FilesQueryResults>;
+	direction?: 'ahead' | 'behind';
+	invalidate?: () => void;
+};
 
 function getMarkdownMailto(email: string): string {
 	const encodedEmail = encodeURIComponent(email).replace(
@@ -47,9 +57,11 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		public readonly contributor: GitContributor,
 		private readonly options?: {
 			all?: boolean;
+			files?: ContributorFilesComparison;
 			ref?: string;
 			presence: Map<string, ContactPresence> | undefined;
 			showMergeCommits?: boolean;
+			showStatistics?: boolean;
 			pathspec?: { uri: Uri; isFolder: boolean };
 		},
 	) {
@@ -94,7 +106,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		const getBranchAndTagTips = await this.view.container.git
 			.getRepositoryService(this.uri.repoPath!)
 			.getBranchesAndTagsTipsLookup();
-		const children = [
+		const children: ViewNode[] = [
 			...insertDateMarkers(
 				map(log.commits.values(), c =>
 					useFileRevisionAsCommit
@@ -109,6 +121,29 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 			),
 		];
 
+		const files = this.options?.files;
+		if (files != null) {
+			children.unshift(
+				new ResultsFilesNode(
+					this.view,
+					this,
+					this.repoPath,
+					files.ref1,
+					files.ref2,
+					files.query,
+					files.direction,
+					{
+						expand: false,
+						label: l10n.t('Files Touched'),
+						onRefresh: files.invalidate,
+						tooltip: l10n.t(
+							"Files touched by this contributor's non-merge commits. Diffs show the final changes across the comparison, including changes by other contributors to these files.",
+						),
+					},
+				),
+			);
+		}
+
 		if (log.hasMore) {
 			children.push(new LoadMoreNode(this.view, this, children.at(-1)!));
 		}
@@ -117,18 +152,19 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 
 	async getTreeItem(): Promise<TreeItem> {
 		const presence = this.options?.presence?.get(this.contributor.email!);
+		const contributorStats = this.options?.showStatistics === false ? undefined : this.contributor.stats;
 
 		let shortStats = '';
-		if (this.contributor.stats != null) {
-			const lines = this.contributor.stats.additions + this.contributor.stats.deletions;
+		if (contributorStats != null) {
+			const lines = contributorStats.additions + contributorStats.deletions;
 			shortStats = formatPlural(
 				l10n.t(
 					'{files, plural, one{{lines, plural, one{ ({files} file, +{additions} -{deletions} line)} other{ ({files} file, +{additions} -{deletions} lines)}}} other{{lines, plural, one{ ({files} files, +{additions} -{deletions} line)} other{ ({files} files, +{additions} -{deletions} lines)}}}}',
 				),
 				{
-					files: this.contributor.stats.files,
-					additions: this.contributor.stats.additions,
-					deletions: this.contributor.stats.deletions,
+					files: contributorStats.files,
+					additions: contributorStats.additions,
+					deletions: contributorStats.deletions,
 					lines: lines,
 				},
 			);
@@ -241,18 +277,18 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 		}
 
 		const stats =
-			this.contributor.stats != null
+			contributorStats != null
 				? `\\\n${escapeMarkdown(
 						formatPlural(l10n.t('{0, plural, one{{0} file changed} other{{0} files changed}}'), [
-							this.contributor.stats.files,
+							contributorStats.files,
 						]),
 					)}, ${escapeMarkdown(
 						formatPlural(l10n.t('{0, plural, one{{0} addition} other{{0} additions}}'), [
-							this.contributor.stats.additions,
+							contributorStats.additions,
 						]),
 					)}, ${escapeMarkdown(
 						formatPlural(l10n.t('{0, plural, one{{0} deletion} other{{0} deletions}}'), [
-							this.contributor.stats.deletions,
+							contributorStats.deletions,
 						]),
 					)}`
 				: '';
@@ -304,6 +340,7 @@ export class ContributorNode extends ViewNode<'contributor', ViewsWithContributo
 	override refresh(reset?: boolean): void {
 		if (reset) {
 			this._log = undefined;
+			this.options?.files?.invalidate?.();
 		}
 	}
 

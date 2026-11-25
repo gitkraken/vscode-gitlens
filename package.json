@@ -2083,19 +2083,26 @@
 						"scope": "window",
 						"order": 10
 					},
+					"gitlens.views.showContributorsFiles": {
+						"type": "boolean",
+						"default": true,
+						"markdownDescription": "%config.views.showContributorsFiles.markdownDescription%",
+						"scope": "window",
+						"order": 11
+					},
 					"gitlens.views.showContributorsStatistics": {
 						"type": "boolean",
 						"default": false,
 						"markdownDescription": "%config.views.showContributorsStatistics.markdownDescription%",
 						"scope": "window",
-						"order": 11
+						"order": 12
 					},
 					"gitlens.views.showRelativeDateMarkers": {
 						"type": "boolean",
 						"default": true,
 						"markdownDescription": "%config.views.showRelativeDateMarkers.markdownDescription%",
 						"scope": "window",
-						"order": 12
+						"order": 13
 					},
 					"gitlens.views.defaultItemLimit": {
 						"type": "number",

@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds _Files Touched_ under each contributor in branch comparisons &mdash; lists each file once and opens its final comparison diff, including changes by other contributors to the same file; excludes merge commits &mdash; refs [#762](https://github.com/gitkraken/vscode-gitlens/issues/762) by Arleigh ([@737](https://github.com/737))
 ## [19.7.0] - 2026-11-24
 
 ### Changed
