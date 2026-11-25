@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-25
+
 ### Added
 
 - Adds Azure DevOps Services work item writes to `IntegrationManager`. Discover project types, fields and workflow states, then create, edit, change state or move verified work items to the Recycle Bin on the selected connection (plus/integrations)
@@ -1458,7 +1460,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.49.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.50.0...HEAD
+[0.50.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.49.0...gitkraken:releases/core/v0.50.0
 [0.49.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.48.0...gitkraken:releases/core/v0.49.0
 [0.48.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.47.1...gitkraken:releases/core/v0.48.0
 [0.47.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.47.0...gitkraken:releases/core/v0.47.1
