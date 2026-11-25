@@ -150,7 +150,7 @@ import { walkTopologicalRange } from './rows/topologicalRange.js';
 import { RowUnitsIndex } from './rows/units.js';
 import type { WipRowFit, WipRowFitMetrics } from './rows/wip.js';
 import { computeWipRowFit, hasDirtyCounts, wipRowBranchTitle, wipRowFullLabel, wipRowShortLabel } from './rows/wip.js';
-import { countLoadedIncludedRefs } from './scope/paging.js';
+import { countLoadedIncludedRefs, countRenderedSearchResults } from './scope/paging.js';
 
 declare const DEBUG: boolean;
 const debugBuild = typeof DEBUG !== 'undefined' && DEBUG;
@@ -3599,8 +3599,8 @@ export class GlCommitGraph extends LitElement {
 		}
 	}
 
-	/** Merges a host's answer for some refs into `refsMetadata`, keeping earlier answers: `null` means asked and none.
-	 *  Ignored while `refsMetadata` is `null`. */
+	/** Merges a host's answer for some refs into `refsMetadata` type by type, keeping earlier answers: `null` for an id
+	 *  means asked and none. Ignored while `refsMetadata` is `null`. */
 	addRefsMetadata(metadata: GraphRefsMetadata): void {
 		const current = this.refsMetadata;
 		if (current === null) return;
@@ -3619,8 +3619,10 @@ export class GlCommitGraph extends LitElement {
 		}
 
 		let pullRequestsChanged = false;
-		for (const [id, entry] of answers) {
-			pullRequestsChanged ||= (owned[id]?.pullRequest ?? undefined) !== (entry?.pullRequest ?? undefined);
+		for (const [id, answer] of answers) {
+			const prior = owned[id];
+			const entry = prior != null ? (answer != null ? { ...prior, ...answer } : prior) : answer;
+			pullRequestsChanged ||= (prior?.pullRequest ?? undefined) !== (entry?.pullRequest ?? undefined);
 			owned[id] = entry;
 		}
 		this.invalidateRefsMetadataRows(
@@ -4575,15 +4577,7 @@ export class GlCommitGraph extends LitElement {
 		const cached = this.renderedSearchResults;
 		if (cached?.results === results && cached.rows === rows) return cached.count;
 
-		let count = 0;
-		const rowBySha = this.getRowByShaMap();
-		if (rowBySha != null && results.ids != null) {
-			for (const sha of Object.keys(results.ids)) {
-				if (rowBySha.has(sha)) {
-					count++;
-				}
-			}
-		}
+		const count = countRenderedSearchResults(results.ids, this.getRowByShaMap());
 		this.renderedSearchResults = { results: results, rows: rows, count: count };
 		return count;
 	}
@@ -5908,8 +5902,6 @@ export class GlCommitGraph extends LitElement {
 				refType: refPill.kind,
 				remote: refPill.remote,
 				sha: pillSha,
-				// Serialized host context for this ref — powers the sheet's kebab menu (row-menu
-				// parity) and its remote/tag action links.
 				vscodeContext: refContext,
 				open: pinned,
 			}),
@@ -7692,20 +7684,18 @@ export class GlCommitGraph extends LitElement {
 
 		this.selectJumpTarget(sha, idx);
 		this.revealIndexNearest(idx);
-		// A jump can land near the loaded tail just as a step can, and the reveal alone never asks for rows.
+		// KEEP: the reveal never asks for rows, and a jump can land near the loaded tail.
 		this.requestMoreRowsForNavigation(idx);
 		return true;
 	}
 
 	private selectJumpTarget(sha: string, idx: number): void {
-		// Standing on the target already: moving nothing must not drop the user's pinned ref or re-dispatch
-		// a selection that's already current (same guard plain arrow navigation applies).
+		// KEEP: already on the target, a jump must neither drop the pinned ref nor re-dispatch the selection.
 		const alreadySelected = this.focusIndex === idx && this.selectedShas.size === 1 && this.selectedShas.has(sha);
 		this.focusIndex = idx;
 		this._selectionAnchorSha = sha;
 		if (alreadySelected) return;
 
-		// The jump moves the selected commit off the pinned pill's row, leaving its ref chain orphaned.
 		if (this._pinnedRefKey != null) {
 			this.clearPinnedRef();
 		}
@@ -9150,6 +9140,8 @@ export class GlCommitGraph extends LitElement {
 		if (inflight.generation !== this._revealGeneration || inflight.generation === this._revealEndedGeneration) {
 			return;
 		}
+		// KEEP: a reveal queued for another row since this one left supersedes it; never overwrite or cancel it.
+		if (this._pendingRevealSha != null && this._pendingRevealSha !== inflight.sha) return;
 
 		if (!this.indexBySha.has(inflight.sha)) {
 			this.cancelPendingReveal();
