@@ -564,6 +564,42 @@ test.describe('Graph — embedding host contract', () => {
 					const claimedNativeMenus = nativeMenus.length;
 					gear.click();
 
+					const cell = second.querySelector<HTMLElement>('.gl-graph__header-cell')!;
+					const cellRect = cell.getBoundingClientRect();
+					const rightClick = (): MouseEvent => {
+						const event = new MouseEvent('contextmenu', {
+							bubbles: true,
+							cancelable: true,
+							composed: true,
+							button: 2,
+							clientX: Math.round(cellRect.left) + 3,
+							clientY: Math.round(cellRect.top) + 4,
+						});
+						cell.dispatchEvent(event);
+						return event;
+					};
+					let rightClickMenus = 0;
+					const countMenu = (): void => {
+						rightClickMenus++;
+					};
+					let rightClickAnchor: DOMRect | undefined;
+					const claimRightClick = (e: Event): void => {
+						rightClickAnchor = (e as CustomEvent<{ anchor: DOMRect }>).detail.anchor;
+						e.preventDefault();
+					};
+					const pageMenus: Event[] = [];
+					const onPageMenu = (e: Event): void => {
+						pageMenus.push(e);
+					};
+					document.addEventListener('contextmenu', onPageMenu);
+					second.addEventListener('gl-graph-headermenu', countMenu);
+					second.addEventListener('gl-graph-headermenu', claimRightClick);
+					const claimedRightClick = rightClick();
+					second.removeEventListener('gl-graph-headermenu', claimRightClick);
+					const unclaimedRightClick = rightClick();
+					second.removeEventListener('gl-graph-headermenu', countMenu);
+					document.removeEventListener('contextmenu', onPageMenu);
+
 					const headerEl = second.querySelector<HTMLElement>('.gl-graph__header')!;
 					headerEl.style.height = '40px';
 					const resizeDeadline = Date.now() + 5000;
@@ -574,6 +610,17 @@ test.describe('Graph — embedding host contract', () => {
 						await frame();
 					}
 					await frame();
+					// KEEP: a just-drawn graph dates its rows now, while GitLens's redraws its relative dates on a timer.
+					document.dispatchEvent(new Event('visibilitychange'));
+					await Promise.all([first.updateComplete, second.updateComplete]);
+					await frame();
+					const sameLabels = [...second.querySelectorAll<HTMLElement>('.gl-graph__row[data-sha]')].every(
+						row =>
+							row.getAttribute('aria-label') ===
+							original
+								.querySelector(`.gl-graph__row[data-sha="${CSS.escape(row.dataset.sha!)}"]`)
+								?.getAttribute('aria-label'),
+					);
 					const rail = second.querySelector<HTMLElement>('.gl-graph__scroll-markers');
 					return {
 						label: gear.getAttribute('aria-label'),
@@ -582,6 +629,17 @@ test.describe('Graph — embedding host contract', () => {
 						closed: closed,
 						opened: opened,
 						anchorWidth: anchor?.width ?? 0,
+						rightClickAnchor: rightClickAnchor && {
+							x: rightClickAnchor.x,
+							y: rightClickAnchor.y,
+							width: rightClickAnchor.width,
+							height: rightClickAnchor.height,
+						},
+						cellPointer: { x: Math.round(cellRect.left) + 3, y: Math.round(cellRect.top) + 4 },
+						claimedRightClickPrevented: claimedRightClick.defaultPrevented,
+						claimedRightClickReachedPage: pageMenus.includes(claimedRightClick),
+						unclaimedRightClickReachedPage: pageMenus.includes(unclaimedRightClick),
+						rightClickMenus: rightClickMenus,
 						claimedNativeMenus: claimedNativeMenus,
 						unclaimedNativeMenu: nativeMenus[claimedNativeMenus] === gear,
 						placementToggles: second.querySelectorAll('[data-roving-key^="placement:"]').length,
@@ -595,13 +653,7 @@ test.describe('Graph — embedding host contract', () => {
 						messageBodies: second.querySelectorAll('.gl-graph__message-body, .gl-graph__message-sep')
 							.length,
 						gitLensMessageBodies: original.querySelectorAll('.gl-graph__message-body').length,
-						sameLabels: [...second.querySelectorAll<HTMLElement>('.gl-graph__row[data-sha]')].every(
-							row =>
-								row.getAttribute('aria-label') ===
-								original
-									.querySelector(`.gl-graph__row[data-sha="${CSS.escape(row.dataset.sha!)}"]`)
-									?.getAttribute('aria-label'),
-						),
+						sameLabels: sameLabels,
 					};
 				} finally {
 					second.remove();
@@ -617,6 +669,10 @@ test.describe('Graph — embedding host contract', () => {
 			opened: 'true',
 			claimedNativeMenus: 0,
 			unclaimedNativeMenu: true,
+			claimedRightClickPrevented: true,
+			claimedRightClickReachedPage: false,
+			unclaimedRightClickReachedPage: true,
+			rightClickMenus: 2,
 			placementToggles: 0,
 			gitLensHeaderHeight: '25px',
 			messageBodies: 0,
@@ -624,6 +680,12 @@ test.describe('Graph — embedding host contract', () => {
 		});
 		expect(header.gitLensMessageBodies).toBeGreaterThan(0);
 		expect(header.anchorWidth).toBeGreaterThan(0);
+		expect(header.rightClickAnchor).toEqual({
+			x: header.cellPointer.x,
+			y: header.cellPointer.y,
+			width: 0,
+			height: 0,
+		});
 		expect(header.gitLensPlacementToggles).toBeGreaterThan(0);
 		expect(header.headerHeight).toBe(header.renderedHeaderHeight);
 		expect(header.headerHeight).not.toBe('25px');

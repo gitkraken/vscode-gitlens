@@ -1,6 +1,7 @@
 import type { GraphRowAction } from '@gitkraken/commit-graph-ui/contracts/contributions.js';
 import type {
 	GraphAvatarLoadErrorDetail,
+	GraphChangeSelectionDetail,
 	GraphMissingAvatarsDetail,
 	GraphRefDoubleClickDetail,
 	GraphRowPeekRequest,
@@ -10,7 +11,7 @@ import type {
 import { pickScopePageTarget } from '@gitkraken/commit-graph-ui/contracts/events.js';
 import type { GraphKeymap } from '@gitkraken/commit-graph-ui/contracts/keyboard.js';
 import type { WipRowInfo } from '@gitkraken/commit-graph-ui/contracts/rows.js';
-import { hasDirtyCounts } from '@gitkraken/commit-graph-ui/contracts/state.js';
+import { applyGraphSelectionChange, hasDirtyCounts } from '@gitkraken/commit-graph-ui/contracts/state.js';
 import { getGraphDebugDiagnostics } from '@gitkraken/commit-graph-ui/debug.js';
 import type { GlCommitGraph, GraphRowHiddenReason } from '@gitkraken/commit-graph-ui/graph.js';
 import { commitGraphElementName, registerCommitGraphElements } from '@gitkraken/commit-graph-ui/register.js';
@@ -233,48 +234,6 @@ function toNavigationFailureReason(result: DidLoadRowParams | undefined): GraphN
 		default:
 			return { kind: 'not-found' };
 	}
-}
-
-/**
- * Walk first-parent ancestry through a row array to produce the inclusive range from
- * `fromSha` to `toSha`. Direction-agnostic — figures out which sha is the ancestor and
- * walks the other way. Returns an empty array when neither sha can be reached from the
- * other via first-parent within the loaded rows.
- *
- * This is what `gitlens.graph.multiselect: 'topological'` means: the resulting selection
- * is the first-parent chain segment between the two anchors, not the visible-row slice.
- */
-function walkTopologicalRange(
-	rows: readonly GitGraphRow[],
-	indexBySha: ReadonlyMap<string, number>,
-	fromSha: string,
-	toSha: string,
-): string[] {
-	const fromIdx = indexBySha.get(fromSha);
-	const toIdx = indexBySha.get(toSha);
-	if (fromIdx == null || toIdx == null) return [];
-
-	// Newer-to-older walk by index — the rows array is already in topo/date-descending
-	// order, so the ancestor of two shas has the larger index.
-	const startSha = fromIdx < toIdx ? fromSha : toSha;
-	const endSha = fromIdx < toIdx ? toSha : fromSha;
-
-	const out: string[] = [];
-	let cursor: string | undefined = startSha;
-	const seen = new Set<string>();
-	while (cursor != null && !seen.has(cursor)) {
-		seen.add(cursor);
-		out.push(cursor);
-		if (cursor === endSha) return out;
-
-		const idx = indexBySha.get(cursor);
-		if (idx == null) break;
-
-		cursor = rows[idx].parents[0];
-	}
-	// `endSha` wasn't an ancestor of `startSha` along the first-parent chain — fall back to
-	// just the two endpoints so the user still gets a 2-row selection rather than nothing.
-	return [startSha, endSha];
 }
 
 /**
@@ -1416,7 +1375,7 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 			?rowsError=${graphState.rowsError ?? false}
 			.hasMore=${(graphState.paging?.hasMore ?? true) && !this.filterResultsExhausted}
 			.pagingHasMore=${graphState.paging?.hasMore ?? true}
-			?windowFocused=${graphState.windowFocused}
+			.windowFocused=${graphState.windowFocused ?? true}
 			@gl-graph-changeselection=${this.onGraphSelectionChanged}
 			@gl-graph-rowdoubleclick=${this.onGraphRowDoubleClick}
 			@gl-graph-refdoubleclick=${this.onGraphRefDoubleClick}
@@ -2591,45 +2550,16 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	// into the IPC commands and app-wide events the rest of the app (details panel, selection sync,
 	// paging) consumes, so nothing downstream has to know how the graph is drawn.
 
-	private onGraphSelectionChanged(
-		event: CustomEvent<{
-			sha: string | null;
-			mode?: 'replace' | 'toggle' | 'range';
-			rangeShas?: readonly string[];
-		}>,
-	) {
-		const { sha, mode, rangeShas: graphRangeShas } = event.detail;
+	private onGraphSelectionChanged(event: CustomEvent<GraphChangeSelectionDetail>) {
+		const { sha } = event.detail;
 		const wipRowsById = this.graphState.wipRowsById;
 
 		// This event is user intent (a click / keyboard select). It outranks any queued jump still waiting
 		// for its row — landing that later would silently move the user off what they just picked.
 		this.cancelPendingSelection();
 
-		// If the user has `gitlens.graph.multiselect: 'topological'`, replace commit-graph's
-		// visible-row range with the first-parent chain from the previously-focused row
-		// down through the clicked row — the user's mental model of "select all
-		// commits between A and B" follows commit ancestry, not visible position.
 		const { rows: decoratedRowsForSelection } = this.getDecoratedRows();
 		const decoratedRowsIndex = this.getDecoratedRowsIndex(decoratedRowsForSelection);
-		let rangeShas = graphRangeShas;
-		if (mode === 'range' && this.graphState.config?.multiSelectionMode === 'topological' && sha != null) {
-			// The anchor must come from the event's own range, not `activeRow` — `activeRow` tracks the
-			// moving end of the selection (the row just pressed/clicked), not its fixed anchor. Deriving
-			// `prior` from it made successive shift+arrow presses slide a 2-row window instead of
-			// accumulating a range. `graphRangeShas` carries both ends; the anchor is whichever end isn't
-			// `sha`.
-			let prior: string | undefined;
-			if (graphRangeShas != null && graphRangeShas.length > 0) {
-				const lastRangeSha = graphRangeShas.at(-1);
-				prior = sha === lastRangeSha ? graphRangeShas[0] : lastRangeSha;
-			} else {
-				prior = this.graphState.activeRow?.split('|')[0];
-			}
-
-			if (decoratedRowsIndex != null && prior != null && prior !== sha) {
-				rangeShas = walkTopologicalRange(decoratedRowsIndex.rows, decoratedRowsIndex.indexBySha, prior, sha);
-			}
-		}
 
 		// Look up rows in the DECORATED set (which includes synthetic primary + per-worktree
 		// secondary WIP rows) — `graphState.rows` doesn't carry those, so a secondary-WIP
@@ -2638,12 +2568,6 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 		const decoratedRowBySha = decoratedRowsIndex?.rowBySha;
 		const focusedRow = sha != null ? decoratedRowBySha?.get(sha) : undefined;
 
-		// Build the full GraphSelection[] so the details panel + host see the same shape regardless of mode:
-		//   - `replace` (no mod) → just the focused sha
-		//   - `toggle` (cmd/ctrl+click) → existing selection ⊕ this sha
-		//   - `range`  (shift+click)   → the graph's visible-row range, already swapped above for the
-		//                                 first-parent chain when `multiselect: 'topological'`
-		// For toggle, build off the *previously stored* selection in graphState.
 		let selection: GraphSelection[];
 		if (sha != null && focusedRow != null) {
 			const focusedSel: GraphSelection = {
@@ -2655,46 +2579,20 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 				repoPath: getWipRowWorktreePath(sha) ?? wipRowsById?.[sha]?.repoPath,
 			};
 
-			if (mode === 'range' && rangeShas != null && rangeShas.length > 0) {
-				selection = rangeShas.flatMap<GraphSelection>(rs => {
-					const r = decoratedRowBySha?.get(rs);
-					if (r == null) return [];
-					return [
-						{
-							id: rs,
-							type: r.kind,
-							active: rs === sha,
-							hidden: false,
-							repoPath: getWipRowWorktreePath(rs) ?? wipRowsById?.[rs]?.repoPath,
-						},
-					];
+			selection = [];
+			for (const id of Object.keys(applyGraphSelectionChange(this.graphState.selectedRows, event.detail))) {
+				const r = decoratedRowBySha?.get(id);
+				if (r == null) continue;
+
+				selection.push({
+					id: id,
+					type: r.kind,
+					active: id === sha,
+					hidden: false,
+					repoPath: getWipRowWorktreePath(id) ?? wipRowsById?.[id]?.repoPath,
 				});
-				if (selection.length === 0) {
-					selection = [focusedSel];
-				}
-			} else if (mode === 'toggle') {
-				const prior = this.graphState.selectedRows ?? {};
-				const next: GraphSelection[] = [];
-				for (const otherSha of Object.keys(prior)) {
-					if (otherSha === sha) continue;
-
-					const r = decoratedRowBySha?.get(otherSha);
-					if (r == null) continue;
-
-					next.push({
-						id: otherSha,
-						type: r.kind,
-						active: false,
-						hidden: false,
-						repoPath: getWipRowWorktreePath(otherSha) ?? wipRowsById?.[otherSha]?.repoPath,
-					});
-				}
-				// Only add the clicked sha when it wasn't already in the selection (toggle off).
-				if (prior[sha] !== true) {
-					next.push(focusedSel);
-				}
-				selection = next.length > 0 ? next : [focusedSel];
-			} else {
+			}
+			if (selection.length === 0) {
 				selection = [focusedSel];
 			}
 		} else {

@@ -460,6 +460,31 @@ test("right-click on a pill without context never opens the previous pill's menu
 	assert.deepEqual(actual, { afterContext: '{"webviewItem":"wip"}', afterNone: undefined });
 });
 
+test("Shift+F10 and the menu key each open the focused pill's menu exactly once", async () => {
+	await page.evaluate(() => {
+		globalThis.synthetic = 0;
+		bar.addEventListener('contextmenu', e => {
+			if (!e.isTrusted) {
+				synthetic++;
+			}
+		});
+		return focusPill(0);
+	});
+	for (const key of ['Shift+F10', 'ContextMenu']) {
+		await page.keyboard.press(key);
+		await page.evaluate(() => settle());
+	}
+	assert.equal(await page.evaluate(() => synthetic), 2);
+	const menus = await page.evaluate(() =>
+		events.filter(e => e.name === 'contextmenu').map(e => ({ id: e.detail.id, cancelable: e.cancelable })),
+	);
+	assert.deepEqual(menus, [
+		{ id: 'a', cancelable: true },
+		{ id: 'a', cancelable: true },
+	]);
+	assert.deepEqual(errors, []);
+});
+
 test('a wheel inside the hover content leaves the strip where it is', async () => {
 	const actual = await page.evaluate(async () => {
 		bar.style.display = 'flex';

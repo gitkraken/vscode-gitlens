@@ -8,6 +8,7 @@ import { repeat } from 'lit/directives/repeat.js';
 import { when } from 'lit/directives/when.js';
 import { focusableBaseStyles } from '@gitlens/components/components/styles/lit/a11y.css.js';
 import { boxSizingBase } from '@gitlens/components/components/styles/lit/base.css.js';
+import { dispatchContextMenuAt } from '@gitlens/utils/dom.js';
 import { getBranchNameWithoutRemote, getRemoteNameFromBranchName } from '@gitlens/utils/gitRefs.js';
 import { formatPlural } from '@gitlens/utils/plural.js';
 import { normalizeWheelDelta } from '@gitlens/utils/wheel.js';
@@ -144,11 +145,18 @@ export class GlGraphOverviewBar extends LitElement {
 
 	private pendingFocusUpdate = false;
 
+	private keyboardMenuPill: HTMLElement | undefined;
+
 	private readonly onContextMenu = (e: MouseEvent): void => {
 		const pills = this.pillsElement;
 		const pill = e
 			.composedPath()
 			.find((el): el is HTMLElement => el instanceof HTMLElement && el.parentElement === pills);
+		if (e.isTrusted && pill != null && pill === this.keyboardMenuPill) {
+			e.preventDefault();
+			return;
+		}
+
 		const id = pill?.dataset.id;
 		const item = id != null ? this.items.find(i => i.id === id) : undefined;
 		if (item == null) return;
@@ -420,7 +428,22 @@ export class GlGraphOverviewBar extends LitElement {
 		return chip != null ? [...chip.querySelectorAll<HTMLElement>('.pill__leg--jump')] : [];
 	}
 
+	private readonly onBarPointerDown = (): void => {
+		this.keyboardMenuPill = undefined;
+	};
+
+	private readonly onPillsKeyUp = (e: KeyboardEvent): void => {
+		if (isMenuKey(e) && (e.target as HTMLElement | null)?.classList.contains('pill__main')) {
+			// SEE: Chromium WebViewImpl::HandleKeyEvent raises the Windows menu-key contextmenu on key-up unless handled.
+			e.preventDefault();
+		}
+	};
+
 	private readonly onPillsKeyDown = (e: KeyboardEvent): void => {
+		if (!isMenuKey(e)) {
+			this.keyboardMenuPill = undefined;
+		}
+
 		const target = e.target as HTMLElement | null;
 		if (target == null) return;
 
@@ -429,6 +452,15 @@ export class GlGraphOverviewBar extends LitElement {
 			return;
 		}
 		if (!target.classList.contains('pill__main')) return;
+
+		if (isMenuKey(e)) {
+			e.preventDefault();
+			if (e.repeat) return;
+
+			this.keyboardMenuPill = target.closest<HTMLElement>('.pill') ?? undefined;
+			dispatchContextMenuAt(target);
+			return;
+		}
 
 		const count = this.items.length;
 		switch (e.key) {
@@ -553,13 +585,19 @@ export class GlGraphOverviewBar extends LitElement {
 		// the per-pill `group` and its buttons; which worktree is selected rides on `aria-current`.
 		return html`
 			<slot name="start"></slot>
-			<div class="bar" @wheel=${this.wheelListener} @contextmenu=${this.onContextMenu}>
+			<div
+				class="bar"
+				@wheel=${this.wheelListener}
+				@contextmenu=${this.onContextMenu}
+				@pointerdown=${this.onBarPointerDown}
+			>
 				<div
 					class="pills"
 					role="toolbar"
 					aria-orientation="horizontal"
 					aria-label=${l10n.t('Overview')}
 					@keydown=${this.onPillsKeyDown}
+					@keyup=${this.onPillsKeyUp}
 				>
 					${repeat(
 						this.items,
@@ -814,6 +852,12 @@ declare global {
 	}
 
 	interface GlobalEventHandlersEventMap extends OverviewBarEventMap {}
+}
+
+function isMenuKey(e: KeyboardEvent): boolean {
+	if (e.altKey || e.ctrlKey || e.metaKey) return false;
+
+	return e.key === 'ContextMenu' ? !e.shiftKey : e.key === 'F10' && e.shiftKey;
 }
 
 function describeAgents(agent: NonNullable<OverviewBarItem['agent']>, count: number): string {

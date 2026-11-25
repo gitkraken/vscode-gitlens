@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Improves _Commit Graph_ scrolling performance by cutting the style and layout work done while rows scroll
 - Improves _Commit Graph_ performance by requesting pull request and upstream details only for the branches on screen, and by redrawing only the rows an answer affects
-- Improves the accessibility of the _Commit Graph_ overview bar: a pill's uncommitted, unpushed and agent states are read to screen readers, arrow keys, <kbd>Home</kbd> and <kbd>End</kbd> move between pills, and the merge target jump says whether it can jump
+- Improves the accessibility of the _Commit Graph_ overview bar: a pill's uncommitted, unpushed and agent states are read to screen readers, arrow keys, <kbd>Home</kbd> and <kbd>End</kbd> move between pills, the menu key or <kbd>Shift+F10</kbd> opens a pill's context menu, and the merge target jump says whether it can jump
 
 ### Fixed
 

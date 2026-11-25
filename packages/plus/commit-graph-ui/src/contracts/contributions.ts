@@ -32,7 +32,8 @@ export type GraphBuiltInRowAction =
 	| 'jump-to-working-changes'
 	| 'push-to-commit';
 
-/** Cancelable: cancel it to open the host's own menu at `anchor` instead of the native one. */
+/** Cancelable: cancel it to open the host's own menu at `anchor` instead of the native one. Also fires on a
+ *  right-click in the header, with `anchor` a zero-size rect at the pointer. */
 export interface GraphHeaderMenuDetail {
 	readonly anchor: DOMRect;
 }

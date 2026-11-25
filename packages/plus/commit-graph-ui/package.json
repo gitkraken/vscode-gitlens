@@ -43,6 +43,10 @@
 			"types": "./dist/overviewBar.d.ts",
 			"default": "./dist/overviewBar.js"
 		},
+		"./debug.js": {
+			"types": "./dist/debug.d.ts",
+			"default": "./dist/debug.js"
+		},
 		"./profile.js": {
 			"types": "./dist/profile.d.ts",
 			"default": "./dist/profile.js"
@@ -74,8 +78,7 @@
 		"./extensions/wipStats/*.js",
 		"./extensions/laneCollapse/*.js",
 		"./extensions/scrollMarkers/*.js",
-		"./extensions/stickyTimeline/*.js",
-		"./debug.js"
+		"./extensions/stickyTimeline/*.js"
 	],
 	"files": [
 		"dist",
