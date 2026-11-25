@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-11-25
+
 ### Fixed
 
 - Saves the git dirs `getRepositoryInfo` finds, which it didn't before, skipping the save when a repository at the path read or any of its parents was closed during the lookup. A host that saved them itself can drop that save, which kept the old repository's git dirs for a path re-created as another repository's checkout (git-cli)
@@ -1452,7 +1454,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.48.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.49.0...HEAD
+[0.49.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.48.0...gitkraken:releases/core/v0.49.0
 [0.48.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.47.1...gitkraken:releases/core/v0.48.0
 [0.47.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.47.0...gitkraken:releases/core/v0.47.1
 [0.47.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.46.0...gitkraken:releases/core/v0.47.0
