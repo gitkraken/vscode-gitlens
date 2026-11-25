@@ -25,7 +25,7 @@ import type {
 	ProviderAuthenticationSession,
 	TokenWithInfo,
 } from '../authentication/models.js';
-import { toTokenWithInfo } from '../authentication/models.js';
+import { getSessionIdentity, toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -34,6 +34,7 @@ import { IntegrationReadUnavailableError } from '../errors.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
+import type { WorkItemWriteScope } from '../models/workItemWrites.js';
 import type {
 	IssueEtagFields,
 	IssueEtagInclude,
@@ -59,6 +60,8 @@ import {
 	toAzurePullRequestEtagFields,
 	toAzureWorkItemEtagFields,
 } from './azure/models.js';
+import { WorkItemWriteError } from './azureWorkItemWriteErrors.js';
+import type { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
@@ -2359,5 +2362,24 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 	}
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string {
 		return 'https://dev.azure.com';
+	}
+
+	async getWorkItemWriter(options: WorkItemWriteScope): Promise<AzureWorkItemWriter | undefined> {
+		const session = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
+		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
+		if (session.type === 'pat') throw new WorkItemWriteError('unsupported');
+
+		const isSessionCurrent = this.authenticationService.usesHostAuthenticationProvider(this.id)
+			? async () => {
+					const current = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
+					return (
+						current != null &&
+						getSessionIdentity(current) === getSessionIdentity(session) &&
+						current.account?.id === session.account?.id
+					);
+				}
+			: this.authenticationService.trackStoredSession(this.id, session);
+		const api = await this.getProvidersApi();
+		return api.getAzureWorkItemWriter(options, session, isSessionCurrent);
 	}
 }

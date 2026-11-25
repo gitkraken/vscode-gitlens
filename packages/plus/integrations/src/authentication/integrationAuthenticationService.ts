@@ -86,6 +86,10 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.configuredIntegrationService.getSignOutMark();
 	}
 
+	usesHostAuthenticationProvider(id: IntegrationIds): boolean {
+		return this.providers.get(id) instanceof ObservedAuthenticationProvider;
+	}
+
 	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): () => Promise<boolean> {
 		const store = this.configuredIntegrationService;
 		const mark = store.getStoredWriteMark();

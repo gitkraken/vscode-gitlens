@@ -983,6 +983,48 @@ credential. `mutationDispatched: false` means Core stopped before sending the wr
 `applied: 'maybe'` as uncertain and reconcile the issue state before retrying. A successful delete
 requires Jira's `204` acknowledgement. Jira can also return `404` when visibility changes. [Jira Cloud REST v2 issue operations](https://developer.atlassian.com/cloud/jira/platform/rest/v2/api-group-issues/)
 
+### Azure DevOps Services work item writes
+
+Use the work item methods on `IntegrationManager` from `@gitkraken/core-gitlens/plus/integrations/index.js`.
+Every request names `GitCloudHostIntegrationId.AzureDevOps`, the selected `connectionId`, the Azure
+`organizationId` and `organizationName`, and the `projectId`. Use the IDs and names returned by
+Azure discovery. Existing-item operations also take a numeric `workItemId` scoped to that organization
+and project.
+
+| Method                       | Additional input                                                                                         | Success                                                                                                         |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `getWorkItemCreateOptions`   | Optional `workItemType` (Azure type name)                                                                | Enabled type names, or the selected type's fields, states, initial states and optional `bodyField`.             |
+| `getWorkItemWriteOptions`    | `workItemId`                                                                                             | Current work item with revision, editable fields, candidate states, optional `bodyField` and delete capability. |
+| `writeWorkItem`              | `action: 'create'`, `workItemType`, `expectedAccountId`, `fields`                                        | Created work item.                                                                                              |
+| `writeWorkItem`              | `action: 'edit'`, `workItemId`, `expectedAccountId`, `expectedRevision`, `fields`                        | Updated work item.                                                                                              |
+| `writeWorkItem`              | `action: 'set-state'`, `workItemId`, `expectedAccountId`, `expectedRevision`, `state`, optional `fields` | Updated work item with state name and Azure category.                                                           |
+| `resolveWorkItemWriteTarget` | `workItemId`, optional `intent: 'delete'`                                                                | Canonical item and account for confirmation, with capability on delete intent.                                  |
+| `deleteWorkItem`             | `workItemId`, `expectedAccountId`, `expectedRevision`                                                    | Confirmed Recycle Bin result with `disposition: 'recycle-bin'`, `restorable: true` and optional `deletedAt`.    |
+
+Pass the verified `accountId` returned by the options or target call as `expectedAccountId`. It is the Azure
+profile ID. The organization-local member ID used for viewer filters has a different purpose. Core resolves
+the selected read connection, checks the live Azure profile and the organization/project coordinates, and
+rechecks the credential before dispatch. The API requires a credential Azure accepts for both identity
+discovery and the requested work item operation.
+
+Field keys are Azure reference names such as `System.Title` or `Custom.Sponsor`. For rich text, use
+the returned `bodyField` such as `Microsoft.VSTS.TCM.ReproSteps` when available. Options report the type's
+always-required writable fields, configured defaults and allowed values. Edits use `null` to clear a field.
+Send the selected state name through `set-state`. Azure applies conditional field and transition rules at
+save time. `Removed` is a workflow category that hides the item from boards, while delete moves it to the
+Recycle Bin.
+
+Keep the item and revision returned by target resolution across confirmation. Edit and state changes send
+the expected revision as a JSON Patch precondition. Delete rechecks the project, item and revision before
+sending the project-qualified request. Azure exposes no revision precondition on its DELETE endpoint.
+The delete capability can be `allowed: 'unknown'` when Azure decides permission at dispatch. Test artifacts
+use a separate Azure deletion flow and return `unsupported` for delete intent.
+
+Failures use `IssueTrackerWriteFailure`, including Azure field errors on `invalid-input` and `conflict`
+for stale revisions. A scope refusal leaves the read connection usable. A confirmed HTTP 429 is
+`rate-limit`. When Core cannot confirm the result of a dispatched write, it returns `applied: 'maybe'`.
+Reconcile the provider state before attempting a new write.
+
 ### GitHub and GitHub Enterprise Server pull request writes
 
 Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the

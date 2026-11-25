@@ -33,6 +33,7 @@ import {
 import { RequestNotFoundError, toError } from '../errors.js';
 import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
+import type { WorkItemWriteScope } from '../models/workItemWrites.js';
 import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
 	azureIssueStateCategory,
@@ -50,6 +51,7 @@ import {
 	requireAzureWorkItemStateCategories,
 	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
+import { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
 	countBitbucketServerPullRequests,
@@ -1272,6 +1274,22 @@ export class ProvidersApi implements Disposable {
 		} catch (e) {
 			return this.handleProviderError<ProviderAccount>(tokenWithInfo, e);
 		}
+	}
+
+	getAzureWorkItemWriter(
+		options: WorkItemWriteScope,
+		session: ProviderAuthenticationSession,
+		isSessionCurrent: () => Promise<boolean>,
+	): Promise<AzureWorkItemWriter> {
+		return AzureWorkItemWriter.connect(
+			this.request,
+			{
+				accessToken: session.accessToken,
+				authorization: azureAuthorization(session.accessToken, true),
+			},
+			options,
+			isSessionCurrent,
+		);
 	}
 
 	async getJiraIssueWriter(options: IssueTrackerWriteConnection): Promise<JiraIssueWriter | undefined> {
