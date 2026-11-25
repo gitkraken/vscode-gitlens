@@ -8,7 +8,7 @@ import { fileUri } from '@gitlens/utils/uri.js';
 import { CliGitProvider } from '../../../cliGitProvider.js';
 import type { GitOptions } from '../../../exec/git.js';
 import { Git, GitError } from '../../../exec/git.js';
-import { findGitPath } from '../../../exec/locator.js';
+import { findGitPath, UnableToFindGitError } from '../../../exec/locator.js';
 
 function git(cwd: string, ...args: string[]): string {
 	return execFileSync('git', args, { cwd: cwd, encoding: 'utf-8', stdio: 'pipe' }).trim();
@@ -461,7 +461,7 @@ exec git "$@"
 			});
 
 			/** A host's own `Git` runs without the workspace's trust check, so the bare clone check itself decides */
-			function newUntrustedProvider(gitPath: string): CliGitProvider {
+			function newUntrustedProvider(gitPath: string, beforeLocate?: () => void): CliGitProvider {
 				const provider = new CliGitProvider({
 					context: {
 						fs: {
@@ -473,9 +473,13 @@ exec git "$@"
 						config: { commits: {}, graph: { writeCommitGraph: false } },
 					},
 					locator: () => assert.fail(),
-					git: new Git(async () => ({ ...(await findGitPath(null)), path: gitPath }), {
-						gitTimeout: noAnswerTimeout,
-					}),
+					git: new Git(
+						async () => {
+							beforeLocate?.();
+							return { ...(await findGitPath(null)), path: gitPath };
+						},
+						{ gitTimeout: noAnswerTimeout },
+					),
 				});
 				providers.push(provider);
 				return provider;
@@ -515,6 +519,17 @@ exec git "$@"
 				writeFileSync(notExecutable, '', { mode: 0o644 });
 
 				await assert.rejects(newUntrustedProvider(notExecutable).config.getRepositoryInfo(bare), GitError);
+			});
+
+			test('rejects, rather than skipping the bare clone check, when git cannot be located', async () => {
+				const bare = addBareClone();
+				let lookups = 0;
+				const provider = newUntrustedProvider(script, () => {
+					if (lookups++ === 0) throw new UnableToFindGitError();
+				});
+
+				await assert.rejects(provider.config.getRepositoryInfo(bare), UnableToFindGitError);
+				assert.deepStrictEqual(await provider.config.getRepositoryInfo(bare), []);
 			});
 
 			test('goes on when the folder has no HEAD, as a bare clone would', async () => {

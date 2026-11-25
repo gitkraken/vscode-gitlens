@@ -2207,6 +2207,7 @@
 	"GitLens has been disabled. Authentication is required for GitLens to work with remote GitHub repositories.": "GitLens 已被禁用。GitLens 需要经过身份验证才能使用远程 GitHub 仓库。",
 	"GitLens helps you understand and review agent-generated work inside your IDE. Kepler, GitKraken's Agentic Development Environment (ADE), gives you a dedicated workspace to coordinate AI agents, organize Tasks, and manage complex development workflows from one place.": "GitLens 帮助你在 IDE 中理解和审查代理生成的工作。Kepler 是 GitKraken 的代理开发环境（ADE），为你提供一个专属工作区，用于协调 AI 代理、组织任务并从一个位置管理复杂的开发工作流。",
 	"GitLens is fully set up. Revisit any step below to make changes.": "GitLens 已完成全部设置。可随时返回以下任意步骤进行更改。",
+	"GitLens is unable to use Git because the Xcode license agreement hasn't been accepted. Run `sudo xcodebuild -license accept` in a terminal, then reload the window.": "GitLens 无法使用 Git，因为尚未接受 Xcode 许可协议。请在终端中运行 `sudo xcodebuild -license accept`，然后重新加载窗口。",
 	"GitLens is unable to use Git. Your Git configuration seems to be invalid. Please resolve any issues with your Git configuration and reload.": "GitLens 无法使用 Git。你的 Git 配置似乎无效。请解决 Git 配置中的所有问题并重新加载。",
 	"GitLens now registers the GitKraken MCP automatically in Cursor. You may have a duplicate entry in your Cursor `mcp.json` — remove `mcpServers.GitKraken` to clean it up.": "GitLens 现在会在 Cursor 中自动注册 GitKraken MCP。你的 Cursor `mcp.json` 中可能存在重复条目 — 移除 `mcpServers.GitKraken` 即可清理。",
 	"GitLens registered this repository for scheduled maintenance. Undo unregisters it and restores the prior maintenance configuration.": "GitLens 已将此仓库注册为计划维护。撤消将取消注册并恢复之前的维护配置。",

@@ -1,7 +1,7 @@
 import { readdir, realpath } from 'fs';
 import { homedir } from 'os';
 import { resolve as resolvePath } from 'path';
-import type { Disposable, WorkspaceFolder } from 'vscode';
+import type { ConfigurationChangeEvent, Disposable, WorkspaceFolder } from 'vscode';
 import { extensions, FileType, l10n, Uri, window, workspace } from 'vscode';
 import { fetch } from '@env/fetch.js';
 import { isLinux, isWindows } from '@env/platform.js';
@@ -81,6 +81,7 @@ import {
 	showGitInvalidConfigErrorMessage,
 	showGitMissingErrorMessage,
 	showGitVersionUnsupportedErrorMessage,
+	showGitXcodeLicenseErrorMessage,
 } from '../../../messages.js';
 import { asRepoComparisonKey } from '../../../repositories.js';
 import { configuration } from '../../../system/-webview/configuration.js';
@@ -162,6 +163,7 @@ export class GlCliGitProvider implements GlGitProvider {
 			this._onDidChangeRepository,
 			this._onDidCloseRepository,
 			this._onDidOpenRepository,
+			configuration.onDidChangeAny(this.onAnyConfigurationChanged, this),
 		);
 	}
 
@@ -357,12 +359,33 @@ export class GlCliGitProvider implements GlGitProvider {
 		this.cache.onRepositoryChanged(repoPath, changes);
 	}
 
-	private _gitLocator: Promise<GitLocation> | undefined;
-	private async ensureGit(): Promise<GitLocation> {
-		this._gitLocator ??= this.findGit();
+	private onAnyConfigurationChanged(e: ConfigurationChangeEvent): void {
+		if (!this._gitLookupFailed || !configuration.changedCore(e, 'git.path')) return;
 
-		return this._gitLocator;
+		this._gitLookupFailed = false;
+		this._gitLocator = undefined;
+		this._onDidChange.fire();
 	}
+
+	private _gitLocator: Promise<GitLocation> | undefined;
+	private _gitLookupFailed = false;
+	private async ensureGit(): Promise<GitLocation> {
+		const promise = (this._gitLocator ??= this.findGit());
+		try {
+			const location = await promise;
+			this._gitLookupFailed = false;
+			return location;
+		} catch (ex) {
+			if (this._gitLocator === promise) {
+				this._gitLocator = undefined;
+				this._gitLookupFailed = true;
+			}
+			throw ex;
+		}
+	}
+
+	private _gitDisabledNotified = false;
+	private _scmRepositoriesSubscribed = false;
 
 	@debug()
 	private async findGit(): Promise<GitLocation> {
@@ -370,7 +393,10 @@ export class GlCliGitProvider implements GlGitProvider {
 
 		if (!configuration.getCore('git.enabled', null, true)) {
 			scope?.warn('Built-in Git is disabled ("git.enabled": false)');
-			void showGitDisabledErrorMessage();
+			if (!this._gitDisabledNotified) {
+				this._gitDisabledNotified = true;
+				void showGitDisabledErrorMessage();
+			}
 
 			throw new UnableToFindGitError();
 		}
@@ -465,7 +491,10 @@ export class GlCliGitProvider implements GlGitProvider {
 				this._onDidOpenRepository.fire({ uri: scmRepository.rootUri, source: 'scm' });
 			}
 		}
-		void subscribeToScmOpenCloseRepository.call(this);
+		if (!this._scmRepositoriesSubscribed) {
+			this._scmRepositoriesSubscribed = true;
+			void subscribeToScmOpenCloseRepository.call(this);
+		}
 
 		const canCacheGitPath = configuration.get('advanced.caching.gitPath');
 		const potentialGitPaths =
@@ -491,7 +520,8 @@ export class GlCliGitProvider implements GlGitProvider {
 			return findGitPath(path, false);
 		});
 
-		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise);
+		// KEEP: when both fail, `any` rejects with an AggregateError (empty message); surface the search's typed error
+		const location = await any<GitLocation>(findGitPromise, findGitFromSCMPromise).catch(() => findGitPromise);
 		// Save the found git path, but let things settle first to not impact startup performance
 		setTimeout(
 			() =>
@@ -561,6 +591,8 @@ export class GlCliGitProvider implements GlGitProvider {
 		} catch (ex) {
 			if (ex instanceof InvalidGitConfigError) {
 				void showGitInvalidConfigErrorMessage();
+			} else if (ex instanceof UnableToFindGitError && ex.reason === 'xcodeLicense') {
+				void showGitXcodeLicenseErrorMessage();
 			} else if (ex instanceof UnableToFindGitError) {
 				void showGitMissingErrorMessage();
 			} else {

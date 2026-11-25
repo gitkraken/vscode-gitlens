@@ -6,7 +6,10 @@ import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
 import { findExecutable, run } from './exec.js';
 
 export class UnableToFindGitError extends Error {
-	constructor(public readonly original?: Error) {
+	constructor(
+		public readonly original?: Error,
+		public readonly reason?: 'xcodeLicense',
+	) {
 		super(l10n.t('Unable to find git'));
 
 		Error.captureStackTrace?.(this, new.target);
@@ -26,6 +29,16 @@ export interface GitLocation {
 	version: string;
 }
 
+const xcodeLicenseRegex = /xcodebuild -license|Xcode(?:\/iOS)? license/i;
+
+function toLocatorError(ex: unknown): unknown {
+	// oxlint-disable-next-line @gitlens/no-raw-error-message -- classification only
+	const text = `${(ex as { stderr?: string } | undefined)?.stderr ?? ''}\n${(ex as Error | undefined)?.message ?? ''}`;
+	// SEE: /usr/bin/git exits 69 with this until the Xcode license is accepted (forums.developer.nvidia.com/t/350075)
+	if (xcodeLicenseRegex.test(text)) return new UnableToFindGitError(ex as Error, 'xcodeLicense');
+	return ex;
+}
+
 async function findSpecificGit(path: string): Promise<GitLocation> {
 	const sw = maybeStopWatch(`findSpecificGit(path=${path})`, {
 		log: { level: 'debug', onlyExit: true },
@@ -39,7 +52,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 		sw?.stop({ message: `\u2022 Unable to find git: ${ex}` });
 
 		if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
-		throw ex;
+		throw toLocatorError(ex);
 	}
 
 	// If needed, let's update our path to avoid the search on every command
@@ -53,7 +66,7 @@ async function findSpecificGit(path: string): Promise<GitLocation> {
 			sw?.stop({ message: `\u2022 Unable to find git: ${ex}` });
 
 			if (/bad config/i.test(ex.message)) throw new InvalidGitConfigError(ex);
-			throw ex;
+			throw toLocatorError(ex);
 		}
 
 		path = foundPath;

@@ -4,6 +4,7 @@ import * as assert from 'node:assert';
 import '../../../../container.js';
 import { Uri } from 'vscode';
 import { GitError } from '@gitlens/git-cli/exec/git.js';
+import { InvalidGitConfigError, UnableToFindGitError } from '@gitlens/git-cli/exec/locator.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { GlCliGitProvider } from '../cliGitProvider.js';
 
@@ -100,6 +101,8 @@ suite('GlCliGitProvider discovery', () => {
 			for (const noAnswer of [
 				new CancellationError(undefined, 'timeout'),
 				new GitError(new Error('terminated')),
+				new UnableToFindGitError(),
+				new InvalidGitConfigError(new Error('bad config')),
 			]) {
 				await assert.rejects(
 					findRepositoryUri.call(

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixes `isGitUnanswered` reading a failed git lookup as git's answer: when the locator rejected with `UnableToFindGitError` or `InvalidGitConfigError`, a repository lookup answered "not a repository" and the untrusted bare clone check was skipped. Both errors now count as no answer from git, so callers reject rather than remember a wrong answer (git-cli)
+
 ## [0.47.1] - 2026-11-24
 
 ### Fixed

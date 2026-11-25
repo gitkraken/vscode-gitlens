@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Changed
+
+- Shows a specific error on macOS when Git can't run because the Xcode license agreement hasn't been accepted, with the command to accept it, instead of reporting that Git couldn't be found ([#6343](https://github.com/gitkraken/vscode-gitlens/issues/6343))
+
+### Fixed
+
+- Fixes GitLens silently failing when Git can't be found or used &mdash; blame, history and repositories disappeared without the error explaining why; GitLens now shows it, and setting `git.path` to a working Git restores everything without reloading the window ([#6343](https://github.com/gitkraken/vscode-gitlens/issues/6343))
+
 ## [19.7.0] - 2026-11-24
 
 ### Changed

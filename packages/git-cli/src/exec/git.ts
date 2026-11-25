@@ -67,6 +67,7 @@ import {
 	toExitCode,
 } from './indexLock.js';
 import type { GitLocation } from './locator.js';
+import { InvalidGitConfigError, UnableToFindGitError } from './locator.js';
 
 export const slowCallWarningThreshold = 2000;
 export type GitFeatureUnsupportedMessage = (requiredVersion: string, installedVersion: string) => string;
@@ -303,7 +304,12 @@ export function isGitAnswer(ex: unknown): boolean {
 
 /** Whether a `rev-parse` failed without an answer from git (see {@link isGitAnswer}), so says nothing about its path */
 export function isGitUnanswered(ex: unknown): boolean {
-	return isCancellationError(ex) || (ex instanceof GitError && !isGitAnswer(ex));
+	return (
+		isCancellationError(ex) ||
+		ex instanceof UnableToFindGitError ||
+		ex instanceof InvalidGitConfigError ||
+		(ex instanceof GitError && !isGitAnswer(ex))
+	);
 }
 
 /** Rejects an `errors: 'ignore'` `rev-parse` that gave no answer (see {@link isGitAnswer}), whose empty output would read as one */

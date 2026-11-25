@@ -246,6 +246,22 @@ export function showGitInvalidConfigErrorMessage(): Promise<MessageItem | undefi
 	);
 }
 
+export async function showGitXcodeLicenseErrorMessage(): Promise<void> {
+	const reload: MessageItem = { title: l10n.t('Reload Window') };
+	const result = await showMessage(
+		'error',
+		l10n.t(
+			"GitLens is unable to use Git because the Xcode license agreement hasn't been accepted. Run `sudo xcodebuild -license accept` in a terminal, then reload the window.",
+		),
+		undefined,
+		null,
+		reload,
+	);
+	if (result === reload) {
+		void executeCoreCommand('workbench.action.reloadWindow');
+	}
+}
+
 export function showGitMissingErrorMessage(): Promise<MessageItem | undefined> {
 	return showMessage(
 		'error',

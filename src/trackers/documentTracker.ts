@@ -522,7 +522,15 @@ export class GitDocumentTracker implements Disposable {
 			const doc = await d;
 			// `toLowerCase` (not `toLocaleLowerCase`) to match the producers — a Turkish locale maps `I` to `ı`
 			const repoPath = doc.uri.repoPath?.toLowerCase();
-			if (repoPath == null) continue;
+			if (repoPath == null) {
+				if (changed?.addedOrChangedRepoPaths == null) continue;
+
+				const closestRepoPath = this.container.git.getRepository(doc.uri)?.path.toLowerCase();
+				if (closestRepoPath != null && changed.addedOrChangedRepoPaths.has(closestRepoPath)) {
+					doc.refresh('repositoryChanged');
+				}
+				continue;
+			}
 
 			if (changed?.removedRepoPaths?.has(repoPath)) {
 				void this.remove(doc.document, doc);

@@ -41,7 +41,9 @@ export class TrackedGitDocument implements Disposable {
 	private _disposable: Disposable | undefined;
 	private _disposed: boolean = false;
 	private _tracked: boolean = false;
-	private _pendingUpdates: { reason: string; forceBlameChange?: boolean; forceDirtyIdle?: boolean } | undefined;
+	private _pendingUpdates:
+		| { reason: string; forceBlameChange?: boolean; forceDirtyIdle?: boolean; resolveUri?: boolean }
+		| undefined;
 	private _updateDebounced: Deferrable<TrackedGitDocument['updateCore']> | undefined;
 	private _updateInFlight: Promise<void> | undefined;
 	private _uri!: GitUri;
@@ -161,7 +163,7 @@ export class TrackedGitDocument implements Disposable {
 			case 'repositoryChanged':
 				// Full reset on repository changes — git state changed externally
 				this.blameSnapshot = undefined;
-				this._pendingUpdates = { ...this._pendingUpdates, reason: reason };
+				this._pendingUpdates = { ...this._pendingUpdates, reason: reason, resolveUri: true };
 				break;
 		}
 
@@ -207,6 +209,15 @@ export class TrackedGitDocument implements Disposable {
 		this._dirtyIdle = Boolean(this.document.isDirty && updates?.forceDirtyIdle && this.canDirtyIdle);
 		// Cache before await
 		const wasBlameable = updates?.forceBlameChange ? undefined : this.blameable;
+
+		if (updates?.resolveUri && this._uri.repoPath == null) {
+			this._uri = await GitUri.fromUri(this.document.uri);
+			if (this._disposed) {
+				this._tracked = false;
+
+				return;
+			}
+		}
 
 		const repo = this.container.git.getRepository(this._uri);
 		this._tracked = repo != null ? await this.container.git.isTracked(this._uri) : false;
