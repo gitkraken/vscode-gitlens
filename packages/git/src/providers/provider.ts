@@ -124,6 +124,13 @@ export interface GitProvider {
 	 */
 	getCommonPath?(repoPath: string): string | undefined;
 	/**
+	 * Has the host register `repoPath` before it is first read, when the host asked to be (see
+	 * `Cache.setRepoPathRegistrar`): `undefined` when the read can go ahead at once (nothing to register, already
+	 * registered, or declined), or a promise, never rejecting, to read after. `GitService`'s per-repository
+	 * sub-providers ask it before each call, and wait on it for each method that answers only a promise.
+	 */
+	ensureRegistered?(repoPath: string): Promise<void> | undefined;
+	/**
 	 * The absolute, normalized folders under `repoPath`'s common git dir whose worktrees core acts as if didn't exist:
 	 * they are left out of worktree lists, and their add, remove, lock, unlock or move run through `notify: 'infer'`,
 	 * and the watcher's reports of their admin entries, raise no `worktrees` change (the typed worktree writes still

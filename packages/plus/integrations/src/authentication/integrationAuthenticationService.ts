@@ -22,6 +22,8 @@ import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from './models.js';
+import { getSessionIdentity } from './models.js';
 import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
 export class IntegrationAuthenticationService implements Disposable {
@@ -78,6 +80,29 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	async get(providerId: IntegrationIds): Promise<IntegrationAuthenticationProvider> {
 		return this.ensureProvider(providerId);
+	}
+
+	getSignOutMark(): number {
+		return this.configuredIntegrationService.getSignOutMark();
+	}
+
+	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): () => Promise<boolean> {
+		const store = this.configuredIntegrationService;
+		const mark = store.getStoredWriteMark();
+		const identity = getSessionIdentity(session);
+		return async () => {
+			if (store.isStoredWriteRetiredSince(id, session, mark)) return false;
+
+			const current = await store
+				.peekStoredSession(id, session.id, session.cloud ?? false, session.domain)
+				.catch(() => undefined);
+			return (
+				current != null &&
+				!store.isStoredWriteRetiredSince(id, session, mark) &&
+				getSessionIdentity(current) === identity &&
+				current.account?.id === session.account?.id
+			);
+		};
 	}
 
 	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */

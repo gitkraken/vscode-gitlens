@@ -618,19 +618,25 @@ export class PatchDetailsWebviewProvider implements WebviewProvider<
 		visibility,
 		userSelections,
 	}: CreatePatchParams): Promise<void> {
-		if (
-			!(await ensureAccount(
-				this.container,
-				l10n.t('Cloud Patches are a Preview feature and require an account.'),
-				{
-					source: 'cloud-patches',
-					detail: 'create',
-				},
-			)) ||
-			!(await confirmDraftStorage(this.container))
-		) {
-			return;
+		let proceed = false;
+		// KEEP: finally, so a prompt that throws still clears the form's busy state
+		try {
+			proceed =
+				(await ensureAccount(
+					this.container,
+					l10n.t('Cloud Patches are a Preview feature and require an account.'),
+					{
+						source: 'cloud-patches',
+						detail: 'create',
+					},
+				)) && (await confirmDraftStorage(this.container));
+		} finally {
+			if (!proceed) {
+				void this.notifyDidChangeCreateDraftState();
+			}
 		}
+
+		if (!proceed) return;
 
 		const createChanges: CreateDraftChange[] = [];
 

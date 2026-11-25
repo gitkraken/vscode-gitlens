@@ -73,11 +73,15 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			descriptor.cloud,
 			descriptor.scopes,
 		]);
-		const source = await this.host.getSession(descriptor, options);
-		if (source != null && this.selfManaged && !areDomainsOnSameHost(descriptor.domain, source.domain)) {
+		const { isRejectedToken, ...hostOptions } = options ?? {};
+		const source = await this.host.getSession(descriptor, isRejectedToken == null ? options : hostOptions);
+		if (
+			(source != null && this.selfManaged && !areDomainsOnSameHost(descriptor.domain, source.domain)) ||
+			this.isRetired(request, descriptor, source)
+		) {
+			isRejectedToken?.(undefined);
 			throw new CancellationError();
 		}
-		if (this.isRetired(request, descriptor, source)) throw new CancellationError();
 
 		const identity = getSessionIdentity(source);
 		const previous = this.observations.get(scope);
@@ -92,7 +96,12 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		const latest =
 			credential != null && (previous == null || credential.request > previous.request) ? credential : previous;
 		if (latest != null && latest.request > request && latest.identity !== identity) {
+			isRejectedToken?.(undefined);
 			throw new CancellationError();
+		}
+
+		if (isRejectedToken?.(source?.id === descriptor.connectionId ? source?.accessToken : undefined)) {
+			return this.getSession(descriptor, { ...hostOptions, refreshRejectedToken: true });
 		}
 
 		const session: ProviderAuthenticationSession | undefined =
@@ -146,7 +155,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 
 	async deleteSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		options?: { preserveConfigured?: boolean },
+		options?: { preserveConfigured?: boolean; signOutMark?: number },
 	): Promise<void> {
 		const retirement = this.retireConnection(descriptor);
 		this.activeRetirements.add(retirement);
@@ -301,9 +310,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			);
 		}
 
-		if (targets.length === 0) {
-			this.publish({ replacePrimary: true }, [domain]);
-		}
+		this.publish({ replacePrimary: true, retireAll: true }, [domain]);
 
 		this.removeTargets(targets);
 		this.markRetirement(retirement);

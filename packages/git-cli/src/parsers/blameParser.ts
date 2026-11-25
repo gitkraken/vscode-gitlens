@@ -8,7 +8,7 @@ import type { GitUser } from '@gitlens/git/models/user.js';
 import { isUserMatch } from '@gitlens/git/utils/user.utils.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
-import { iterateAsyncByDelimiter, iterateByDelimiter } from '@gitlens/utils/string.js';
+import { iterateAsyncByDelimiter, iterateByDelimiter, unquoteCString } from '@gitlens/utils/string.js';
 import type { Uri } from '@gitlens/utils/uri.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 
@@ -38,6 +38,24 @@ export interface BlameEntry {
 	committerCurrent?: boolean;
 }
 
+/**
+ * Decodes one kind of blame file name, remembering the last: git repeats the file name (and the one it was renamed from)
+ * in every chunk, so a name it quoted would otherwise be decoded again each time
+ */
+function createPathUnquoter(): (raw: string) => string {
+	let lastRaw: string | undefined;
+	let lastPath = '';
+	return raw => {
+		if (raw.charCodeAt(0) !== 0x22 /* " */) return raw;
+
+		if (raw !== lastRaw) {
+			lastRaw = raw;
+			lastPath = unquoteCString(raw);
+		}
+		return lastPath;
+	};
+}
+
 export function parseGitBlame(
 	repoPath: string,
 	data: string | undefined,
@@ -60,6 +78,8 @@ export function parseGitBlame(
 	let cachedPreviousPath: string | undefined;
 	let cachedPreviousPathUri: Uri | undefined;
 
+	const unquotePath = createPathUnquoter();
+	const unquotePreviousPath = createPathUnquoter();
 	const authors = new Map<string, GitBlameAuthor>();
 	const commits = new Map<string, GitCommit>();
 	const lines: GitCommitLine[] = [];
@@ -126,7 +146,7 @@ export function parseGitBlame(
 
 			case 0x66 /* f — filename */: {
 				// Don't trim — spaces in filenames are valid
-				entry.path = line.substring(valueStart);
+				entry.path = unquotePath(line.substring(valueStart));
 
 				// Assemble model immediately — no intermediate storage
 				const entryPath = entry.path;
@@ -255,7 +275,7 @@ export function parseGitBlame(
 				const shaEnd = value.indexOf(' ');
 				if (shaEnd !== -1) {
 					entry.previousSha = value.substring(0, shaEnd);
-					entry.previousPath = value.substring(shaEnd + 1);
+					entry.previousPath = unquotePreviousPath(value.substring(shaEnd + 1));
 				}
 				break;
 			}
@@ -280,6 +300,8 @@ export function parseGitBlame(
  * as its `filename` terminator line is encountered.
  */
 export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncGenerator<BlameEntry> {
+	const unquotePath = createPathUnquoter();
+	const unquotePreviousPath = createPathUnquoter();
 	let entry: BlameEntry | undefined;
 
 	for await (const line of iterateAsyncByDelimiter(stream, '\n')) {
@@ -340,7 +362,7 @@ export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncG
 				break;
 
 			case 0x66 /* f — filename */:
-				entry.path = line.substring(valueStart);
+				entry.path = unquotePath(line.substring(valueStart));
 				yield entry;
 
 				entry = undefined;
@@ -355,7 +377,7 @@ export async function* parseGitBlameAsync(stream: AsyncIterable<string>): AsyncG
 				const shaEnd = value.indexOf(' ');
 				if (shaEnd !== -1) {
 					entry.previousSha = value.substring(0, shaEnd);
-					entry.previousPath = value.substring(shaEnd + 1);
+					entry.previousPath = unquotePreviousPath(value.substring(shaEnd + 1));
 				}
 				break;
 			}

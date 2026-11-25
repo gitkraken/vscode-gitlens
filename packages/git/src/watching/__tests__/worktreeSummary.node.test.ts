@@ -1,5 +1,6 @@
 import assert from 'node:assert';
 import { afterEach, describe, it } from 'node:test';
+import type { TestContext } from 'node:test';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { mixinDisposable } from '@gitlens/utils/disposable.js';
 import { Emitter } from '@gitlens/utils/event.js';
@@ -28,10 +29,11 @@ import type {
 	WorktreeSummarySubscribeOptions,
 	WorktreeSummarySubscription,
 } from '../worktreeSummary.js';
-import { WorktreeSummaryService } from '../worktreeSummary.js';
+import { baseRetryClock, WorktreeSummaryService } from '../worktreeSummary.js';
 
 const repoPath = '/repo';
 const key = getRepositoryKey(repoPath);
+const realBaseRetryNow = baseRetryClock.now;
 
 function createMockFactory(
 	onWatcher?: (
@@ -108,6 +110,7 @@ class FakeRepository {
 		sha: string | undefined;
 		upstream: FakeUpstream | undefined;
 		dirty: boolean;
+		untracked: boolean;
 		base: FakeBase | undefined;
 		/** What the base read reports depending on, with or without a base */
 		baseDependsOn: string[];
@@ -123,10 +126,18 @@ class FakeRepository {
 		fail: Error | undefined;
 		/** Makes only the base read throw */
 		baseFail: Error | undefined;
+		/** Makes the base read answer as one that a read failing inside it left to a fallback */
+		baseProvisional: boolean;
+		/** The commit a full base read says it measured from; with it, a carry past a commit answers measured from the new HEAD */
+		baseMeasuredFrom: string | undefined;
 		configKey: string | undefined;
 		configKeyFail: Error | undefined;
 		/** What re-measuring the base after a move answers; `undefined` sends the read to `getAheadOfBase` */
 		baseMove: FakeBase | undefined;
+		/** What carrying the base past a commit answers; `undefined` sends the read to `getAheadOfBase` */
+		afterCommit: FakeBase | undefined;
+		/** Makes only carrying the base past a commit reject */
+		afterCommitFail: Error | undefined;
 		/** The ref tips, by full name, as the cached ref list answers them (symbolic refs left out) */
 		tips: Record<string, string>;
 	} = {
@@ -135,6 +146,7 @@ class FakeRepository {
 		sha: 'aaa111',
 		upstream: { name: 'origin/main', missing: false, ahead: 1, behind: 2 },
 		dirty: false,
+		untracked: false,
 		base: { ref: 'refs/heads/develop', ahead: 3, sha: 'ddd111', forkPoint: 'fff111', tier: 'user' },
 		baseDependsOn: ['refs/heads/develop'],
 		remotes: ['origin'],
@@ -145,9 +157,13 @@ class FakeRepository {
 		recordedBase: undefined,
 		fail: undefined,
 		baseFail: undefined,
+		baseProvisional: false,
+		baseMeasuredFrom: undefined,
 		configKey: 'config-v1',
 		configKeyFail: undefined,
 		baseMove: undefined,
+		afterCommit: undefined,
+		afterCommitFail: undefined,
 		tips: { 'refs/heads/main': 'aaa111', 'refs/heads/develop': 'ddd111', 'refs/remotes/origin/main': 'ooo111' },
 	};
 
@@ -167,6 +183,17 @@ class FakeRepository {
 		dependsOn: readonly string[];
 		moved: string[];
 	}[] = [];
+	/** Each carry of the base past a commit asked for (kept out of {@link counts}, as {@link baseMoves} are) */
+	readonly afterCommits: {
+		branch: string | undefined;
+		head: string;
+		base: FakeBase;
+		dependsOn: readonly string[];
+		defaultBranch: string | null | undefined;
+		newHead: string;
+	}[] = [];
+	/** The commit each carry past a commit was told the previous answer was measured from */
+	readonly afterCommitsMeasuredFrom: (string | undefined)[] = [];
 	readonly signals: (AbortSignal | undefined)[] = [];
 	/** The branch each base read was asked about, in order (`undefined` for a detached HEAD) */
 	readonly baseBranches: (string | undefined)[] = [];
@@ -219,11 +246,15 @@ class FakeRepository {
 					return {
 						base: base != null ? { ...base } : undefined,
 						dependsOn: this.state.baseDependsOn,
+						...(this.state.baseProvisional ? { provisional: true } : undefined),
+						...(this.state.baseMeasuredFrom != null
+							? { measuredFrom: this.state.baseMeasuredFrom }
+							: undefined),
 					};
 				},
 				getAheadOfBaseAfterBaseMove: async (
 					branch: string | undefined,
-					previous: { head: string; base: FakeBase; dependsOn: readonly string[] },
+					previous: { head: string; base: FakeBase; dependsOn: readonly string[]; measuredFrom?: string },
 					moved: readonly string[],
 				) => {
 					this.baseMoves.push({ branch: branch, ...previous, moved: [...moved].sort() });
@@ -234,7 +265,42 @@ class FakeRepository {
 					if (this.gate != null) {
 						await this.gate;
 					}
-					return { base: { ...base }, dependsOn: this.state.baseDependsOn };
+					return {
+						base: { ...base },
+						dependsOn: this.state.baseDependsOn,
+						...(previous.measuredFrom != null ? { measuredFrom: previous.measuredFrom } : undefined),
+					};
+				},
+				getAheadOfBaseAfterCommit: async (
+					branch: string | undefined,
+					previous: {
+						head: string;
+						base: FakeBase;
+						dependsOn: readonly string[];
+						defaultBranch?: string | null;
+						measuredFrom?: string;
+					},
+					head: string,
+				) => {
+					this.afterCommitsMeasuredFrom.push(previous.measuredFrom);
+					this.afterCommits.push({
+						branch: branch,
+						head: previous.head,
+						base: previous.base,
+						dependsOn: previous.dependsOn,
+						defaultBranch: previous.defaultBranch,
+						newHead: head,
+					});
+					if (this.state.afterCommitFail != null) throw this.state.afterCommitFail;
+
+					const base = this.state.afterCommit;
+					if (base == null) return undefined;
+
+					return {
+						base: { ...base },
+						dependsOn: this.state.baseDependsOn,
+						...(this.state.baseMeasuredFrom != null ? { measuredFrom: head } : undefined),
+					};
 				},
 				getDefaultBranchName: async (remote: string, options?: { local?: boolean }) => {
 					assert.strictEqual(options?.local, true, 'only the local symref, never the remote');
@@ -253,9 +319,16 @@ class FakeRepository {
 				},
 			},
 			status: {
-				hasWorkingChanges: async (_options?: unknown, signal?: AbortSignal) => {
+				hasWorkingChanges: async (
+					options?: { staged?: boolean; unstaged?: boolean; untracked?: boolean },
+					signal?: AbortSignal,
+				) => {
+					if (options?.staged === false && options.unstaged === false) {
+						return options.untracked !== false && this.state.untracked;
+					}
+
 					await this.enter('dirty', signal);
-					return this.state.dirty;
+					return this.state.dirty || (options?.untracked !== false && this.state.untracked);
 				},
 			},
 			remotes: {
@@ -455,6 +528,7 @@ describe('WorktreeSummaryService', () => {
 			h.watchService.dispose();
 		}
 		harnesses = [];
+		baseRetryClock.now = realBaseRetryNow;
 	});
 
 	describe('read scheduling', () => {
@@ -1322,6 +1396,43 @@ describe('WorktreeSummaryService', () => {
 			});
 		});
 
+		it('answers from a read whose base failed, reading the base again for a ref it depends on, or once its wait is over', async () => {
+			let now = 1_000_000;
+			baseRetryClock.now = () => now;
+			const { h, touchIndex } = setup();
+			await h.service.getSummary(repoPath);
+			h.repo.state.baseFail = new Error('rev-list failed');
+			h.repo.state.tips['refs/heads/develop'] = 'ddd222';
+			const failed = await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(failed, { ...expectedInitial, stale: true });
+			const baseMoves = h.repo.baseMoves.length;
+
+			let summary: WorktreeSummary | undefined;
+			const read = async (): Promise<ReadCounts> =>
+				readsOf(h, async () => (summary = await h.service.getSummary(repoPath)));
+			assert.deepStrictEqual(await read(), probeOnly, 'nothing moved, and the base waits');
+			assert.strictEqual(summary, failed);
+
+			touchIndex();
+			h.repo.state.dirty = true;
+			assert.deepStrictEqual(await read(), { ...probeOnly, dirty: 1 });
+			assert.deepStrictEqual(summary, { ...expectedInitial, dirty: true, stale: true });
+
+			h.repo.state.tips['refs/heads/develop'] = 'ddd333';
+			h.repo.state.baseMove = { ...h.repo.state.base!, sha: 'ddd333' };
+			assert.deepStrictEqual(await read(), { ...probeForBase, base: 1 }, 'a ref it depends on moved: at once');
+			assert.strictEqual(h.repo.baseMoves.length, baseMoves, 'a stale base is read in full, never re-measured');
+			assert.strictEqual(summary?.stale, true);
+
+			// That retry failed too, so the wait doubled
+			h.repo.state.baseFail = undefined;
+			now += 9_999;
+			assert.deepStrictEqual(await read(), probeOnly);
+			now += 1;
+			assert.deepStrictEqual(await read(), { ...probeForBase, base: 1 });
+			assert.deepStrictEqual(summary, { ...expectedInitial, dirty: true });
+		});
+
 		it('rejects with the timeout when git ran out of time, and keeps the last read', async () => {
 			const { h } = setup();
 			const first = await h.service.getSummary(repoPath);
@@ -1586,10 +1697,13 @@ describe('WorktreeSummaryService', () => {
 				assert.strictEqual(summary.base?.ahead, 4);
 			});
 
-			it('reads everything, without probing, after a stale read', async () => {
+			it('starts from a read whose base failed, leaving the base to its wait', async () => {
+				let now = 1_000_000;
+				baseRetryClock.now = () => now;
 				const { h } = setup();
 				h.repo.state.baseFail = new Error('base read failed');
-				assert.strictEqual((await h.service.getSummary(repoPath)).stale, true);
+				const failed = await h.service.getSummary(repoPath);
+				assert.strictEqual(failed.stale, true);
 				h.repo.state.baseFail = undefined;
 
 				let summary: WorktreeSummary | undefined;
@@ -1597,7 +1711,29 @@ describe('WorktreeSummaryService', () => {
 					h.service.subscribe(repoPath);
 					summary = await h.service.getSummary(repoPath);
 				});
-				assert.deepStrictEqual(counts, firstRead);
+				assert.deepStrictEqual(counts, probeAndDirty);
+				assert.strictEqual(summary, failed, 'still stale: nothing read its base again');
+
+				now += 5_000;
+				assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), { ...onlyDirty, base: 1 });
+				assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
+			});
+
+			it('reads the base as it starts from a read whose base failed once its wait is over', async () => {
+				let now = 1_000_000;
+				baseRetryClock.now = () => now;
+				const { h } = setup();
+				h.repo.state.baseFail = new Error('base read failed');
+				assert.strictEqual((await h.service.getSummary(repoPath)).stale, true);
+				h.repo.state.baseFail = undefined;
+				now += 5_000;
+
+				let summary: WorktreeSummary | undefined;
+				const counts = await readsOf(h, async () => {
+					h.service.subscribe(repoPath);
+					summary = await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeAndDirty, base: 1 });
 				assert.deepStrictEqual(summary, expectedInitial);
 			});
 
@@ -1994,6 +2130,43 @@ describe('WorktreeSummaryService', () => {
 				const snapshot = await asked;
 				assert.strictEqual(snapshot.summary.dirty, true);
 				assert.strictEqual(snapshot.dirtyReadAt, undefined);
+			});
+
+			it('starts from a read whose base failed as it is, leaving the base to its wait', async () => {
+				const now = 1_000_000;
+				baseRetryClock.now = () => now;
+				const { h } = setup({ callsOnDidStart: true });
+				h.repo.state.baseFail = new Error('base read failed');
+				const failed = await h.service.getSummary(repoPath);
+				h.repo.state.baseFail = undefined;
+
+				let sub: WorktreeSummarySubscription | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, probeOnly);
+				assert.strictEqual(sub?.current, failed);
+				assert.strictEqual(failed.stale, true);
+			});
+
+			it('reads the base of a read whose base failed, and only it, once its wait is over', async () => {
+				let now = 1_000_000;
+				baseRetryClock.now = () => now;
+				const { h } = setup({ callsOnDidStart: true });
+				h.repo.state.baseFail = new Error('base read failed');
+				await h.service.getSummary(repoPath);
+				h.repo.state.baseFail = undefined;
+				now += 5_000;
+
+				let sub: WorktreeSummarySubscription | undefined;
+				const counts = await readsOf(h, async () => {
+					sub = h.service.subscribe(repoPath);
+					await h.service.getSummary(repoPath);
+				});
+				assert.deepStrictEqual(counts, { ...probeOnly, base: 1 });
+				assert.deepStrictEqual(sub?.current, expectedInitial);
+				assert.ok(sub.dirtyReadAt != null, "the dirty flag is still the saved read's");
 			});
 
 			it("drops the last read's dirty flag with a failed first run", async () => {
@@ -2851,6 +3024,57 @@ describe('WorktreeSummaryService', () => {
 		});
 	});
 
+	describe('dirty from untracked files alone', () => {
+		async function subscribeUntracked(t: TestContext) {
+			const h = createHarness();
+			h.repo.state.untracked = true;
+			t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+			t.mock.method(performance, 'now', () => Date.now());
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			assert.strictEqual(sub.current?.dirty, true);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+			const dirtyReadsAfter = async (ms: number) => {
+				const before = h.repo.counts.dirty;
+				t.mock.timers.tick(ms);
+				await h.service.getSummary(repoPath);
+				return h.repo.counts.dirty - before;
+			};
+			return { h: h, sub: sub, fired: fired, dirtyReadsAfter: dirtyReadsAfter };
+		}
+
+		it('reads the dirty flag again a second later, and fires, once untracked files went without an event', async t => {
+			const { h, sub, fired, dirtyReadsAfter } = await subscribeUntracked(t);
+
+			h.repo.state.untracked = false;
+			assert.strictEqual(await dirtyReadsAfter(999), 0);
+			assert.strictEqual(await dirtyReadsAfter(1), 1);
+			assert.strictEqual(sub.current?.dirty, false);
+			assert.deepStrictEqual(fired, [{ ...expectedInitial, dirty: false }]);
+		});
+
+		it('reads the dirty flag only once more while untracked files stay', async t => {
+			const { sub, fired, dirtyReadsAfter } = await subscribeUntracked(t);
+
+			assert.strictEqual(await dirtyReadsAfter(1_000), 1);
+			assert.strictEqual(await dirtyReadsAfter(60_000), 0);
+			assert.strictEqual(sub.current?.dirty, true);
+			assert.deepStrictEqual(fired, []);
+		});
+
+		it('reads the dirty flag again after a later read rests on untracked files alone', async t => {
+			const { h, sub, dirtyReadsAfter } = await subscribeUntracked(t);
+			assert.strictEqual(await dirtyReadsAfter(1_000), 1);
+
+			h.push(['index']);
+			assert.strictEqual(await dirtyReadsAfter(100), 1);
+			h.repo.state.untracked = false;
+			assert.strictEqual(await dirtyReadsAfter(1_000), 1);
+			assert.strictEqual(sub.current?.dirty, false);
+		});
+	});
+
 	describe('refs that may have moved without a name', () => {
 		/** The tip check probes HEAD through `getBranch` (a cached answer in core), which the fake counts as a branch read */
 		const probeOnly: ReadCounts = { ...none, branch: 1 };
@@ -3251,10 +3475,19 @@ describe('WorktreeSummaryService', () => {
 			assert.strictEqual(fired.length, 1);
 			assert.deepStrictEqual(fired[0], { ...expectedInitial, behind: 5, stale: true });
 
+			h.repo.state.configKey = 'config-v3';
 			await readsAfter(h, () => h.push(['config']));
 			assert.strictEqual(fired.length, 1, 'no refire while the base keeps failing');
 
 			h.repo.state.baseFail = undefined;
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.push(['config'])),
+				onlyBranch,
+				'config inputs as the failed read found them leave the base to its wait',
+			);
+			assert.strictEqual(fired.length, 1);
+
+			h.repo.state.configKey = 'config-v4';
 			await readsAfter(h, () => h.push(['config']));
 			assert.strictEqual(fired.length, 2);
 			assert.deepStrictEqual(fired[1], { ...expectedInitial, behind: 5 });
@@ -3286,8 +3519,8 @@ describe('WorktreeSummaryService', () => {
 			h.repo.state.baseFail = undefined;
 			assert.deepStrictEqual(
 				await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')),
-				all,
-				'the stale value is re-read in full',
+				onlyBase,
+				'the base is read again, and the groups the read left fresh are not',
 			);
 			assert.deepStrictEqual(await h.service.getSummary(repoPath), expectedInitial);
 		});
@@ -3651,6 +3884,270 @@ describe('WorktreeSummaryService', () => {
 		});
 	});
 
+	describe('a base that failed to read', () => {
+		/** A tip check probes HEAD through `getBranch` (a cached answer in core), which the fake counts as a branch read */
+		const probeOnly: ReadCounts = { ...none, branch: 1 };
+		const dirtyAndBase: ReadCounts = { ...onlyDirty, base: 1 };
+		const baseFailure = new Error('rev-list failed');
+		let now = 0;
+
+		function useClock(): void {
+			now = 1_000_000;
+			baseRetryClock.now = () => now;
+		}
+
+		/** Subscribes, then fails the base read a fetch naming a ref it depends on starts, leaving the rest fresh */
+		async function setupFailed(): Promise<{
+			h: Harness;
+			sub: WorktreeSummarySubscription;
+			fired: WorktreeSummary[];
+		}> {
+			useClock();
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			const fired: WorktreeSummary[] = [];
+			sub.onDidChange(e => fired.push(e));
+
+			h.repo.state.baseFail = baseFailure;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			assert.deepStrictEqual(sub.current, { ...expectedInitial, stale: true });
+			return { h: h, sub: sub, fired: fired };
+		}
+
+		it('reads only what a change maps to while the base waits, and stays stale', async () => {
+			const { h, sub, fired } = await setupFailed();
+
+			h.repo.state.dirty = true;
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+			assert.deepStrictEqual(sub.current, { ...expectedInitial, dirty: true, stale: true });
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['index'])), onlyDirty);
+
+			h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 5 };
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/main')),
+				onlyBranch,
+			);
+			// Nothing the tip check reads moved
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireGitDir('packed-refs')), probeOnly);
+
+			assert.deepStrictEqual(
+				fired.map(e => e.stale),
+				[true, true, true],
+				'no read that left the base out vouches for it',
+			);
+			assert.deepStrictEqual(sub.current, { ...expectedInitial, dirty: true, behind: 5, stale: true });
+		});
+
+		it('holds no read slot on a base read for a change inside its wait', { timeout: 10_000 }, async () => {
+			const { h } = await setupFailed();
+			const branches = h.repo.service.branches as unknown as {
+				getAheadOfBase: (...args: unknown[]) => Promise<unknown>;
+			};
+			let baseReads = 0;
+			// A base read now would never answer, keeping its read slot and every later change waiting
+			branches.getAheadOfBase = () => {
+				baseReads++;
+				return new Promise(() => {});
+			};
+
+			for (let i = 0; i < 4; i++) {
+				h.repo.state.dirty = !h.repo.state.dirty;
+				assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+			}
+			assert.strictEqual(baseReads, 0);
+		});
+
+		it('retries the base at once, inside its wait, for a change to what it depends on', async () => {
+			const { h, sub } = await setupFailed();
+			const baseMoves = h.repo.baseMoves.length;
+
+			// A fetch naming a ref it depends on; a stale base is no start for a re-measure
+			h.repo.state.baseMove = { ...h.repo.state.base!, sha: 'ddd222' };
+			h.repo.state.tips['refs/heads/develop'] = 'ddd222';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			// The same kind of move, found by a tip check
+			h.repo.state.tips['refs/heads/develop'] = 'ddd333';
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireGitDir('packed-refs')), { ...probeOnly, base: 1 });
+			assert.strictEqual(h.repo.baseMoves.length, baseMoves, 'read in full each time');
+
+			// Its stored values and its config inputs, but only when they changed since the failed read
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), none);
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), onlyBase);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), onlyBranch);
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+
+			// A checkout, or a HEAD change
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'])), all);
+			assert.strictEqual(sub.current?.stale, true, 'every retry failed');
+
+			h.repo.state.baseFail = undefined;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			assert.strictEqual(sub.current?.stale, false);
+		});
+
+		it('doubles the wait across failures in a row up to its cap, and starts over after a success', async () => {
+			const { h, sub } = await setupFailed();
+
+			for (const wait of [5_000, 10_000, 20_000, 40_000, 80_000, 160_000, 300_000, 300_000]) {
+				now += wait - 1;
+				assert.deepStrictEqual(
+					await readsAfter(h, () => h.pushWorkingTree()),
+					onlyDirty,
+					`inside a wait of ${wait}ms`,
+				);
+				now += 1;
+				assert.deepStrictEqual(
+					await readsAfter(h, () => h.pushWorkingTree()),
+					dirtyAndBase,
+					`once a wait of ${wait}ms is over`,
+				);
+				assert.strictEqual(sub.current?.stale, true);
+			}
+
+			h.repo.state.baseFail = undefined;
+			now += 300_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), dirtyAndBase);
+			assert.deepStrictEqual(sub.current, expectedInitial);
+
+			h.repo.state.baseFail = baseFailure;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+			now += 4_999;
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+			now += 1;
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.pushWorkingTree()),
+				dirtyAndBase,
+				'the wait starts over',
+			);
+		});
+
+		it('retries the base with the next change of any group once its wait is over', async () => {
+			const { h, sub } = await setupFailed();
+
+			now += 5_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/main')), {
+				...onlyBranch,
+				base: 1,
+			});
+			now += 10_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireGitDir('packed-refs')), { ...probeOnly, base: 1 });
+			now += 20_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), onlyBase);
+
+			h.repo.state.baseFail = undefined;
+			now += 40_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['index'])), dirtyAndBase);
+			assert.deepStrictEqual(sub.current, expectedInitial);
+		});
+
+		it('retries the base with the next change when the clock went back past its wait', async () => {
+			const { h } = await setupFailed();
+
+			now -= 60 * 60_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['index'])), dirtyAndBase);
+		});
+
+		it('keeps the other groups it read, and the value stale, when a retry fails', async () => {
+			const { h, sub, fired } = await setupFailed();
+
+			now += 5_000;
+			h.repo.state.upstream = { ...h.repo.state.upstream!, behind: 5 };
+			h.repo.state.base = { ...h.repo.state.base!, ahead: 9 };
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['remotes'], 'refs/remotes/origin/main')), {
+				...onlyBranch,
+				base: 1,
+			});
+			assert.deepStrictEqual(sub.current, { ...expectedInitial, behind: 5, stale: true });
+			assert.strictEqual(fired.length, 2);
+		});
+
+		it('reads everything on the next change once a read beyond the base fails too', async () => {
+			const { h, sub } = await setupFailed();
+
+			h.repo.state.fail = new Error('index.lock exists');
+			await readsAfter(h, () => h.pushWorkingTree());
+			h.repo.state.fail = undefined;
+			h.repo.state.baseFail = undefined;
+			h.repo.state.dirty = true;
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.pushWorkingTree()),
+				all,
+				"inside the base's wait, but the groups of the failed read can't be trusted either",
+			);
+			assert.deepStrictEqual(sub.current, { ...expectedInitial, dirty: true });
+		});
+
+		it('retries a base that failed on the first read for a checkout, or once its wait is over', async () => {
+			useClock();
+			const h = createHarness();
+			h.repo.state.baseFail = baseFailure;
+			const sub = h.service.subscribe(repoPath);
+			assert.deepStrictEqual(await h.service.getSummary(repoPath), {
+				...expectedInitial,
+				base: undefined,
+				baseDependsOn: [],
+				stale: true,
+			});
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'])), all);
+
+			// The checkout's retry failed too, so the wait doubled
+			h.repo.state.baseFail = undefined;
+			now += 9_999;
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), onlyDirty);
+			now += 1;
+			assert.deepStrictEqual(await readsAfter(h, () => h.pushWorkingTree()), dirtyAndBase);
+			assert.deepStrictEqual(sub.current, expectedInitial);
+		});
+
+		it('leaves a base that failed with no tips taken before it to its wait on a tip check, but not on a named move', async () => {
+			useClock();
+			const h = createHarness();
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			// A stored value changed: the base is read with no probe before it
+			h.repo.state.baseFail = baseFailure;
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), onlyBase);
+			assert.strictEqual(sub.current?.stale, true);
+
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.fireGitDir('packed-refs')),
+				probeOnly,
+				'unknown tips are no move',
+			);
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/develop')), onlyBase);
+		});
+
+		it("leaves a base to its wait on a tip check that can't read a remote's HEAD it depends on", async () => {
+			useClock();
+			const h = createHarness();
+			h.repo.state.baseDependsOn = ['refs/remotes/origin/HEAD'];
+			const sub = h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+
+			h.repo.state.baseFail = baseFailure;
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...onlyBranch, base: 1 });
+			assert.strictEqual(sub.current?.stale, true);
+
+			h.repo.state.remoteHeadFail.add('origin');
+			assert.deepStrictEqual(
+				await readsAfter(h, () => h.fireGitDir('packed-refs')),
+				probeOnly,
+				'an unreadable symref is no move',
+			);
+			now += 5_000;
+			assert.deepStrictEqual(await readsAfter(h, () => h.fireGitDir('packed-refs')), { ...probeOnly, base: 1 });
+		});
+	});
+
 	describe('polled repository', () => {
 		/** Paths a poll stats; `touch` moves one's mtime, and `remove` takes one with everything beneath it, moving its parent's */
 		function createFs(paths: readonly string[]): {
@@ -3977,6 +4474,599 @@ describe('WorktreeSummaryService', () => {
 				h.repo.baseMoves.map(m => m.moved),
 				[[originHead, originMain], [upstreamMain]],
 			);
+		});
+	});
+
+	describe('base carried past a commit', () => {
+		const originMain = 'refs/remotes/origin/main';
+		// The branch's own ref among them, as a real base read reports it
+		const dependsOn = ['refs/heads/main', originMain];
+		const previousBase: FakeBase = {
+			ref: 'origin/main',
+			ahead: 3,
+			sha: 'ooo111',
+			forkPoint: 'fff111',
+			tier: 'created',
+		};
+		const carriedBase: FakeBase = { ...previousBase, ahead: 4 };
+		/** A run after a commit with the base carried: everything but the base read */
+		const allButBase: ReadCounts = { ...all, base: 0 };
+
+		async function setup(options?: Parameters<typeof createHarness>[0]): Promise<Harness> {
+			const h = createHarness(options);
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = [...dependsOn];
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			return h;
+		}
+
+		/** A commit on `main`, which moves HEAD and the branch's ref, as the watcher names it */
+		function commit(h: Harness, sha: string = 'aaa222'): void {
+			h.repo.state.sha = sha;
+			h.repo.state.tips['refs/heads/main'] = sha;
+			h.push(['heads'], 'refs/heads/main');
+		}
+
+		it('carries the base forward, in place of reading it, after a commit on the same branch', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), allButBase);
+			assert.deepStrictEqual(h.repo.afterCommits, [
+				{
+					branch: 'main',
+					head: 'aaa111',
+					base: previousBase,
+					dependsOn: dependsOn,
+					defaultBranch: undefined,
+					newHead: 'aaa222',
+				},
+			]);
+			const summary = await h.service.getSummary(repoPath);
+			assert.strictEqual(summary.sha, 'aaa222');
+			assert.deepStrictEqual(summary.base, carriedBase);
+			assert.strictEqual(summary.stale, false);
+
+			// And again from the carried base
+			h.repo.state.afterCommit = { ...carriedBase, ahead: 5 };
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h, 'aaa333')), allButBase);
+			assert.deepStrictEqual(
+				h.repo.afterCommits.map(c => [c.head, c.newHead, c.base.ahead]),
+				[
+					['aaa111', 'aaa222', 3],
+					['aaa222', 'aaa333', 4],
+				],
+			);
+		});
+
+		it('passes each shortcut the commit the answer it keeps was measured from, as the last answer left it', async () => {
+			const h = createHarness();
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = [...dependsOn];
+			h.repo.state.baseMeasuredFrom = 'aaa111';
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			h.repo.state.afterCommit = carriedBase;
+
+			// From the full read, then from each carried answer, measured from the HEAD it was carried to
+			await readsAfter(h, () => commit(h, 'aaa222'));
+			await readsAfter(h, () => commit(h, 'aaa333'));
+			assert.deepStrictEqual(h.repo.afterCommitsMeasuredFrom, ['aaa111', 'aaa222']);
+
+			// The re-measure is told it too
+			h.repo.state.baseMove = { ...carriedBase, sha: 'ooo222' };
+			h.repo.state.tips[originMain] = 'ooo222';
+			await readsAfter(h, () => h.push(['remotes'], originMain));
+			assert.deepStrictEqual(
+				h.repo.baseMoves.map(m => (m as { measuredFrom?: string }).measuredFrom),
+				['aaa333'],
+			);
+
+			// The re-measure keeps it, and so does the next carry
+			await readsAfter(h, () => commit(h, 'aaa444'));
+			assert.deepStrictEqual(h.repo.afterCommitsMeasuredFrom, ['aaa111', 'aaa222', 'aaa333']);
+
+			// A full read that measured from HEAD itself leaves the next carry none to rely on
+			h.repo.state.baseMeasuredFrom = undefined;
+			h.repo.state.userMergeTarget = 'release';
+			await readsAfter(h, () => commit(h, 'aaa555'));
+			await readsAfter(h, () => commit(h, 'aaa666'));
+			assert.deepStrictEqual(h.repo.afterCommitsMeasuredFrom, ['aaa111', 'aaa222', 'aaa333', undefined]);
+		});
+
+		it('reads the base in full when the shortcut declines', async () => {
+			const h = await setup();
+			h.repo.state.base = { ...carriedBase, forkPoint: 'fff222' };
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.strictEqual(h.repo.afterCommits.length, 1);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, h.repo.state.base);
+		});
+
+		it('reads the base in full when the shortcut rejects', async () => {
+			const h = await setup();
+			h.repo.state.afterCommitFail = new Error('git exited 128');
+			h.repo.state.base = { ...carriedBase };
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.strictEqual(h.repo.afterCommits.length, 1);
+			const summary = await h.service.getSummary(repoPath);
+			assert.deepStrictEqual(summary.base, carriedBase);
+			assert.strictEqual(summary.stale, false);
+		});
+
+		it('hands the carried base and a full read to the verifier, and keeps the carried one', async () => {
+			const checked: unknown[] = [];
+			const h = await setup({ verifyBaseRemeasure: (carried, full) => checked.push([carried, full]) });
+			h.repo.state.afterCommit = carriedBase;
+			// The full read the fake answers differs, which the summary still keeps
+			h.repo.state.base = { ...carriedBase, ahead: 9 };
+
+			await readsAfter(h, () => commit(h));
+			assert.deepStrictEqual(checked, [
+				[
+					{ base: carriedBase, dependsOn: dependsOn },
+					{ base: { ...carriedBase, ahead: 9 }, dependsOn: dependsOn },
+				],
+			]);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, carriedBase);
+		});
+
+		it('never carries a stale base', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.baseFail = new Error('index.lock exists');
+			await readsAfter(h, () => h.push(['remotes'], originMain));
+			assert.strictEqual((await h.service.getSummary(repoPath)).stale, true);
+			h.repo.state.baseFail = undefined;
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+			assert.strictEqual((await h.service.getSummary(repoPath)).stale, false);
+		});
+
+		it('never carries the base when a ref it depends on moved too', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+			// Moved behind the watcher's back: only the tips show it
+			h.repo.state.tips[originMain] = 'ooo222';
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it('never carries the base when a ref it depends on appeared', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.baseDependsOn = [...dependsOn, 'refs/remotes/upstream/main'];
+			await readsAfter(h, () => h.push(['remotes'], originMain));
+			h.repo.state.tips['refs/remotes/upstream/main'] = 'uuu111';
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it('never carries the base when the tips it was read from are unknown', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+			// A stored base value changed: the base is read again, with no tips taken for it
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['gkConfig'])), onlyBase);
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it("never carries the base when the branch's own ref isn't at the new HEAD", async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.sha = 'aaa222';
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['heads'], 'refs/heads/main')), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it('never carries the base across a checkout, to another branch or a detached HEAD', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.branch = 'feature';
+			h.repo.state.sha = 'bbb111';
+			h.repo.state.tips['refs/heads/feature'] = 'bbb111';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'])), all);
+
+			h.repo.state.detached = true;
+			h.repo.state.sha = 'bbb222';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'])), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it('never carries the base past a commit on a detached HEAD', async () => {
+			const h = createHarness();
+			h.repo.state.branch = undefined;
+			h.repo.state.detached = true;
+			h.repo.state.base = { ...previousBase, tier: 'default' };
+			h.repo.state.baseDependsOn = [originMain];
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.sha = 'aaa222';
+
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'])), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it('never carries the base when the stored values, the config inputs or the upstream changed with the commit', async () => {
+			const h = await setup();
+			h.repo.state.afterCommit = carriedBase;
+
+			h.repo.state.userMergeTarget = 'release';
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h, 'aaa222')), all);
+
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h, 'aaa333')), all);
+
+			h.repo.state.upstream = { name: 'origin/next', missing: false, ahead: 0, behind: 0 };
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h, 'aaa444')), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+
+			// With nothing else changed, the next commit is carried again
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h, 'aaa555')), allButBase);
+			assert.strictEqual(h.repo.afterCommits.length, 1);
+		});
+
+		it('never carries the base when no base was read', async () => {
+			const h = createHarness();
+			h.repo.state.base = undefined;
+			h.repo.state.baseDependsOn = [...dependsOn];
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			h.repo.state.afterCommit = carriedBase;
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.deepStrictEqual(h.repo.afterCommits, []);
+		});
+
+		it('reads the base in full, as before, from a provider without the shortcut', async () => {
+			const h = await setup();
+			delete (h.repo.service.branches as { getAheadOfBaseAfterCommit?: unknown }).getAheadOfBaseAfterCommit;
+			h.repo.state.base = { ...carriedBase };
+
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), all);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, carriedBase);
+		});
+
+		it('carries the base forward for a worktree without a subscription', async () => {
+			const indexPath = `${repoPath}/.git/index`;
+			const h = createHarness({
+				stat: path => Promise.resolve(normalizePath(path) === indexPath ? { mtime: 1, size: 1 } : undefined),
+			});
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = [...dependsOn];
+			await h.service.getSummarySnapshot(repoPath);
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.sha = 'aaa222';
+			h.repo.state.tips['refs/heads/main'] = 'aaa222';
+
+			const before = h.repo.snapshot();
+			const second = await h.service.getSummarySnapshot(repoPath);
+			const after = h.repo.snapshot();
+			assert.strictEqual(after.base - before.base, 0, 'no full base read');
+			assert.strictEqual(after.dirty - before.dirty, 1, 'a commit can leave the working tree clean');
+			assert.deepStrictEqual(
+				h.repo.afterCommits.map(c => [c.head, c.newHead]),
+				[['aaa111', 'aaa222']],
+			);
+			assert.deepStrictEqual(second.summary.base, carriedBase);
+		});
+	});
+
+	describe('a base kept by a shortcut since its last full read', () => {
+		// As `maxCarriedBaseAgeMs` and `maxCarriedBaseAnswers`
+		const maxAgeMs = 5 * 60_000;
+		const maxAnswers = 20;
+		const originMain = 'refs/remotes/origin/main';
+		const originHead = 'refs/remotes/origin/HEAD';
+		const dependsOn = ['refs/heads/main', originMain, originHead];
+		const previousBase: FakeBase = {
+			ref: 'origin/main',
+			ahead: 3,
+			sha: 'ooo111',
+			forkPoint: 'fff111',
+			tier: 'created',
+		};
+		const carriedBase: FakeBase = { ...previousBase, ahead: 4 };
+		const movedBase: FakeBase = { ...previousBase, sha: 'ooo222' };
+		/** A commit's run with no upstream: the dirty flag, the branch, and the base when it isn't carried */
+		const carried: ReadCounts = { dirty: 1, branch: 1, base: 0, remotes: 0 };
+		const readInFull: ReadCounts = { ...carried, base: 1 };
+		let now = 0;
+		let commits = 0;
+
+		/** Subscribed with no upstream, so a fetch of `origin/main` reaches only the base, read in full at `now` */
+		async function setup(options?: Parameters<typeof createHarness>[0]): Promise<Harness> {
+			now = 1_000_000;
+			baseRetryClock.now = () => now;
+			const h = createHarness(options);
+			h.repo.state.upstream = undefined;
+			h.repo.state.base = { ...previousBase };
+			h.repo.state.baseDependsOn = [...dependsOn];
+			h.repo.state.afterCommit = carriedBase;
+			h.repo.state.baseMove = movedBase;
+			h.service.subscribe(repoPath);
+			await h.service.getSummary(repoPath);
+			return h;
+		}
+
+		/** A commit on the checked-out branch, which moves HEAD and the branch's ref, as the watcher names it */
+		function commit(h: Harness): void {
+			const sha = `ccc${++commits}`;
+			const ref = `refs/heads/${h.repo.state.branch}`;
+			h.repo.state.sha = sha;
+			h.repo.state.tips[ref] = sha;
+			h.push(['heads'], ref);
+		}
+
+		/** What a fetch that moved `origin/main` announces */
+		function fetched(h: Harness): void {
+			h.session().noteSelfWrite(['remotes'], [originMain, originHead]);
+		}
+
+		/** Commits `count` times, asserting each carries the base */
+		async function carry(h: Harness, count: number): Promise<void> {
+			for (let i = 0; i < count; i++) {
+				const tried = h.repo.afterCommits.length;
+				assert.deepStrictEqual(await readsAfter(h, () => commit(h)), carried, `commit ${i + 1} carried`);
+				assert.strictEqual(h.repo.afterCommits.length, tried + 1);
+			}
+		}
+
+		/** Commits once, asserting the base is read in full without trying to carry it */
+		async function commitReadInFull(h: Harness): Promise<void> {
+			const tried = h.repo.afterCommits.length;
+			assert.deepStrictEqual(await readsAfter(h, () => commit(h)), readInFull);
+			assert.strictEqual(h.repo.afterCommits.length, tried, 'not tried');
+		}
+
+		it('carries the base past commits until it was carried the most times since its last full read', async () => {
+			const h = await setup();
+
+			await carry(h, maxAnswers);
+			await commitReadInFull(h);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, previousBase);
+			await carry(h, 1);
+			assert.deepStrictEqual((await h.service.getSummary(repoPath)).base, carriedBase);
+		});
+
+		it('reads the base in full on the first commit once its last full read is too old, then carries it again', async () => {
+			const h = await setup();
+
+			await carry(h, 1);
+			now += maxAgeMs - 1;
+			await carry(h, 1);
+			now += 1;
+			await commitReadInFull(h);
+			assert.strictEqual((await h.service.getSummary(repoPath)).stale, false);
+			now += maxAgeMs - 1;
+			await carry(h, 1);
+		});
+
+		it('re-measures the base after moves until it was re-measured the most times since its last full read', async () => {
+			const h = await setup();
+
+			for (let i = 0; i < maxAnswers; i++) {
+				assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none, `move ${i + 1} re-measured`);
+			}
+			assert.strictEqual(h.repo.baseMoves.length, maxAnswers);
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), onlyBase);
+			assert.strictEqual(h.repo.baseMoves.length, maxAnswers, 'not tried');
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none);
+			assert.strictEqual(h.repo.baseMoves.length, maxAnswers + 1);
+		});
+
+		it('reads the base in full on the first move once its last full read is too old, then re-measures it again', async () => {
+			const h = await setup();
+
+			now += maxAgeMs - 1;
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none);
+			now += 1;
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), onlyBase);
+			assert.strictEqual(h.repo.baseMoves.length, 1, 'not tried');
+			now += maxAgeMs - 1;
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none);
+			assert.strictEqual(h.repo.baseMoves.length, 2);
+		});
+
+		it('counts carries and re-measures together', async () => {
+			const h = await setup();
+
+			await carry(h, maxAnswers - 1);
+			assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none);
+			assert.strictEqual(h.repo.baseMoves.length, 1);
+			await commitReadInFull(h);
+		});
+
+		it('starts both bounds again after a base read in full for a config change', async () => {
+			const h = await setup();
+
+			await carry(h, maxAnswers - 1);
+			now += maxAgeMs - 1;
+			h.repo.state.configKey = 'config-v2';
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['config'])), { ...none, branch: 1, base: 1 });
+			now += maxAgeMs - 1;
+			// Past both bounds as counted from the first read, inside both from the config change's
+			await carry(h, 2);
+			// Until its age is up
+			now += 1;
+			await commitReadInFull(h);
+		});
+
+		it('starts both bounds again after a base read in full for a checkout', async () => {
+			const h = await setup();
+
+			await carry(h, maxAnswers - 1);
+			now += maxAgeMs - 1;
+			h.repo.state.branch = 'feature';
+			h.repo.state.sha = 'bbb111';
+			h.repo.state.tips['refs/heads/feature'] = 'bbb111';
+			h.repo.state.baseDependsOn = ['refs/heads/feature', originMain, originHead];
+			assert.deepStrictEqual(await readsAfter(h, () => h.push(['head'])), readInFull);
+			now += maxAgeMs - 1;
+			await carry(h, 2);
+			now += 1;
+			await commitReadInFull(h);
+		});
+
+		describe('without a subscription', () => {
+			const indexPath = `${repoPath}/.git/index`;
+
+			function setupUnwatched(): Harness {
+				now = 1_000_000;
+				baseRetryClock.now = () => now;
+				const h = createHarness({
+					stat: path =>
+						Promise.resolve(normalizePath(path) === indexPath ? { mtime: 1, size: 1 } : undefined),
+				});
+				h.repo.state.upstream = undefined;
+				h.repo.state.base = { ...previousBase };
+				h.repo.state.baseDependsOn = [...dependsOn];
+				h.repo.state.afterCommit = carriedBase;
+				return h;
+			}
+
+			/** A commit, with no watcher to name it: the next read finds it */
+			function commitUnseen(h: Harness): void {
+				const sha = `ccc${++commits}`;
+				h.repo.state.sha = sha;
+				h.repo.state.tips['refs/heads/main'] = sha;
+			}
+
+			/** Commits and reads, answering whether the base was read in full; asserts it was carried otherwise */
+			async function commitAndRead(h: Harness): Promise<boolean> {
+				commitUnseen(h);
+				const tried = h.repo.afterCommits.length;
+				const before = h.repo.counts.base;
+				await h.service.getSummarySnapshot(repoPath);
+				const full = h.repo.counts.base - before === 1;
+				assert.strictEqual(h.repo.afterCommits.length, full ? tried : tried + 1);
+				return full;
+			}
+
+			it('carries the base until it was carried the most times since its last full read', async () => {
+				const h = setupUnwatched();
+				await h.service.getSummarySnapshot(repoPath);
+
+				for (let i = 0; i < maxAnswers; i++) {
+					assert.strictEqual(await commitAndRead(h), false, `commit ${i + 1} carried`);
+				}
+				assert.strictEqual(await commitAndRead(h), true);
+				assert.strictEqual(await commitAndRead(h), false);
+			});
+
+			it('reads the base in full once its last full read is too old', async () => {
+				const h = setupUnwatched();
+				await h.service.getSummarySnapshot(repoPath);
+
+				assert.strictEqual(await commitAndRead(h), false);
+				now += maxAgeMs;
+				assert.strictEqual(await commitAndRead(h), true);
+				assert.strictEqual(await commitAndRead(h), false);
+			});
+
+			it('reads the base in full as a subscriber starts from a read whose last full base read is too old', async () => {
+				const h = setupUnwatched();
+				await h.service.getSummarySnapshot(repoPath);
+				assert.strictEqual(await commitAndRead(h), false);
+				now += maxAgeMs;
+				commitUnseen(h);
+
+				const before = h.repo.counts.base;
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				assert.strictEqual(h.repo.counts.base - before, 1);
+				assert.strictEqual(h.repo.afterCommits.length, 1, 'not tried');
+				// Read in full as it started, so the next commit is carried
+				await carry(h, 1);
+			});
+
+			it('reads the base in full as a subscriber starts from a read carried the most times', async () => {
+				const h = setupUnwatched();
+				await h.service.getSummarySnapshot(repoPath);
+				for (let i = 0; i < maxAnswers; i++) {
+					assert.strictEqual(await commitAndRead(h), false);
+				}
+				commitUnseen(h);
+
+				const before = h.repo.counts.base;
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+				assert.strictEqual(h.repo.counts.base - before, 1);
+				assert.strictEqual(h.repo.afterCommits.length, maxAnswers, 'not tried');
+			});
+
+			it('keeps carrying from where the saved read left off as a subscriber starts from it', async () => {
+				const h = setupUnwatched();
+				await h.service.getSummarySnapshot(repoPath);
+				for (let i = 0; i < maxAnswers - 1; i++) {
+					assert.strictEqual(await commitAndRead(h), false);
+				}
+				h.service.subscribe(repoPath);
+				await h.service.getSummary(repoPath);
+
+				await carry(h, 1);
+				await commitReadInFull(h);
+			});
+		});
+
+		describe('read in full from a fallback', () => {
+			it('never carries or re-measures a base whose full read fell back past a failed read', async () => {
+				now = 1_000_000;
+				baseRetryClock.now = () => now;
+				const h = createHarness();
+				h.repo.state.upstream = undefined;
+				h.repo.state.base = { ...previousBase };
+				h.repo.state.baseDependsOn = [...dependsOn];
+				h.repo.state.baseProvisional = true;
+				h.service.subscribe(repoPath);
+				const first = await h.service.getSummary(repoPath);
+				assert.strictEqual(first.stale, false, 'the best answer there is, not a failed one');
+				h.repo.state.afterCommit = carriedBase;
+				h.repo.state.baseMove = movedBase;
+
+				await commitReadInFull(h);
+				assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), onlyBase);
+				assert.deepStrictEqual(h.repo.baseMoves, []);
+
+				// Read in full without a fallback, the next commit and move take the shortcuts again
+				h.repo.state.baseProvisional = false;
+				await commitReadInFull(h);
+				await carry(h, 1);
+				assert.deepStrictEqual(await readsAfter(h, () => fetched(h)), none);
+				assert.strictEqual(h.repo.baseMoves.length, 1);
+				assert.strictEqual((await h.service.getSummary(repoPath)).stale, false);
+			});
+
+			it('never carries a base whose full read fell back past a failed read, without a subscription', async () => {
+				const indexPath = `${repoPath}/.git/index`;
+				const h = createHarness({
+					stat: path =>
+						Promise.resolve(normalizePath(path) === indexPath ? { mtime: 1, size: 1 } : undefined),
+				});
+				h.repo.state.upstream = undefined;
+				h.repo.state.base = { ...previousBase };
+				h.repo.state.baseDependsOn = [...dependsOn];
+				h.repo.state.baseProvisional = true;
+				await h.service.getSummarySnapshot(repoPath);
+				h.repo.state.afterCommit = carriedBase;
+				h.repo.state.sha = 'aaa222';
+				h.repo.state.tips['refs/heads/main'] = 'aaa222';
+
+				const before = h.repo.counts.base;
+				const second = await h.service.getSummarySnapshot(repoPath);
+				assert.strictEqual(h.repo.counts.base - before, 1);
+				assert.deepStrictEqual(h.repo.afterCommits, []);
+				assert.strictEqual(second.summary.stale, false);
+			});
 		});
 	});
 

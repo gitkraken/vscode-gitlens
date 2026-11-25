@@ -1,4 +1,5 @@
 import * as assert from 'node:assert/strict';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import { suite, test } from 'mocha';
 import type { Issue } from '@gitlens/git/models/issue.js';
 import { fromDisposables } from '@gitlens/utils/disposable.js';
@@ -41,8 +42,10 @@ class TestAsanaIntegration extends AsanaIntegration {
 	protected override _session = asanaSession();
 }
 
-function createAsana(api: Partial<Pick<ProvidersApi, Extract<keyof ProvidersApi, `getAsana${string}`>>>) {
-	const runtime = createFakeRuntime();
+function createAsana(
+	api: Partial<Pick<ProvidersApi, Extract<keyof ProvidersApi, `getAsana${string}`>>>,
+	runtime = createFakeRuntime(),
+) {
 	const configured = new ConfiguredIntegrationService(runtime);
 	const cloud = new CloudIntegrationService(runtime);
 	let service: IntegrationService;
@@ -226,8 +229,7 @@ suite('Asana integration', () => {
 							number: 'b',
 							project: { namespace: null, resourceId: null, name: 'Other project', key: null, id: 'p2' },
 						}),
-						// Outside the read: a project it didn't ask for, and a task in no project. Asana reports only a
-						// task's first project, so this is left out even if the task is also in p1 or p2 (documented).
+						// Outside the read: a project it didn't ask for, and a task in no project.
 						fakeTask({
 							id: 'c',
 							number: 'c',
@@ -250,6 +252,119 @@ suite('Asana integration', () => {
 		assert.deepEqual(
 			results.map(r => r?.value?.values.map(i => `${i.id}@${i.project?.id}`)),
 			[['a@p1'], ['b@p2']],
+		);
+
+		disposable.dispose();
+	});
+
+	test('a task in several projects is filed under each requested one, with its section there', async () => {
+		const otherProject = { ...project, key: 'p2', id: 'p2', name: 'Other project' };
+		const { disposable, asana } = createAsana({
+			getAsanaIssuesForCurrentUser: () =>
+				Promise.resolve(
+					page([
+						// Joined a customer board (p9, not requested) first, so the unscoped read reports p9 as its project.
+						fakeTask({
+							id: 'multi',
+							number: 'multi',
+							project: { namespace: null, resourceId: null, name: 'Customer board', key: null, id: 'p9' },
+							state: { id: 's9', name: 'Customer backlog', color: null },
+							projectMemberships: [
+								{
+									project: { id: 'p9', name: 'Customer board' },
+									section: { id: 's9', name: 'Customer backlog' },
+								},
+								{ project: { id: 'p1', name: 'Project' }, section: { id: 's1', name: 'Next Sprint' } },
+								{ project: { id: 'p2', name: 'Other project' }, section: null },
+							],
+						}),
+					]),
+				),
+		});
+
+		const options = { user: 'Me', userId: 'u1' };
+		const results = await asana.getIssuesForProjectsWithTruncationResult([
+			{ project: project, options: options },
+			{ project: otherProject, options: options },
+		]);
+
+		assert.deepEqual(
+			results.map(r => r?.value?.values.map(i => `${i.id}@${i.project?.id}:${i.providerState?.name ?? ''}`)),
+			[['multi@p1:Next Sprint'], ['multi@p2:']],
+		);
+
+		disposable.dispose();
+	});
+
+	test("a task in several projects reads in each one as provider-apis' own read of that project lists it", async () => {
+		// Raw Asana tasks, so both reads run through provider-apis' own normalization: the shared read takes the
+		// unscoped one and re-files each task by its memberships, the per-project read takes the one scoped to the
+		// project. Between them, the tasks cover every membership shape: the project the unscoped read reports, a
+		// section and none, each on an incomplete and a completed task.
+		const membership = (projectId: string, sectionId?: string) => ({
+			project: { gid: projectId, name: `Project ${projectId}` },
+			section: sectionId != null ? { gid: sectionId, name: `Section ${sectionId}` } : null,
+		});
+		const rawTask = (gid: string, completed: boolean, memberships: ReturnType<typeof membership>[]) => ({
+			gid: gid,
+			name: `Task ${gid}`,
+			permalink_url: `https://app.asana.com/0/0/${gid}`,
+			created_at: '2026-01-01T00:00:00.000Z',
+			modified_at: '2026-01-02T00:00:00.000Z',
+			completed: completed,
+			completed_at: completed ? '2026-01-03T00:00:00.000Z' : null,
+			assignee: { gid: 'u1', name: 'Me' },
+			memberships: memberships,
+			workspace: { gid: 'w1' },
+		});
+		const tasks = [
+			rawTask('open', false, [membership('p1', 's1'), membership('p2', 's2'), membership('p3')]),
+			rawTask('done', true, [membership('p9', 's9'), membership('p1'), membership('p2', 's3'), membership('p3')]),
+		];
+
+		const runtime = createFakeRuntime();
+		runtime.http.fetch = input => {
+			const url = new URL(input.toString());
+			if (url.pathname !== '/api/1.0/tasks') return Promise.reject(new Error(`unexpected request: ${url.href}`));
+
+			const projectId = url.searchParams.get('project');
+			const data =
+				projectId != null ? tasks.filter(t => t.memberships.some(m => m.project.gid === projectId)) : tasks;
+			return Promise.resolve(
+				new Response(JSON.stringify({ data: data, next_page: null }), {
+					headers: { 'content-type': 'application/json' },
+				}),
+			);
+		};
+		const { disposable, asana } = createAsana({}, runtime);
+
+		const projects = ['p1', 'p2', 'p3'].map(id => ({ ...project, key: id, id: id, name: `Project ${id}` }));
+		const options = { user: 'Me', userId: 'u1' };
+		const shared = await asana.getIssuesForProjectsWithTruncationResult(
+			projects.map(p => ({ project: p, options: options })),
+		);
+		for (const [index, p] of projects.entries()) {
+			const own = await asana.getIssuesForProject(p, options);
+			assert.equal(own?.length, 2, `${p.id} lists both tasks on its own`);
+			const sharedRows = shared[index]?.value?.values;
+			assert.ok(sharedRows);
+			assert.deepEqual(
+				sharedRows,
+				own.map((row, i) => {
+					assert.equal(typeof row.captureId, 'string');
+					assert.notEqual(row.captureId, sharedRows[i].captureId);
+					return copyReadProvenance({ ...row }, sharedRows[i]);
+				}),
+				`${p.id} reads alike either way`,
+			);
+		}
+		assert.deepEqual(
+			shared.map(r => r?.value?.values.map(i => `${i.id}:${i.state}:${i.providerState?.name ?? ''}`)),
+			[
+				['open:opened:Section s1', 'done:closed:Completed'],
+				['open:opened:Section s2', 'done:closed:Section s3'],
+				['open:opened:', 'done:closed:Completed'],
+			],
 		);
 
 		disposable.dispose();

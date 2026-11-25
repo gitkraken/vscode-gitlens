@@ -5,7 +5,9 @@ import type {
 	AzureWorkItemHtmlField,
 	AzureWorkItemTypeStates,
 } from '@gitkraken/provider-apis';
+import { captureReadNodes, copyReadProvenance, createReadCapture } from '@gitkraken/provider-apis/read-provenance';
 import * as l10n from '@vscode/l10n';
+import { getDeferredRequestFailure, reportRequestFailure } from '@gitlens/git/errors.js';
 import type { UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
 import type { Issue, IssueSearchCriteria } from '@gitlens/git/models/issue.js';
@@ -14,6 +16,7 @@ import type { PullRequest } from '@gitlens/git/models/pullRequest.js';
 import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import { effectiveIssueSort } from '@gitlens/git/utils/issue.utils.js';
+import { chunk } from '@gitlens/utils/array.js';
 import { base64 } from '@gitlens/utils/base64.js';
 import { CancellationError, isCancellationError, raceWithSignal } from '@gitlens/utils/cancellation.js';
 import { sha256, uuid } from '@gitlens/utils/crypto.js';
@@ -35,6 +38,7 @@ import {
 	ProviderFetchError,
 	RequestClientError,
 	RequestNotFoundError,
+	RequestRateLimitError,
 	toRateLimitError,
 } from '../../errors.js';
 import type { ProviderIssueSearchPage } from '../../models/issueReads.js';
@@ -42,7 +46,12 @@ import { decodePathSegment } from '../../utils/domain.utils.js';
 import type { ProviderApiConfig } from '../apiConfig.js';
 import { baseProviderApiConfig } from '../apiConfig.js';
 import { createProviderApiRequest } from '../providerApiClient.js';
-import { throwProviderError } from '../providerErrors.js';
+import {
+	CommitReadRefusedError,
+	isCommitReadRefusal,
+	isNotFoundResponse,
+	throwProviderError,
+} from '../providerErrors.js';
 import type {
 	AzureForkRepositoryUrls,
 	AzureGitCommit,
@@ -90,6 +99,9 @@ import {
 
 const forkRepositoryUrlCacheTtl = 5 * 60 * 1000;
 const workItemMetadataConcurrency = 6;
+/** KEEP: Azure DevOps documents no limit on a query's commits; 100 keeps a window to a few modest requests. */
+const commitQueryChunkSize = 100;
+const commitReadConcurrency = 6;
 /** How long a work-item search's id snapshot outlives the last page read from it, and the most it lives at all. */
 const workItemSearchSnapshotTtl = 5 * 60 * 1000;
 const workItemSearchSnapshotMaxTtl = 30 * 60 * 1000;
@@ -115,6 +127,11 @@ function parseAzureRepositoryDescriptor(repo: string): { projectName: string; re
 
 	return { projectName: projectName, repoName: repoName };
 }
+
+type BatchRequests = {
+	gate: <R>(send: () => Promise<R>, stopsOn?: (reason: unknown) => boolean) => Promise<R>;
+	failures: unknown[];
+};
 
 export class AzureDevOpsApi implements Disposable {
 	private readonly restApi: AzureDevOps;
@@ -291,7 +308,10 @@ export class AzureDevOpsApi implements Disposable {
 				cancellation,
 			);
 
-			const pr = prResult?.results[0]?.[rev]?.[0];
+			const answers = prResult?.results?.[0];
+			if (answers == null) throw new Error(`Azure DevOps returned no pull request query results for ${repo}`);
+
+			const pr = answers[rev]?.[0];
 			if (pr == null) return undefined;
 
 			const pullRequest = await this.request<AzurePullRequestWithLinks>(
@@ -303,17 +323,163 @@ export class AzureDevOpsApi implements Disposable {
 				scope,
 				cancellation,
 			);
-			if (pullRequest == null) return undefined;
+			if (pullRequest == null) {
+				throw new Error(`Azure DevOps returned no pull request ${pr.pullRequestId} for ${repo}`);
+			}
 
 			return await this.toPullRequest(pullRequest, provider, token, owner, baseUrl, scope, cancellation);
 		} catch (ex) {
-			// A rejected credential is actionable and must not be reported as an absent result; every other
-			// failure keeps the existing degrade-to-undefined behavior.
-			if (ex instanceof AuthenticationError) throw ex;
+			if (isNotFoundResponse(ex)) return undefined;
+			if (isCommitReadRefusal(ex)) throw new CommitReadRefusedError(ex.message, ex);
 
-			scope?.error(ex);
-			return undefined;
+			throw ex;
 		}
+	}
+
+	@trace({
+		args: (provider, token, owner, repo, revs, baseUrl) => ({
+			provider: provider.name,
+			token: `<token:${token.microHash}>`,
+			owner: owner,
+			repo: repo,
+			revs: revs.length,
+			baseUrl: baseUrl,
+		}),
+	})
+	async getPullRequestsForCommits(
+		provider: Provider,
+		token: TokenWithInfo,
+		owner: string,
+		repo: string,
+		revs: readonly string[],
+		baseUrl: string,
+		options?: { gate?: <R>(send: () => Promise<R>, stopsOn?: (reason: unknown) => boolean) => Promise<R> },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequest | undefined>[]> {
+		const scope = getScopedLogger();
+		const gate = options?.gate ?? (<R>(send: () => Promise<R>) => send());
+
+		const slots = revs.map((): PromiseSettledResult<PullRequest | undefined> => ({
+			status: 'fulfilled',
+			value: undefined,
+		}));
+		if (revs.length === 0) return slots;
+
+		const reject = (indexes: readonly number[], reason: unknown): void => {
+			for (const index of indexes) {
+				slots[index] = { status: 'rejected', reason: reason };
+			}
+		};
+
+		const { projectName, repoName } = parseAzureRepositoryDescriptor(repo);
+		const resource = await this.requireRestResource(
+			provider,
+			token,
+			owner,
+			baseUrl,
+			'pullRequestQuery',
+			'4.1',
+			cancellation,
+		);
+		const route = `${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(projectName)}/_apis/git/repositories/${encodeAzurePathSegment(repoName)}/pullrequestquery?api-version=${resource.apiVersion}`;
+
+		const found = new Map<number, { pr: AzurePullRequest; indexes: number[] }>();
+		const forkFailures: unknown[] = [];
+		await mapBounded(
+			chunk(
+				revs.map((_, index) => index),
+				commitQueryChunkSize,
+			),
+			commitReadConcurrency,
+			async indexes => {
+				let answers: Record<string, AzurePullRequest[]> | undefined;
+				try {
+					const result = await gate(() =>
+						this.request<{ results: Record<string, AzurePullRequest[]>[] }>(
+							provider,
+							token,
+							baseUrl,
+							route,
+							{
+								method: 'POST',
+								body: JSON.stringify({
+									queries: [{ items: indexes.map(index => revs[index]), type: 'commit' }],
+								}),
+							},
+							scope,
+							cancellation,
+							true,
+						),
+					);
+					answers = result?.results?.[0];
+				} catch (ex) {
+					if (isNotFoundResponse(ex)) return;
+
+					reject(indexes, ex);
+					return;
+				}
+
+				// SEE: learn.microsoft.com/rest/api/azure/devops/git/pull-request-query/get: Results[n] are the results of QueryInputs[n].
+				if (answers == null) {
+					reject(indexes, new Error(`Azure DevOps returned no pull request query results for ${repo}`));
+					return;
+				}
+
+				for (const index of indexes) {
+					const pr = answers[revs[index]]?.[0];
+					if (pr == null) continue;
+
+					let match = found.get(pr.pullRequestId);
+					if (match == null) {
+						match = { pr: pr, indexes: [] };
+						found.set(pr.pullRequestId, match);
+					}
+					match.indexes.push(index);
+				}
+			},
+		);
+
+		await mapBounded([...found.values()], commitReadConcurrency, async ({ pr, indexes }) => {
+			try {
+				const pullRequest = await gate(() =>
+					this.request<AzurePullRequestWithLinks>(
+						provider,
+						token,
+						baseUrl,
+						`${encodeAzurePathSegment(owner)}/${encodeAzurePathSegment(pr.repository.project.id)}/_apis/git/repositories/${encodeAzurePathSegment(pr.repository.id)}/pullRequests/${encodeAzurePathSegment(pr.pullRequestId.toString())}`,
+						{ method: 'GET' },
+						scope,
+						cancellation,
+						true,
+					),
+				);
+				if (pullRequest == null) {
+					throw new Error(`Azure DevOps returned no pull request ${pr.pullRequestId} for ${repo}`);
+				}
+
+				const value = await this.toPullRequest(
+					pullRequest,
+					provider,
+					token,
+					owner,
+					baseUrl,
+					scope,
+					cancellation,
+					{ gate: gate, failures: forkFailures },
+				);
+				for (const index of indexes) {
+					slots[index] = { status: 'fulfilled', value: value };
+				}
+			} catch (ex) {
+				reject(indexes, ex);
+			}
+		});
+
+		if (!slots.some(slot => slot.status === 'rejected' && getDeferredRequestFailure(slot.reason) != null)) {
+			forkFailures.map(getDeferredRequestFailure).find(notify => notify != null)?.();
+		}
+
+		return slots;
 	}
 
 	@trace({
@@ -445,7 +611,7 @@ export class AzureDevOpsApi implements Disposable {
 					parseAzureWorkItemDate(issueResult.fields['Microsoft.VSTS.Common.ClosedDate']) ?? undefined,
 				);
 
-				return {
+				const result: IssueOrPullRequest = {
 					id: issueResult.id.toString(),
 					type: 'issue',
 					nodeId: issueResult.id.toString(),
@@ -457,6 +623,7 @@ export class AzureDevOpsApi implements Disposable {
 					title: issueResult.fields['System.Title'],
 					url: issueResult._links.html.href,
 				};
+				return copyReadProvenance(result, issueResult);
 			}
 		}
 
@@ -474,7 +641,7 @@ export class AzureDevOpsApi implements Disposable {
 				);
 
 				if (prResult != null) {
-					return {
+					const result: IssueOrPullRequest = {
 						id: prResult.pullRequestId.toString(),
 						type: 'pullrequest',
 						nodeId: prResult.pullRequestId.toString(), // prResult.artifactId maybe?
@@ -486,6 +653,7 @@ export class AzureDevOpsApi implements Disposable {
 						title: prResult.title,
 						url: getAzurePullRequestWebUrl(prResult, options.baseUrl, owner),
 					};
+					return copyReadProvenance(result, prResult);
 				}
 
 				return undefined;
@@ -1387,6 +1555,7 @@ export class AzureDevOpsApi implements Disposable {
 		baseUrl: string,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
+		batch?: BatchRequests,
 	): Promise<PullRequest> {
 		const forkRepositoryUrls = await this.getForkRepositoryUrls(
 			provider,
@@ -1396,6 +1565,7 @@ export class AzureDevOpsApi implements Disposable {
 			pr.forkSource?.repository,
 			scope,
 			cancellation,
+			batch,
 		);
 		// Only the point reads convert through here.
 		return fromAzurePullRequest(pr, provider, owner, baseUrl, forkRepositoryUrls, 'point');
@@ -1418,6 +1588,7 @@ export class AzureDevOpsApi implements Disposable {
 		repository: AzureRepositoryReference | undefined,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
+		batch?: BatchRequests,
 	): Promise<AzureForkRepositoryUrls | undefined> {
 		if (repository == null) return undefined;
 
@@ -1443,6 +1614,7 @@ export class AzureDevOpsApi implements Disposable {
 					cacheable,
 					scope,
 					aggregate,
+					batch,
 				),
 			{ cancellation: cancellation },
 		);
@@ -1457,7 +1629,9 @@ export class AzureDevOpsApi implements Disposable {
 		cacheable: CacheController,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
+		batch?: BatchRequests,
 	): Promise<AzureForkRepositoryUrls | undefined> {
+		const send = batch?.gate ?? (<R>(request: () => Promise<R>) => request());
 		try {
 			encodeAzurePathSegment(repositoryId);
 			const resource = await this.requireRestResource(
@@ -1469,14 +1643,19 @@ export class AzureDevOpsApi implements Disposable {
 				'4.1',
 				cancellation,
 			);
-			const response = await this.request<AzureRepositoryUrls>(
-				provider,
-				token,
-				baseUrl,
-				`${encodeAzurePathSegment(owner)}/_apis/git/repositories/${encodeAzurePathSegment(repositoryId)}?api-version=${resource.apiVersion}`,
-				{ method: 'GET' },
-				scope,
-				cancellation,
+			const response = await send(
+				() =>
+					this.request<AzureRepositoryUrls>(
+						provider,
+						token,
+						baseUrl,
+						`${encodeAzurePathSegment(owner)}/_apis/git/repositories/${encodeAzurePathSegment(repositoryId)}?api-version=${resource.apiVersion}`,
+						{ method: 'GET' },
+						scope,
+						cancellation,
+						batch != null,
+					),
+				reason => reason instanceof RequestRateLimitError,
 			);
 			const webUrl = sanitizeAzureRepositoryUrl(response?.webUrl, baseUrl, owner);
 			const cloneHttps = sanitizeAzureRepositoryUrl(response?.remoteUrl, baseUrl, owner);
@@ -1496,6 +1675,7 @@ export class AzureDevOpsApi implements Disposable {
 				cacheable.invalidate();
 			}
 
+			batch?.failures.push(ex);
 			const status = ex instanceof ProviderFetchError ? ` (${ex.status})` : '';
 			scope?.warn(`Unable to resolve the fork repository URLs${status}`);
 			return undefined;
@@ -1660,6 +1840,7 @@ export class AzureDevOpsApi implements Disposable {
 		options: { method: RequestInit['method'] } & Record<string, unknown>,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal | undefined,
+		deferFailure?: boolean,
 	): Promise<T | undefined> {
 		const { accessToken } = token;
 		const url = baseUrl ? `${baseUrl}/${route}` : route;
@@ -1671,6 +1852,7 @@ export class AzureDevOpsApi implements Disposable {
 			try {
 				if (cancellation?.aborted) throw new CancellationError();
 
+				const capture = createReadCapture();
 				rsp = await this.config.wrapForForcedInsecureSSL(provider.getIgnoreSSLErrors(), () =>
 					this.config.fetch(url, {
 						headers: {
@@ -1697,7 +1879,7 @@ export class AzureDevOpsApi implements Disposable {
 						);
 					}
 
-					return (await rsp.json()) as T;
+					return captureReadNodes(await rsp.json(), capture) as T;
 				}
 
 				// Reads the body so the 403 branch below can tell a throttled request from a permission failure.
@@ -1707,7 +1889,7 @@ export class AzureDevOpsApi implements Disposable {
 			}
 		} catch (ex) {
 			if (ex instanceof ProviderFetchError || ex.name === 'AbortError') {
-				this.handleRequestError(provider, token, ex, scope);
+				this.handleRequestError(provider, token, ex, scope, deferFailure);
 			} else if (Logger.isDebugging) {
 				this.config.onError?.(`AzureDevOps request failed: ${ex.message}`);
 			}
@@ -1721,6 +1903,7 @@ export class AzureDevOpsApi implements Disposable {
 		token: TokenWithInfo,
 		ex: ProviderFetchError | (Error & { name: 'AbortError' }),
 		scope: ScopedLogger | undefined,
+		deferFailure?: boolean,
 	): void {
 		if (ex.name === 'AbortError' || !(ex instanceof ProviderFetchError)) throw new CancellationError(ex);
 
@@ -1745,14 +1928,20 @@ export class AzureDevOpsApi implements Disposable {
 			case 500: // Internal Server Error
 				scope?.error(ex);
 				if (ex.response != null) {
-					this.config.onRequestFailed?.(
-						provider == null || provider.id === 'azure'
-							? l10n.t(
-									'{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.',
-									provider?.name ?? 'AzureDevOps',
-								)
-							: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
-					);
+					const notify = (): void =>
+						this.config.onRequestFailed?.(
+							provider == null || provider.id === 'azure'
+								? l10n.t(
+										'{0} failed to respond and might be experiencing issues. Please visit the [AzureDevOps status page](https://status.dev.azure.com) for more information.',
+										provider?.name ?? 'AzureDevOps',
+									)
+								: l10n.t('{0} failed to respond and might be experiencing issues.', provider.name),
+						);
+					if (deferFailure) {
+						reportRequestFailure(provider, ex, notify, true, token.connectionId);
+					} else {
+						notify();
+					}
 				}
 				return;
 			case 502: // Bad Gateway

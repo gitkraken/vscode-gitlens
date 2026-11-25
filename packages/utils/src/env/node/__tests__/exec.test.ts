@@ -1,6 +1,8 @@
 import * as assert from 'assert';
 import { spawn } from 'child_process';
+import { EventEmitter } from 'events';
 import * as process from 'process';
+import { PassThrough } from 'stream';
 import type { ProcessSpawner } from '../exec.js';
 import { CancelledRunError, run, RunError, runSpawn, spawnProcess } from '../exec.js';
 
@@ -115,6 +117,99 @@ suite('runSpawn spawner Test Suite', () => {
 	});
 });
 
+function neverHangs<T>(promise: Promise<T>): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const hung = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => reject(new Error('runSpawn never settled')), 3000);
+	});
+	return Promise.race([promise, hung]).finally(() => clearTimeout(timer));
+}
+
+suite('runSpawn undecodable output Test Suite', () => {
+	const exitsClean = ['-e', `process.stdout.write('hi')`];
+	const exitsFailed = ['-e', `process.stderr.write('bad'); process.exit(2)`];
+
+	test('runSpawn rejects when a non-UTF-8 encoding has no decode function', async () => {
+		await assert.rejects(
+			neverHangs(runSpawn<string>(process.execPath, exitsClean, 'latin1', {})),
+			(ex: unknown) =>
+				ex instanceof Error &&
+				!(ex instanceof RunError) &&
+				ex.message.includes('no decode function configured'),
+		);
+	});
+
+	test('runSpawn rejects with the decode rejection, unchanged', async () => {
+		const failure = new Error('decode rejected');
+		await assert.rejects(
+			neverHangs(
+				runSpawn<string>(process.execPath, exitsClean, 'latin1', { decode: () => Promise.reject(failure) }),
+			),
+			(ex: unknown) => ex === failure,
+		);
+	});
+
+	test('runSpawn rejects with the decode error when a failed run cannot decode its output', async () => {
+		const failure = new Error('decode threw');
+		await assert.rejects(
+			neverHangs(
+				runSpawn<string>(process.execPath, exitsFailed, 'latin1', {
+					decode: () => {
+						throw failure;
+					},
+				}),
+			),
+			(ex: unknown) => ex === failure,
+		);
+	});
+
+	test('runSpawn still resolves a clean run and rejects a failed one', async () => {
+		const ok = await neverHangs(runSpawn<string>(process.execPath, exitsClean, 'utf8', {}));
+		assert.strictEqual(ok.stdout, 'hi');
+		assert.strictEqual(ok.exitCode, 0);
+
+		await assert.rejects(
+			neverHangs(runSpawn<string>(process.execPath, exitsFailed, 'utf8', {})),
+			(ex: unknown) => ex instanceof RunError && ex.code === 2 && ex.stderr === 'bad',
+		);
+	});
+});
+
+suite('runSpawn stdin pipe Test Suite', () => {
+	function recording(): { stdio: unknown[]; spawner: ProcessSpawner } {
+		const stdio: unknown[] = [];
+		const spawner: ProcessSpawner = (command, args, options) => {
+			stdio.push(options.stdio?.[0]);
+			return spawn(command, args, options);
+		};
+		return { stdio: stdio, spawner: spawner };
+	}
+
+	test('runSpawn opens no stdin pipe when there is no input', async () => {
+		const { stdio, spawner } = recording();
+		const args = ['-e', `process.stdout.write('hi')`];
+
+		const result = await runSpawn<string>(process.execPath, args, 'utf8', { spawn: spawner });
+		const exitCodeOnly = await runSpawn(process.execPath, args, 'utf8', { exitCodeOnly: true, spawn: spawner });
+
+		assert.strictEqual(result.stdout, 'hi');
+		assert.strictEqual(exitCodeOnly.exitCode, 0);
+		assert.deepStrictEqual(stdio, ['ignore', 'ignore']);
+	});
+
+	test('runSpawn opens a stdin pipe and delivers the input when there is some', async () => {
+		const { stdio, spawner } = recording();
+
+		const result = await runSpawn<string>(process.execPath, ['-e', `process.stdin.pipe(process.stdout)`], 'utf8', {
+			stdin: 'abc',
+			spawn: spawner,
+		});
+
+		assert.strictEqual(result.stdout, 'abc');
+		assert.deepStrictEqual(stdio, ['pipe']);
+	});
+});
+
 async function countTimers(): Promise<number> {
 	// Mocha arms its own test timer only once the test returns its promise, so count after yielding to it. Callers
 	// assert no MORE timers than before: an earlier test's timer may fire in between, but a leak only ever adds one
@@ -169,5 +264,240 @@ suite('spawnProcess Test Suite', () => {
 					ex instanceof RangeError && (ex as RangeError & { code?: string }).code === 'ERR_OUT_OF_RANGE',
 			);
 		}
+	});
+});
+
+suite('runSpawn maxBuffer Test Suite', () => {
+	const maxBufferCode = 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER';
+
+	class FakeProcess extends EventEmitter {
+		readonly stdin = null;
+		readonly stdout = new PassThrough();
+		readonly stderr = new PassThrough();
+		killed = false;
+		exitCode: number | null = null;
+		readonly spawnargs: string[] = [];
+		kills = 0;
+
+		kill(): boolean {
+			this.kills++;
+			this.killed = true;
+			return true;
+		}
+	}
+
+	function fake(): { proc: FakeProcess; spawner: ProcessSpawner } {
+		const proc = new FakeProcess();
+		return { proc: proc, spawner: () => proc };
+	}
+
+	function isMaxBufferError(ex: unknown, stream: string): boolean {
+		return (
+			ex instanceof RunError &&
+			!(ex instanceof CancelledRunError) &&
+			ex.code === maxBufferCode &&
+			ex.message.includes(`allocated ${stream} buffer`) &&
+			ex.message.includes('maxBuffer')
+		);
+	}
+
+	test('runSpawn resolves output within maxBuffer as before', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 10, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('12345'));
+		proc.stdout.emit('data', Buffer.from('67890'));
+		proc.stderr.emit('data', Buffer.from('abcdefghij'));
+		proc.emit('close', 0, null);
+
+		const result = await neverHangs(promise);
+		assert.strictEqual(result.stdout, '1234567890');
+		assert.strictEqual(result.stderr, 'abcdefghij');
+		assert.strictEqual(proc.kills, 0);
+	});
+
+	test('runSpawn rejects, kills the process and stops listening when stdout exceeds maxBuffer', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 10, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('123456'));
+		proc.stdout.emit('data', Buffer.from('78901'));
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stdout'));
+		assert.strictEqual(proc.kills, 1);
+		assert.strictEqual(proc.stdout.listenerCount('data'), 0);
+		assert.strictEqual(proc.stderr.listenerCount('data'), 0);
+		assert.ok(proc.stdout.destroyed);
+		assert.ok(proc.stderr.destroyed);
+	});
+
+	test('runSpawn rejects when stderr exceeds maxBuffer, counted apart from stdout', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 10, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('1234567890'));
+		proc.stderr.emit('data', Buffer.from('1234567'));
+		proc.stderr.emit('data', Buffer.from('89012'));
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stderr'));
+		assert.strictEqual(proc.kills, 1);
+	});
+
+	test('runSpawn rejects with the limit error even when the process has no kill', async () => {
+		const { proc, spawner } = fake();
+		(proc as { kill?: unknown }).kill = undefined;
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 2, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('abc'));
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stdout'));
+		assert.ok(proc.stdout.destroyed);
+	});
+
+	test('runSpawn collects large output without a limit when maxBuffer is absent', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn<string>('cmd', [], 'utf8', { spawn: spawner });
+		const chunk = Buffer.alloc(1024 * 1024, 'x');
+		for (let i = 0; i < 64; i++) {
+			proc.stdout.emit('data', chunk);
+			proc.stderr.emit('data', chunk);
+		}
+		proc.emit('close', 0, null);
+
+		const result = await neverHangs(promise);
+		assert.strictEqual(result.stdout.length, 64 * chunk.length);
+		assert.strictEqual(result.stderr.length, 64 * chunk.length);
+		assert.strictEqual(proc.kills, 0);
+	});
+
+	test('runSpawn settles once when the limit is hit after the caller already cancelled', async () => {
+		const { proc, spawner } = fake();
+		const controller = new AbortController();
+		const promise = runSpawn<string>('cmd', [], 'utf8', {
+			maxBuffer: 2,
+			cancellation: controller.signal,
+			spawn: spawner,
+		});
+		const abort = Object.assign(new Error('aborted'), { name: 'AbortError' });
+		controller.abort();
+		proc.emit('error', abort);
+		assert.doesNotThrow(() => proc.stdout.emit('data', Buffer.from('abcdef')));
+		proc.emit('close', null, 'SIGTERM');
+
+		await assert.rejects(
+			neverHangs(promise),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted',
+		);
+	});
+
+	test('runSpawn ignores a close, with or without a signal, arriving after the limit was hit', async () => {
+		const { proc, spawner } = fake();
+		const outcomes: unknown[] = [];
+		const promise = runSpawn<string>('cmd', [], 'utf8', { maxBuffer: 2, spawn: spawner }).then(
+			v => outcomes.push(v),
+			(ex: unknown) => outcomes.push(ex),
+		);
+		proc.stdout.emit('data', Buffer.from('abc'));
+		proc.emit('close', null, 'SIGTERM');
+		proc.emit('close', 0, null);
+		proc.emit('error', new Error('late'));
+		await neverHangs(promise);
+
+		assert.strictEqual(outcomes.length, 1);
+		assert.ok(isMaxBufferError(outcomes[0], 'stdout'));
+		assert.strictEqual(proc.kills, 1);
+	});
+
+	test('runSpawn rejects with the limit error for an exit-code-only run that exceeds maxBuffer', async () => {
+		const { proc, spawner } = fake();
+		const promise = runSpawn('cmd', [], 'utf8', { exitCodeOnly: true, maxBuffer: 2, spawn: spawner });
+		proc.stdout.emit('data', Buffer.from('abc'));
+		proc.emit('close', null, 'SIGTERM');
+
+		await assert.rejects(neverHangs(promise), (ex: unknown) => isMaxBufferError(ex, 'stdout'));
+	});
+
+	test('runSpawn kills a real process that exceeds maxBuffer', async () => {
+		const args = ['-e', `setInterval(() => process.stdout.write('x'.repeat(4096)), 1)`];
+		await assert.rejects(
+			neverHangs(runSpawn<string>(process.execPath, args, 'utf8', { maxBuffer: 1024 })),
+			(ex: unknown) => isMaxBufferError(ex, 'stdout'),
+		);
+	});
+});
+
+// A launcher like Git for Windows' `cmd\git.exe`: its child shares its stdout and stderr, so they stay open after
+// only the launcher is killed. The child is `detached` because Node otherwise puts it in a job that dies with the
+// launcher, which Git's launcher doesn't. On POSIX `kill` is not a tree kill, so this would hang there by design
+const launcher = [
+	'-e',
+	"require('child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 10000)'], { stdio: 'inherit', detached: true }); setTimeout(() => {}, 10000)",
+];
+
+(process.platform === 'win32' ? suite : suite.skip)('spawnProcess Windows tree kill Test Suite', () => {
+	function closed(proc: ReturnType<typeof spawnProcess>): Promise<[number | null, NodeJS.Signals | null]> {
+		return new Promise(resolve => {
+			proc.once('error', () => {});
+			proc.once('close', (code, signal) => resolve([code, signal]));
+		});
+	}
+
+	test('runSpawn rejects as a timeout when a launcher is timed out', async () => {
+		await assert.rejects(
+			neverHangs(runSpawn(process.execPath, launcher, 'utf8', { timeout: 300 })),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
+
+	test('runSpawn rejects as aborted when a launcher is aborted', async () => {
+		const controller = new AbortController();
+		const promise = runSpawn(process.execPath, launcher, 'utf8', { cancellation: controller.signal });
+		setTimeout(() => controller.abort(), 300);
+		await assert.rejects(
+			neverHangs(promise),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted',
+		);
+	});
+
+	test('runSpawn resolves an exit-code-only timed-out launcher as killed by SIGTERM', async () => {
+		const result = await neverHangs(
+			runSpawn(process.execPath, launcher, 'utf8', { exitCodeOnly: true, timeout: 300 }),
+		);
+		assert.strictEqual(result.exitCode, undefined);
+		assert.strictEqual(result.signal, 'SIGTERM');
+		assert.strictEqual(result.killed, true);
+	});
+
+	test('spawnProcess closes a timed-out launcher as killed by SIGTERM', async () => {
+		const proc = spawnProcess(process.execPath, launcher, { timeout: 300 });
+		const [code, signal] = await neverHangs(closed(proc));
+
+		assert.strictEqual(code, null);
+		assert.strictEqual(signal, 'SIGTERM');
+		assert.strictEqual(proc.exitCode, null);
+		assert.strictEqual(proc.signalCode, 'SIGTERM');
+		assert.strictEqual(proc.killed, true);
+	});
+
+	test('spawnProcess still closes a timed-out launcher as killed by SIGTERM when taskkill fails', async () => {
+		const systemRoot = process.env.SystemRoot;
+		process.env.SystemRoot = 'C:\\gitlens-no-such-dir';
+		try {
+			const proc = spawnProcess(process.execPath, launcher, { timeout: 300 });
+			const [code, signal] = await neverHangs(closed(proc));
+
+			assert.strictEqual(code, null);
+			assert.strictEqual(signal, 'SIGTERM');
+			assert.strictEqual(proc.killed, true);
+		} finally {
+			process.env.SystemRoot = systemRoot;
+		}
+	});
+
+	test('spawnProcess closes an aborted launcher as killed by SIGTERM', async () => {
+		const controller = new AbortController();
+		const proc = spawnProcess(process.execPath, launcher, { signal: controller.signal });
+		setTimeout(() => controller.abort(), 300);
+		const [code, signal] = await neverHangs(closed(proc));
+
+		assert.strictEqual(code, null);
+		assert.strictEqual(signal, 'SIGTERM');
+		assert.strictEqual(proc.killed, true);
 	});
 });

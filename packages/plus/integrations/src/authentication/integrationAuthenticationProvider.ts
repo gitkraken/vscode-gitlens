@@ -38,23 +38,29 @@ export interface IntegrationAuthenticationSessionDescriptor {
  * fetch that failed transiently (a GK API 429 or 5xx) left the connection with no token at all, and every read
  * until the next good sync reported it as gone (gitkraken/kepler#3546).
  */
-export type GetSessionOptions =
-	| {
-			createIfNeeded?: boolean;
-			forceNewSession?: boolean;
-			sync?: never;
-			refetch?: never;
-			refreshRejectedToken?: boolean;
-			source?: Sources;
-	  }
-	| {
-			createIfNeeded?: never;
-			forceNewSession?: never;
-			sync: boolean;
-			refetch?: boolean;
-			refreshRejectedToken?: boolean;
-			source?: Sources;
-	  };
+export type RejectedTokenRefreshOptions = {
+	refreshRejectedToken?: boolean;
+	/** A captured rejection only applies while the session still carries the credential GitHub refused. */
+	isRejectedToken?: (accessToken: string | undefined) => boolean;
+};
+
+export type GetSessionOptions = RejectedTokenRefreshOptions &
+	(
+		| {
+				createIfNeeded?: boolean;
+				forceNewSession?: boolean;
+				sync?: never;
+				refetch?: never;
+				source?: Sources;
+		  }
+		| {
+				createIfNeeded?: never;
+				forceNewSession?: never;
+				sync: boolean;
+				refetch?: boolean;
+				source?: Sources;
+		  }
+	);
 
 export interface IntegrationAuthenticationProvider extends Disposable {
 	/**
@@ -67,7 +73,7 @@ export interface IntegrationAuthenticationProvider extends Disposable {
 	 */
 	deleteSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		options?: { preserveConfigured?: boolean },
+		options?: { preserveConfigured?: boolean; signOutMark?: number },
 	): Promise<void>;
 	deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void>;
 	/**

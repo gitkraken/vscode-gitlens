@@ -44,7 +44,22 @@ export interface GitDiffSubProvider {
 			context?: number;
 			index?: DisposableTemporaryGitIndex;
 			notation?: GitRevisionRangeNotation;
+			/**
+			 * `true` detects renames (`-M`, at `similarityThreshold` or the configured one) and `false` turns them
+			 * off (`--no-renames`), whatever `diff.renames` says; omitted, `diff.renames` decides. `getDiffStatus`
+			 * always detects them, so pass `true` for the hunks to agree with its list
+			 */
+			renames?: boolean;
+			similarityThreshold?: number;
 			uris?: (string | Uri)[];
+			/**
+			 * Limits the diff to these repo-relative paths, matched literally and exactly as given (a name with glob
+			 * characters matches only itself, a backslash is a file-name character rather than a separator, and a
+			 * folder is everything under it). Wins over `uris`; an empty list resolves `undefined` without running
+			 * git. Batched to fit the command line, so a rename whose two sides fall in different batches reads as a
+			 * delete and an add
+			 */
+			paths?: string[];
 			/**
 			 * `'throw'` rejects with the failure (a `GitError` carrying git's `stderr` when git ran) rather than
 			 * resolving `undefined`, which is the default for every failure
@@ -67,7 +82,12 @@ export interface GitDiffSubProvider {
 		options?: {
 			context?: number;
 			notation?: GitRevisionRangeNotation;
+			/** As on `getDiff` */
+			renames?: boolean;
+			similarityThreshold?: number;
 			uris?: (string | Uri)[];
+			/** As on `getDiff` */
+			paths?: string[];
 			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
@@ -81,6 +101,13 @@ export interface GitDiffSubProvider {
 			filters?: GitDiffFilter[];
 			includeUntracked?: boolean;
 			path?: string;
+			/**
+			 * Limits the status to these paths, matched literally (a name with glob characters matches only itself, a
+			 * folder everything under it). Wins over `path`; an empty list
+			 * resolves `undefined` without running git. Batched to fit the command line, so a rename whose two sides
+			 * fall in different batches reads as a delete and an add
+			 */
+			paths?: string[];
 			renameLimit?: number;
 			similarityThreshold?: number;
 			errors?: GitErrorHandling;

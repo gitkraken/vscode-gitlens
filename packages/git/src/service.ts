@@ -1,4 +1,4 @@
-import type { UnifiedDisposable } from '@gitlens/utils/disposable.js';
+import type { Disposable, UnifiedDisposable } from '@gitlens/utils/disposable.js';
 import { createDisposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
@@ -7,11 +7,12 @@ import type { Uri } from '@gitlens/utils/uri.js';
 import { getRepositoryKey } from '@gitlens/utils/uri.js';
 import type { MergeTargetsChangeEvent } from './cache.js';
 import type { GitProvider } from './providers/provider.js';
-import type { RepositoryService, SubProviderForRepo } from './repositoryService.js';
+import type { RepositoryService, SubProviderForRepo, SubProviderName } from './repositoryService.js';
 import {
 	clearGlobalRepositoryServiceResolver,
 	createSubProviderProxyForRepo,
 	setGlobalRepositoryServiceResolver,
+	subProviderCallThroughMethods,
 } from './repositoryService.js';
 import type { FileWatchingProvider } from './watching/provider.js';
 import type { WatchPollingOptions } from './watching/watchService.js';
@@ -89,6 +90,7 @@ export class GitService implements UnifiedDisposable {
 	 * `options.readFile` lets it tell what a reported `.git/config` change changed (see `WatchServiceOptions.readFile`),
 	 * and with it `options.readDirectory` lets it drop the reports of ignored worktrees (see
 	 * `WatchServiceOptions.readDirectory`).
+	 * `options.disposables` are disposed with the service.
 	 * `options.verifyBaseRemeasure` is for tests only (see `WorktreeSummaryServiceOptions.verifyBaseRemeasure`)
 	 */
 	static createSingleton(
@@ -97,6 +99,7 @@ export class GitService implements UnifiedDisposable {
 			watchPolling?: WatchPollingOptions;
 			readFile?: (path: string) => Promise<Uint8Array>;
 			readDirectory?: (path: string) => Promise<readonly (readonly [string, number])[]>;
+			disposables?: readonly Disposable[];
 			verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'];
 		},
 	): GitService {
@@ -110,6 +113,7 @@ export class GitService implements UnifiedDisposable {
 			options?.readFile,
 			options?.readDirectory,
 			options?.verifyBaseRemeasure,
+			options?.disposables,
 		);
 		GitService._instance = instance;
 		return instance;
@@ -145,6 +149,7 @@ export class GitService implements UnifiedDisposable {
 		readFile?: (path: string) => Promise<Uint8Array>,
 		readDirectory?: (path: string) => Promise<readonly (readonly [string, number])[]>,
 		verifyBaseRemeasure?: WorktreeSummaryServiceOptions['verifyBaseRemeasure'],
+		private readonly _disposables?: readonly Disposable[],
 	) {
 		if (watchingProvider != null) {
 			this._watchService = new RepositoryWatchService({
@@ -200,6 +205,10 @@ export class GitService implements UnifiedDisposable {
 
 		this._onDidChangeProviders.dispose();
 		this._onDidChangeMergeTargets.dispose();
+
+		for (const disposable of this._disposables ?? []) {
+			disposable.dispose();
+		}
 	}
 
 	/** Monotonically increasing counter incremented on structural changes. */
@@ -388,13 +397,25 @@ function createRepositoryService(
 	watchService?: RepositoryWatchService,
 ): RepositoryService {
 	const proxies = new Map<string, SubProviderForRepo<unknown>>();
+	// A provider with no registration to ask about gets proxies that only bind `repoPath`
+	const ensureRegistered =
+		provider.ensureRegistered != null ? () => provider.ensureRegistered?.(repoPath) : undefined;
 
-	function getProxy<T extends object>(prop: string, subProvider: T | undefined): SubProviderForRepo<T> | undefined {
+	function getProxy<T extends object>(
+		prop: SubProviderName,
+		subProvider: T | undefined,
+	): SubProviderForRepo<T> | undefined {
 		if (subProvider == null) return undefined;
 
 		let proxy = proxies.get(prop);
 		if (proxy == null) {
-			proxy = createSubProviderProxyForRepo(subProvider, repoPath);
+			proxy = createSubProviderProxyForRepo(
+				subProvider,
+				repoPath,
+				ensureRegistered != null
+					? { ensureRegistered: ensureRegistered, callThrough: subProviderCallThroughMethods[prop] }
+					: undefined,
+			);
 			proxies.set(prop, proxy);
 		}
 		return proxy as SubProviderForRepo<T>;

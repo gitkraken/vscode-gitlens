@@ -254,6 +254,64 @@ suite('per-connection failure budget', () => {
 		manager.dispose();
 	});
 
+	test("a successful issue write clears only the selected connection's strikes", async () => {
+		const primary = 'gh-primary';
+		const secondary = 'gh-secondary';
+		const runtime = createFakeRuntime();
+		await seedConnections(runtime, [primary, secondary]);
+		const repository = { id: 'R_1', hasIssuesEnabled: true, isArchived: false };
+		runtime.http.fetch = async (_input, init) => {
+			assert.ok(typeof init?.body === 'string');
+			const { query } = JSON.parse(init.body) as { query: string };
+			return Response.json({
+				data: query.includes('createIssue')
+					? {
+							change: {
+								issue: {
+									id: 'I_1',
+									number: 1,
+									url: 'https://github.com/octocat/hello/issues/1',
+									title: 'Example',
+									body: '',
+									state: 'OPEN',
+									repository: { id: repository.id, owner: { login: 'octocat' }, name: 'hello' },
+								},
+							},
+						}
+					: { repository: repository },
+			});
+		};
+		const manager = createIntegrationManager(runtime);
+		try {
+			const gh = await manager.get(provider);
+			const create = (connectionId: string) =>
+				manager.writeIssue({
+					providerId: provider,
+					connectionId: connectionId,
+					owner: 'octocat',
+					repo: 'hello',
+					action: 'create',
+					title: 'Example',
+				});
+
+			for (let i = 0; i < 4; i++) {
+				gh.trackRequestException({ connectionId: primary });
+				gh.trackRequestException({ connectionId: secondary });
+			}
+
+			assert.equal((await create(secondary)).ok, true);
+			assert.equal(getConnectionStrikes(gh, secondary), 0);
+			assert.equal(getPrimaryStrikes(gh), 4);
+
+			gh.trackRequestException({ connectionId: secondary });
+			assert.equal((await create(primary)).ok, true);
+			assert.equal(getPrimaryStrikes(gh), 0);
+			assert.equal(getConnectionStrikes(gh, secondary), 1);
+		} finally {
+			manager.dispose();
+		}
+	});
+
 	test('a single connection disconnects after five failures of reads naming no connection', async () => {
 		const { manager, gh, failing, watched } = await connect(['gh-primary']);
 		failing.add('token-gh-primary');
@@ -336,6 +394,30 @@ suite('per-connection failure budget', () => {
 			['token-gh-primary'],
 			'a primary read still succeeds',
 		);
+
+		manager.dispose();
+	});
+
+	test("a secondary connection's failed commit lookups past the limit leave the primary connected", async () => {
+		const { manager, gh, serverErrors, watched } = await connect(['gh-primary', 'gh-secondary']);
+		serverErrors.add('token-gh-secondary');
+
+		for (let i = 0; i < 6; i++) {
+			const result = await manager.getPullRequestsForCommits({
+				providerId: provider,
+				connectionId: 'gh-secondary',
+				owner: 'octocat',
+				repo: 'hello',
+				shas: ['a'.repeat(40)],
+			});
+			assert.equal(result.fetchFailed, true, 'each failure still surfaces on the secondary read');
+		}
+		await settle();
+
+		assert.equal(watched.disconnected, undefined, 'no disconnect is announced');
+		assert.equal(await gh.isConnected(), true);
+		assert.equal(getPrimaryStrikes(gh), 0);
+		assert.equal(getConnectionStrikes(gh, 'gh-secondary'), 6, 'each wholly failed batch spent one strike');
 
 		manager.dispose();
 	});

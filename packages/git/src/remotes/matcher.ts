@@ -6,6 +6,7 @@ import type {
 	RemoteProviderMatcher,
 	RemotesUrlsConfig,
 } from '../models/remoteProvider.js';
+import { getCloudWebDomain } from '../utils/remote.utils.js';
 import { AzureDevOpsRemoteProvider, isVsts } from './azure-devops.js';
 import { BitbucketServerRemoteProvider } from './bitbucket-server.js';
 import { BitbucketRemoteProvider } from './bitbucket.js';
@@ -52,15 +53,6 @@ interface ProviderEntry {
 
 /** Regex sources already warned about for missing capture groups; module-level because entries are rebuilt on every remotes load */
 const warnedMissingGroups = new Set<string>();
-
-// SSH-only hosts of the cloud providers (e.g. SSH over port 443) and the web host their links must point at.
-// Exact names only — other subdomains are not SSH endpoints
-const cloudSshDomains = new Map<string, string>([
-	['ssh.bitbucket.org', 'bitbucket.org'],
-	['altssh.bitbucket.org', 'bitbucket.org'],
-	['ssh.github.com', 'github.com'],
-	['altssh.gitlab.com', 'gitlab.com'],
-]);
 
 const builtInProviders: ProviderEntry[] = [
 	{ custom: false, matcher: /^(?:(?:alt)?ssh\.)?bitbucket\.org$/i, type: 'bitbucket' },
@@ -110,7 +102,7 @@ function createBuiltInProvider(
 	custom?: boolean,
 	context?: RemoteProviderContext,
 ): RemoteProvider | undefined {
-	domain = cloudSshDomains.get(domain.toLowerCase()) ?? domain;
+	domain = getCloudWebDomain(domain);
 
 	switch (type) {
 		case 'azure-devops':

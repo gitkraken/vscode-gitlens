@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type {
+	GitHubCheckContext,
+	GitHubCheckContexts,
+	GitHubCheckRunContext,
+	GitHubStatusContext,
+} from '@gitlens/git-github/models.js';
 import type { IssueShape } from '@gitlens/git/models/issue.js';
 import type { PullRequestShape } from '@gitlens/git/models/pullRequest.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
-import { getIssueFieldPresence } from '../fieldPresence.js';
+import { getIssueFieldPresence, getPullRequestFieldPresence } from '../fieldPresence.js';
 import type { BatchSlot } from '../models/integration.js';
 import type {
 	IssueEtagFields,
@@ -37,7 +43,7 @@ import { connectedGitHub } from './sweepHelpers.js';
 type Node = Record<string, unknown>;
 
 function prNode(number: number, overrides: GitHubPullRequestFixtureOverrides): GitHubPullRequestFixture {
-	return gitHubPullRequest(
+	const node = gitHubPullRequest(
 		number,
 		{
 			updatedAt: '2026-01-02T03:04:05Z',
@@ -49,6 +55,13 @@ function prNode(number: number, overrides: GitHubPullRequestFixtureOverrides): G
 		},
 		{ owner: 'o', name: 'r' },
 	);
+	return {
+		...node,
+		commits: {
+			...node.commits,
+			nodes: node.commits.nodes.map(n => ({ commit: { id: `C_${number}`, ...n.commit } })),
+		},
+	};
 }
 
 /**
@@ -59,6 +72,7 @@ function cheapPrNode(
 	node: GitHubPullRequestFixture,
 	includes: readonly PullRequestEtagInclude[],
 	mergeQueue: boolean,
+	checkRuns: boolean,
 ): Node {
 	const picked: Node = {
 		id: node.id,
@@ -84,10 +98,58 @@ function cheapPrNode(
 	if (includes.includes('reviewDecision')) {
 		picked.reviewDecision = node.reviewDecision;
 	}
-	if (includes.includes('checks')) {
-		picked.commits = { nodes: node.commits.nodes.map(n => ({ commit: n.commit })) };
+	if (includes.includes('checks') || checkRuns) {
+		picked.commits = {
+			nodes: node.commits.nodes.map(n => {
+				const rollup = n.commit.statusCheckRollup;
+				return {
+					commit: {
+						...(checkRuns ? { id: n.commit.id } : {}),
+						statusCheckRollup:
+							rollup == null
+								? null
+								: {
+										...(includes.includes('checks') ? { state: rollup.state } : {}),
+										...(checkRuns
+											? { contexts: contextsPage(rollup.contexts, 0, cheapContext) }
+											: {}),
+									},
+					},
+				};
+			}),
+		};
 	}
 	return picked;
+}
+
+/** The slice of a check the cheap check selects. */
+function cheapContext(c: GitHubCheckContext): object {
+	return c.__typename === 'CheckRun'
+		? {
+				__typename: c.__typename,
+				id: c.id,
+				databaseId: c.databaseId,
+				name: c.name,
+				status: c.status,
+				conclusion: c.conclusion,
+				checkSuite: c.checkSuite != null ? { app: c.checkSuite.app } : null,
+			}
+		: { __typename: c.__typename, id: c.id, context: c.context, state: c.state };
+}
+
+const fullContext = (c: GitHubCheckContext): object => c;
+
+function contextsPage(
+	contexts: GitHubCheckContexts | undefined,
+	offset: number,
+	pick: (c: GitHubCheckContext) => object,
+): Node {
+	const nodes = contexts?.nodes ?? [];
+	const end = offset + 100;
+	return {
+		pageInfo: { hasNextPage: nodes.length > end, endCursor: nodes.length > end ? String(end) : null },
+		nodes: nodes.slice(offset, end).map(c => (c != null ? pick(c) : null)),
+	};
 }
 
 /** What the document asked for, read back from its text, so the served node answers with what was selected. */
@@ -112,6 +174,82 @@ const etagIncludeSets: readonly (readonly PullRequestEtagInclude[])[] = [
 	['reviewDecision'],
 	['checks'],
 	pullRequestEtagIncludes,
+];
+
+function checkRunContext(
+	name: string,
+	status: GitHubCheckRunContext['status'],
+	conclusion: GitHubCheckRunContext['conclusion'],
+): GitHubCheckRunContext {
+	return {
+		__typename: 'CheckRun',
+		id: `CR_${name}`,
+		databaseId: 1,
+		name: name,
+		status: status,
+		conclusion: conclusion,
+		detailsUrl: null,
+		url: null,
+		title: null,
+		startedAt: null,
+		completedAt: null,
+		checkSuite: null,
+	};
+}
+
+const failed = (name: string) => checkRunContext(name, 'COMPLETED', 'FAILURE');
+const running = (name: string) => checkRunContext(name, 'IN_PROGRESS', null);
+
+function statusContext(name: string, state: GitHubStatusContext['state']): GitHubStatusContext {
+	return {
+		__typename: 'StatusContext',
+		id: `SC_${name}`,
+		context: name,
+		state: state,
+		targetUrl: null,
+		createdAt: '2026-01-01T00:00:00Z',
+	};
+}
+
+function rollupWith(
+	state: 'SUCCESS' | 'FAILURE' | 'PENDING',
+	contexts: (GitHubCheckContext | null)[],
+): GitHubPullRequestFixtureOverrides {
+	return {
+		commits: {
+			totalCount: 1,
+			nodes: [
+				{
+					commit: {
+						statusCheckRollup: {
+							state: state,
+							contexts: {
+								pageInfo: { hasNextPage: false, endCursor: null },
+								nodes: contexts,
+							},
+						},
+					},
+				},
+			],
+		},
+	};
+}
+
+const checkRunCases: [string, GitHubPullRequestFixtureOverrides][] = [
+	['no checks', { commits: { totalCount: 1, nodes: [{ commit: { statusCheckRollup: null } }] } }],
+	['no commits', { commits: { totalCount: 0, nodes: [] } }],
+	[
+		'check runs and statuses, shared names and unknown values',
+		rollupWith('PENDING', [
+			running('test'),
+			failed('build'),
+			failed('build'),
+			statusContext('deploy', 'EXPECTED'),
+			statusContext('preview', 'ERROR'),
+			checkRunContext('future', 'SOMEDAY' as 'QUEUED', 'SOMETHING_NEW' as 'SUCCESS'),
+			null,
+		]),
+	],
 ];
 
 const userRequest = {
@@ -205,14 +343,46 @@ const prCases: [string, GitHubPullRequestFixtureOverrides][] = [
  * Answers every GraphQL request from `byNumber`, keyed by each alias's `$k` variable, with what that request
  * selected: the whole node for a full read, only the etag fields for a cheap one.
  */
-function serveGraphQL(runtime: FakeRuntime, byNumber: Map<number, object>, field: 'pullRequest' | 'issue'): string[] {
+function serveGraphQL(
+	runtime: FakeRuntime,
+	byNumber: Map<number, object>,
+	field: 'pullRequest' | 'issue',
+	errors?: (query: string) => unknown[] | undefined,
+): string[] {
 	const queries: string[] = [];
+	const respond = (data: Record<string, unknown>, query: string) =>
+		Promise.resolve(
+			new Response(JSON.stringify({ data: data, errors: errors?.(query) }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
 	runtime.http.fetch = (_input, init) => {
 		const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as {
 			query: string;
 			variables: Record<string, unknown>;
 		};
 		queries.push(body.query);
+		if (body.query.startsWith('query getCommitCheckContextsPage(')) {
+			const pick = /\bdetailsUrl\b/.test(body.query) ? fullContext : cheapContext;
+			const data: Record<string, unknown> = {};
+			for (const [name, value] of Object.entries(body.variables)) {
+				const match = /^c(\d+)$/.exec(name);
+				if (match == null) continue;
+
+				const commit = Array.from(
+					byNumber.values(),
+					node => (node as GitHubPullRequestFixture).commits.nodes[0]?.commit,
+				).find(c => c?.id === value);
+				assert.ok(commit != null);
+				const offset = Number(body.variables[`a${match[1]}`]);
+				data[`c${match[1]}`] = {
+					statusCheckRollup: { contexts: contextsPage(commit.statusCheckRollup?.contexts, offset, pick) },
+				};
+			}
+			return respond(data, body.query);
+		}
+
 		const cheap = /^query get(PullRequests|Issues)EtagFieldsBatch\(/.test(body.query);
 		const includes = selectedIncludes(body.query);
 		const prefix = field === 'pullRequest' ? 'p' : 'i';
@@ -234,28 +404,43 @@ function serveGraphQL(runtime: FakeRuntime, byNumber: Map<number, object>, field
 								node as GitHubPullRequestFixture,
 								includes,
 								/\bmergeQueueEntry\b/.test(body.query),
+								/\bcontexts\b/.test(body.query),
 							)
 						: cheapIssueNode(node as Node, /\breactions\b/.test(body.query)),
 			};
 		}
-		return Promise.resolve(
-			new Response(JSON.stringify({ data: data }), {
-				status: 200,
-				headers: { 'content-type': 'application/json' },
-			}),
-		);
+		return respond(data, body.query);
 	};
 	return queries;
 }
 
-/** The full read's node, without the merge-queue data when the document didn't select it, as GitHub would answer. */
+/**
+ * The full read's node, without the merge-queue data or the check contexts when the document didn't select them, as
+ * GitHub would answer.
+ */
 function selectedQueue(node: object, query: string): object {
-	if (/\bmergeQueueEntry\b/.test(query)) return node;
-
 	const rest: Node = { ...node };
-	delete rest.mergeQueueEntry;
-	delete rest.isMergeQueueEnabled;
-	delete rest.mergeQueueEvents;
+	if (!/\bmergeQueueEntry\b/.test(query)) {
+		delete rest.mergeQueueEntry;
+		delete rest.isMergeQueueEnabled;
+		delete rest.mergeQueueEvents;
+	}
+	const commits = (node as GitHubPullRequestFixture).commits;
+	const selectsContexts = /\bcontexts\b/.test(query);
+	rest.commits = {
+		...commits,
+		nodes: commits.nodes.map(({ commit: { id, statusCheckRollup: rollup } }) => ({
+			commit: selectsContexts
+				? {
+						id: id,
+						statusCheckRollup:
+							rollup == null
+								? null
+								: { ...rollup, contexts: contextsPage(rollup.contexts, 0, fullContext) },
+					}
+				: { statusCheckRollup: rollup == null ? null : { state: rollup.state } },
+		})),
+	};
 	return rest;
 }
 
@@ -588,6 +773,168 @@ suite('GitHub etag agreement: the cheap check and the full read compute the same
 			withData.full[2],
 			`pr1:["opened",false,${Date.parse('2026-01-02T03:04:05Z')},"head-3",["merge-queue-read"]]`,
 		);
+	});
+
+	test('with check runs, the cheap check and the full read compute the same etag, alone and with the rollup', async () => {
+		const cases = checkRunCases;
+		const runtime = createFakeRuntime();
+		const byNumber = new Map(cases.map(([, overrides], i) => [i + 1, prNode(i + 1, overrides)]));
+		const queries = serveGraphQL(runtime, byNumber, 'pullRequest');
+		const { manager, gh } = await connectedGitHub(runtime);
+		const coordinates = cases.map((_, i) => ({ owner: 'o', repo: 'r', number: i + 1 }));
+
+		const fullRows = fulfilled<PullRequestShape | undefined>(
+			(await gh.getPullRequestsBatchResult(coordinates, { checkRuns: true }))?.value,
+		);
+		for (const includes of [[], ['checks']] as const) {
+			const cheapRows = fulfilled<PullRequestEtagFields | undefined>(
+				(await gh.getPullRequestsEtagFieldsResult(coordinates, { etagIncludes: includes, checkRuns: true }))
+					?.value,
+			);
+			cases.forEach(([name], i) => {
+				const shape = fullRows[i];
+				const fields = cheapRows[i];
+				assert.ok(shape?.checkRuns != null && fields != null, name);
+				const etag = pullRequestEtag(fields, includes);
+				assert.equal(etag, pullRequestEtag(pullRequestEtagFieldsFromShape(shape), includes), name);
+				assert.match(etag, /\["check-runs","[0-9a-f]{16}",\d+\]/, name);
+			});
+		}
+		assert.ok(queries.every(q => /\bcontexts\b/.test(q)));
+
+		manager.dispose();
+	});
+
+	test('with check runs, a check that fails or is re-run under an unchanged rollup and update time reads as changed past the first page, a head past the cap still compares unchanged, and switching the option reads in full', async () => {
+		const runtime = createFakeRuntime();
+		const steady = prNode(1, rollupWith('FAILURE', [failed('build'), running('test')]));
+		const changing = prNode(2, rollupWith('FAILURE', [failed('build'), running('test')]));
+		const many = (changed?: number, count = 150) =>
+			Array.from({ length: count }, (_, i) =>
+				i === changed ? failed(`check-${i}`) : checkRunContext(`check-${i}`, 'COMPLETED', 'SUCCESS'),
+			);
+		const crowded = prNode(3, rollupWith('SUCCESS', many()));
+		const actionsJob = (databaseId: number): GitHubCheckRunContext => ({
+			...failed('build'),
+			id: `CR_build_${databaseId}`,
+			databaseId: databaseId,
+			checkSuite: { app: { slug: 'github-actions' }, workflowRun: null },
+		});
+		const rerun = prNode(4, rollupWith('FAILURE', [actionsJob(1)]));
+		const byNumber = new Map<number, object>([
+			[1, steady],
+			[2, changing],
+			[3, crowded],
+			[4, rerun],
+			[5, prNode(5, rollupWith('SUCCESS', many()))],
+			[6, prNode(6, rollupWith('SUCCESS', many(undefined, 520)))],
+		]);
+		const queries = serveGraphQL(runtime, byNumber, 'pullRequest');
+		const { manager, gh } = await connectedGitHub(runtime);
+		(gh as unknown as { getCurrentAccount: () => Promise<undefined> }).getCurrentAccount = () =>
+			Promise.resolve(undefined);
+		const targets = [1, 2, 3, 4, 5, 6].map(n => ({ key: String(n), owner: 'o', repo: 'r', number: n }));
+		const read = (checkRuns: boolean | undefined, etags?: Map<string, string | undefined>) =>
+			manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: targets.map(t => ({ ...t, etag: etags?.get(t.key) })),
+				checkRuns: checkRuns,
+			});
+
+		const without = await read(undefined);
+		for (const item of without.items) {
+			assert.ok(item.pullRequest != null && item.etag != null);
+			assert.equal(item.pullRequest.checkRuns, undefined);
+			assert.equal(getPullRequestFieldPresence(item.pullRequest)?.checkRuns, 'not-requested');
+			assert.ok(!item.etag.includes('check-runs'), 'a read without the option computes the etag it always did');
+		}
+
+		const first = await read(true);
+		for (const item of first.items) {
+			assert.ok(item.pullRequest != null);
+			assert.equal(getPullRequestFieldPresence(item.pullRequest)?.checkRuns, 'fetched');
+		}
+		assert.equal(first.items[2].pullRequest?.checkRuns?.length, 150);
+		assert.equal(first.items[2].pullRequest?.checkRunsTruncated, undefined);
+		assert.equal(first.items[5].pullRequest?.checkRuns?.length, 500);
+		assert.equal(first.items[5].pullRequest?.checkRunsTruncated, true, 'past the cap');
+		const etags = new Map(first.items.map(i => [i.key, i.etag]));
+		byNumber.set(2, prNode(2, rollupWith('FAILURE', [failed('build'), failed('test')])));
+		byNumber.set(4, prNode(4, rollupWith('FAILURE', [actionsJob(2)])));
+		byNumber.set(5, prNode(5, rollupWith('SUCCESS', many(130))));
+		queries.length = 0;
+
+		const second = await read(true, etags);
+		assert.deepEqual(
+			second.items.map(i => [i.key, i.unchanged ?? false]),
+			[
+				['1', true],
+				['2', false],
+				['3', true],
+				['4', false],
+				['5', false],
+				['6', true],
+			],
+		);
+		assert.ok(
+			queries.some(q => q.startsWith('query getCommitCheckContextsPage(') && !/\bdetailsUrl\b/.test(q)),
+			'the cheap check reads past the first 100 checks',
+		);
+
+		const switched = await read(false, etags);
+		assert.deepEqual(
+			switched.items.map(i => i.unchanged ?? false),
+			[false, false, false, false, false, false],
+		);
+
+		manager.dispose();
+	});
+
+	test('with check runs, a refused workflow leaves the row complete, and its etag still matches the cheap check', async () => {
+		const runtime = createFakeRuntime();
+		const build: GitHubCheckRunContext = {
+			...failed('build'),
+			checkSuite: { app: { slug: 'github-actions' }, workflowRun: null },
+		};
+		const byNumber = new Map<number, object>([[1, prNode(1, rollupWith('FAILURE', [build, running('test')]))]]);
+		const refused = [
+			...['p0', 'pullRequest', 'commits', 'nodes', 0, 'commit', 'statusCheckRollup', 'contexts', 'nodes', 0],
+			...['checkSuite', 'workflowRun'],
+		];
+		const queries = serveGraphQL(runtime, byNumber, 'pullRequest', query =>
+			query.startsWith('query getPullRequestsBatch(')
+				? [{ type: 'FORBIDDEN', message: 'Resource not accessible by integration', path: refused }]
+				: undefined,
+		);
+		const { manager, gh } = await connectedGitHub(runtime);
+		(gh as unknown as { getCurrentAccount: () => Promise<undefined> }).getCurrentAccount = () =>
+			Promise.resolve(undefined);
+		const read = (etag?: string) =>
+			manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [{ key: 'a', owner: 'o', repo: 'r', number: 1, etag: etag }],
+				checkRuns: true,
+			});
+
+		const [first] = (await read()).items;
+		assert.deepEqual(
+			first.pullRequest?.checkRuns?.map(run => [run.name, run.workflowName]),
+			[
+				['build', undefined],
+				['test', undefined],
+			],
+		);
+		assert.equal(first.pullRequest?.checkRunsTruncated, undefined);
+		queries.length = 0;
+
+		const [second] = (await read(first.etag)).items;
+		assert.deepEqual(second, { key: 'a', unchanged: true, etag: first.etag });
+		assert.ok(
+			queries.every(q => !q.startsWith('query getPullRequestsBatch(')),
+			'no full read',
+		);
+
+		manager.dispose();
 	});
 
 	test('a null review decision with a pending request reads as no decision on BOTH paths', async () => {

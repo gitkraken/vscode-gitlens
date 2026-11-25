@@ -747,7 +747,7 @@ export class GlBranchHover extends SignalWatcher(LitElement) {
 						alt-href=${link('gitlens.openWorktree:')}
 					></action-item>`,
 				);
-			} else {
+			} else if (this._mergeTarget?.landed == null || this.isLandedForOtherTip(this._mergeTarget, branch)) {
 				actions.push(
 					html`<action-item
 						label=${l10n.t('Switch to Branch...')}

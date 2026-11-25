@@ -1,18 +1,26 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { createRemoteProviderMatcher } from '@gitlens/git/remotes/matcher.js';
+import { advanceClock, restoreClock } from '../../../__tests__/clock.js';
 import { createFakeRuntime } from '../../../__tests__/fakeRuntime.js';
-import { primarySession } from '../../../__tests__/sweepHelpers.js';
+import { connectedAzure, primarySession, watchRequestFailures } from '../../../__tests__/sweepHelpers.js';
 import { GitCloudHostIntegrationId } from '../../../constants.js';
 import { AuthenticationError } from '../../../errors.js';
 import { createIntegrationService } from '../../../integrationService.js';
+import { failureBackoffMaxMs } from '../../../utils/failureBackoff.js';
 import type { ApiClients } from '../../apiClients.js';
 import type { ProviderApiConfig } from '../../apiConfig.js';
 import { AzureDevOpsApi } from '../azure.js';
 import type { AzurePullRequest, AzureRepositoryUrls } from '../models.js';
 import { AzureWorkItemDescriptionsCache } from '../workItemDescriptions.js';
 import { AzureWorkItemStatesCache } from '../workItemStateCategories.js';
-import { azureProvider, azureToken, createAzureForkSource, createAzurePullRequest } from './fixtures.js';
+import {
+	azureProvider,
+	azureRestDiscoveryResponse,
+	azureToken,
+	createAzureForkSource,
+	createAzurePullRequest,
+} from './fixtures.js';
 
 function pullRequest(): AzurePullRequest {
 	return createAzurePullRequest(
@@ -561,5 +569,217 @@ suite('AzureDevOpsIntegration.getPullRequest', () => {
 		assert.deepEqual(requests, ['https://dev.azure.com/org/Proj/_apis/git/pullrequests/5']);
 
 		service.dispose();
+	});
+});
+
+suite('AzureDevOpsIntegration.getPullRequestForCommit', () => {
+	const sha = 'a'.repeat(40);
+	const repo = { key: 'org/proj/r', owner: 'org', name: 'proj/_git/r', project: 'proj' };
+
+	function json(status: number, body: unknown): Response {
+		return new Response(JSON.stringify(body), { status: status, headers: { 'content-type': 'application/json' } });
+	}
+
+	async function lookUps(responses: readonly ((url: URL) => Response)[]): Promise<{
+		invalidated: number[];
+		strikes: number;
+		expired: boolean | undefined;
+	}> {
+		const runtime = createFakeRuntime();
+		let respond = responses[0];
+		runtime.http.fetch = input => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
+			return Promise.resolve(respond(new URL(input.toString())));
+		};
+		let invalidated = 0;
+		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+			loader({ invalidate: () => void invalidated++ } as never).value;
+		const { manager, azure } = await connectedAzure(runtime);
+		try {
+			const after: number[] = [];
+			for (const response of responses) {
+				advanceClock(failureBackoffMaxMs);
+				respond = response;
+				assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
+				after.push(invalidated);
+			}
+			const strikes = (azure as unknown as { requestExceptionCount: number }).requestExceptionCount;
+			return { invalidated: after, strikes: strikes, expired: azure.connectionExpired };
+		} finally {
+			restoreClock();
+			manager.dispose();
+		}
+	}
+
+	test('a failed query is not kept as a commit without a pull request, while a 404 still answers none', async () => {
+		const { invalidated } = await lookUps([
+			() => json(500, { message: 'boom' }),
+			() => json(404, { message: 'TF401019: The Git repository does not exist.' }),
+		]);
+
+		assert.deepEqual(invalidated, [1, 1]);
+	});
+
+	test('a query answer without the results of its query is a failure, while an empty result is none', async () => {
+		const { invalidated } = await lookUps([() => json(200, { results: [] }), () => json(200, { results: [{}] })]);
+
+		assert.deepEqual(invalidated, [1, 1]);
+	});
+
+	test("a repository's refusal costs the connection nothing and is not kept", async () => {
+		const forbidden = () => json(403, { message: 'TF401027: You need the Git GenericRead permission.' });
+		const { invalidated, strikes, expired } = await lookUps([forbidden, forbidden, forbidden]);
+
+		assert.deepEqual(invalidated, [1, 2, 3]);
+		assert.equal(strikes, 0);
+		assert.notEqual(expired, true, 'the session is not expired');
+	});
+
+	test('a pull request the query found but that reads back empty is a failure, not a commit without one', async () => {
+		const { invalidated } = await lookUps([
+			url =>
+				url.pathname.toLowerCase().endsWith('/pullrequestquery')
+					? json(200, {
+							results: [
+								{
+									[sha]: [
+										{ pullRequestId: 5, repository: { id: 'repo-id', project: { id: 'proj-id' } } },
+									],
+								},
+							],
+						})
+					: json(200, null),
+		]);
+
+		assert.deepEqual(invalidated, [1]);
+	});
+
+	test('a client that failed to construct is a failure, not a commit without a pull request', async () => {
+		const runtime = createFakeRuntime();
+		let invalidated = 0;
+		runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+			loader({ invalidate: () => void invalidated++ } as never).value;
+		const { manager, azure } = await connectedAzure(runtime);
+		const { apis } = (azure as unknown as { authenticationService: { apis: object } }).authenticationService;
+		Object.defineProperty(apis, 'azure', { get: () => Promise.resolve(undefined) });
+		try {
+			assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
+			assert.equal(invalidated, 1);
+			assert.equal((azure as unknown as { requestExceptionCount: number }).requestExceptionCount, 0);
+		} finally {
+			manager.dispose();
+		}
+	});
+});
+
+suite('AzureDevOpsIntegration.getPullRequestsForCommits fork lookups', () => {
+	const shas = Array.from({ length: 10 }, (_, i) => `a${(i + 1).toString(16).padStart(39, '0')}`);
+
+	function json(status: number, body: unknown): Response {
+		return new Response(JSON.stringify(body), { status: status, headers: { 'content-type': 'application/json' } });
+	}
+
+	async function readForkedPullRequests(forkStatus: number) {
+		const runtime = createFakeRuntime();
+		const requests = { pullRequests: 0, forks: 0 };
+		runtime.http.fetch = (input, init) => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
+			const url = new URL(input.toString());
+			if (url.pathname.toLowerCase().endsWith('/pullrequestquery')) {
+				const body = typeof init?.body === 'string' ? init.body : '{}';
+				const items = (JSON.parse(body) as { queries: { items: string[] }[] }).queries[0].items;
+				return Promise.resolve(
+					json(200, {
+						results: [
+							Object.fromEntries(
+								items.map(rev => [
+									rev,
+									[
+										{
+											pullRequestId: shas.indexOf(rev) + 1,
+											repository: { id: 'repo-id', project: { id: 'proj-id' } },
+										},
+									],
+								]),
+							),
+						],
+					}),
+				);
+			}
+
+			const pullRequestId = /\/pullRequests\/(\d+)$/i.exec(url.pathname)?.[1];
+			if (pullRequestId != null) {
+				requests.pullRequests++;
+				const pr = { ...createAzurePullRequest(url.href, 'proj', 'r'), pullRequestId: Number(pullRequestId) };
+				const forkSource = createAzureForkSource(pr)!;
+				return Promise.resolve(
+					json(200, {
+						...pr,
+						forkSource: {
+							...forkSource,
+							repository: { ...forkSource.repository, id: `fork-${pullRequestId}` },
+						},
+					}),
+				);
+			}
+
+			requests.forks++;
+			return Promise.resolve(json(forkStatus, { message: 'fork lookup failed' }));
+		};
+		const { manager, azure } = await connectedAzure(runtime);
+		const watched = watchRequestFailures(runtime);
+		try {
+			const result = await manager.getPullRequestsForCommits({
+				providerId: GitCloudHostIntegrationId.AzureDevOps,
+				owner: 'org',
+				repo: 'r',
+				project: 'proj',
+				shas: shas,
+			});
+			const strikes = (azure as unknown as { requestExceptionCount: number }).requestExceptionCount;
+			return {
+				result: result,
+				requests: requests,
+				notices: watched.notices,
+				strikes: strikes,
+				expired: azure.connectionExpired,
+			};
+		} finally {
+			manager.dispose();
+		}
+	}
+
+	test("a rate limit on a fork lookup stops the call's fan-out", async () => {
+		const { result, requests } = await readForkedPullRequests(429);
+
+		assert.ok(requests.pullRequests < shas.length, `${requests.pullRequests} pull request reads for 10 commits`);
+		assert.equal(result.fetchFailed, true);
+		assert.ok(result.warnings.some(w => w.kind === 'rate-limit'));
+	});
+
+	test('a fork the token cannot read costs the pull requests and the credential nothing', async () => {
+		const { result, requests, strikes, expired } = await readForkedPullRequests(401);
+
+		assert.equal(requests.pullRequests, shas.length);
+		assert.equal(result.items.length, shas.length);
+		assert.deepEqual(
+			result.warnings.filter(w => w.kind === 'auth'),
+			[],
+		);
+		assert.equal(strikes, 0);
+		assert.notEqual(expired, true, 'the session is not expired');
+	});
+
+	test('fork lookups failing with 500 show one notice for the call and cost the pull requests nothing', async () => {
+		const { result, requests, notices, strikes } = await readForkedPullRequests(500);
+
+		assert.equal(requests.forks, shas.length);
+		assert.equal(result.items.length, shas.length, 'a fork lookup is best-effort');
+		assert.equal(notices.length, 1);
+		assert.equal(strikes, 0);
 	});
 });

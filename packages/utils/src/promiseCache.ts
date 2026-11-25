@@ -51,6 +51,7 @@ export class PromiseCache<K, V> {
 	private readonly aborts = new Map<K, AbortAggregate>();
 	private readonly controllers = new Map<K, CacheController>();
 	private readonly options: PromiseCacheOptions;
+	private cleanupQueued = false;
 
 	constructor(options?: PromiseCacheOptions) {
 		this.options = { expireOnError: true, ...options };
@@ -108,12 +109,12 @@ export class PromiseCache<K, V> {
 	/**
 	 * Gets a promise from the cache without creating it and updates accessed time
 	 * @param key - The cache key
-	 * @returns The cached promise, or undefined if not cached or expired
+	 * @returns The cached promise, or undefined if not cached, expired, or in flight with every caller cancelled
 	 */
 	get(key: K): Promise<V> | undefined {
 		const now = Date.now();
 		const entry = this.cache.get(key);
-		if (entry == null || this.expired(entry, now)) {
+		if (entry == null || this.expired(entry, now) || this.aborts.get(key)?.signal.aborted) {
 			return undefined;
 		}
 
@@ -309,12 +310,20 @@ export class PromiseCache<K, V> {
 				.catch(() => {});
 		}
 
-		// Clean up expired entries and enforce capacity limit in one pass
-		if (this.cache.size > 1) {
-			queueMicrotask(() => this.cleanup());
-		}
+		this.queueCleanup();
 
 		return this.attachCallerLifecycle(entry.promise, cancellation, cleanup);
+	}
+
+	/** Queues one pass that drops expired entries and enforces the capacity; writes before it runs share it */
+	private queueCleanup(): void {
+		if (this.cleanupQueued || this.cache.size <= 1) return;
+
+		this.cleanupQueued = true;
+		queueMicrotask(() => {
+			this.cleanupQueued = false;
+			this.cleanup();
+		});
 	}
 
 	private attachCallerLifecycle(
@@ -397,6 +406,8 @@ export class PromiseCache<K, V> {
 		if (this.options.expireOnError ?? true) {
 			promise.catch(() => deleteIfOwned(this.cache, key, entry));
 		}
+
+		this.queueCleanup();
 	}
 }
 
@@ -509,9 +520,11 @@ export class PromiseMap<K, V> {
 	}
 
 	/**
-	 * Gets a promise from the cache, or undefined if not found.
+	 * Gets a promise from the cache, or undefined if not found or in flight with every caller cancelled.
 	 */
 	get(key: K): Promise<V> | undefined {
+		if (this.aborts.get(key)?.signal.aborted) return undefined;
+
 		return this.cache.get(key);
 	}
 
@@ -732,7 +745,26 @@ export class RepoPromiseCacheMap<K, V> {
 		if (repoCache == null) return false;
 
 		repoCache.delete(key);
+		this.dropIfEmpty(repoPath, repoCache);
 		return true;
+	}
+
+	/**
+	 * Whether any entry is kept for `repoPath`, settled or in flight. Right after `invalidate(repoPath)`, only an entry
+	 * in flight is, which a new caller still joins.
+	 */
+	has(repoPath: string): boolean {
+		return (this.cache.get(repoPath)?.size ?? 0) > 0;
+	}
+
+	/**
+	 * Drops `repoPath`'s cache once it holds nothing, so a removed worktree leaves no cache behind. One that still holds
+	 * an in-flight entry `invalidate` only marked stays, so a new caller still joins that entry.
+	 */
+	private dropIfEmpty(repoPath: string, repoCache: PromiseCache<K, V>): void {
+		if (repoCache.size === 0) {
+			this.cache.delete(repoPath);
+		}
 	}
 
 	/**
@@ -752,6 +784,7 @@ export class RepoPromiseCacheMap<K, V> {
 		} else {
 			repoCache.invalidate(key);
 		}
+		this.dropIfEmpty(repoPath, repoCache);
 	}
 
 	/**
@@ -771,6 +804,7 @@ export class RepoPromiseCacheMap<K, V> {
 				deleted = true;
 			}
 		}
+		this.dropIfEmpty(repoPath, repoCache);
 		return deleted;
 	}
 
@@ -794,6 +828,7 @@ export class RepoPromiseCacheMap<K, V> {
 				invalidated = true;
 			}
 		}
+		this.dropIfEmpty(repoPath, repoCache);
 		return invalidated;
 	}
 

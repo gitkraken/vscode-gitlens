@@ -19,6 +19,7 @@ export interface ApiClients {
 	readonly azureWorkItemDescriptions: AzureWorkItemDescriptionsCache;
 	readonly github: Promise<GitHubApi | undefined>;
 	readonly gitlab: Promise<GitLabApi | undefined>;
+	readonly gitlabIfBuilt?: Promise<GitLabApi | undefined>;
 	readonly bitbucket: Promise<BitbucketApi | undefined>;
 	readonly azure: Promise<AzureDevOpsApi | undefined>;
 }
@@ -74,6 +75,9 @@ export function createApiClients(ctx: IntegrationServiceContext, disposables: Di
 			return (gitlab ??= build(async () =>
 				(await import(/* webpackChunkName: "integrations" */ './gitlab/gitlab.js')).createGitLabApi(ctx),
 			));
+		},
+		get gitlabIfBuilt() {
+			return gitlab;
 		},
 		get bitbucket() {
 			return (bitbucket ??= build(async () =>

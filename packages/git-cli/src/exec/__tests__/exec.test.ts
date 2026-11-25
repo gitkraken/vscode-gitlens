@@ -1,17 +1,20 @@
 import * as assert from 'assert';
 import { spawn } from 'child_process';
 import { mkdtemp, rm, writeFile } from 'fs/promises';
+import type { Socket } from 'net';
+import { createServer } from 'net';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 import { execPath } from 'process';
 import * as sinon from 'sinon';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
 import { normalizePath } from '@gitlens/utils/path.js';
-import { CacheController } from '@gitlens/utils/promiseCache.js';
+import { CacheController, RepoPromiseCacheMap } from '@gitlens/utils/promiseCache.js';
 import type { CommandChanges } from '../commandClassifier.js';
 import { CancelledRunError, RunError } from '../exec.errors.js';
 import type { ProcessSpawner } from '../exec.js';
 import { run, runSpawn } from '../exec.js';
-import type { GitResultCache } from '../exec.types.js';
+import type { GitResult, GitResultCache } from '../exec.types.js';
 import { defaultExceptionHandler, Git, GitError } from '../git.js';
 import type { HeadState } from '../headState.js';
 
@@ -21,6 +24,20 @@ function nodeArgs(script: string): string[] {
 
 function bufferLiteral(bytes: readonly number[]): string {
 	return `Buffer.from([${bytes.join(', ')}])`;
+}
+
+async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+	let timer: NodeJS.Timeout | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(() => reject(new Error(message)), 5000);
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 suite('Shell Test Suite', () => {
@@ -353,6 +370,36 @@ suite('Shell Test Suite', () => {
 			assert.deepStrictEqual(calls, ['delete:/repo:git status', 'getOrCreate:/repo:git status']);
 		});
 
+		test('a run that names FETCH_HEAD is never cached', async () => {
+			const git = new Git(async () => ({ path: '/nonexistent/git-binary', version: '2.40.0' }));
+
+			const calls: string[] = [];
+			const fakeCache: GitResultCache = {
+				delete: (repoPath, key) => {
+					calls.push(`delete:${repoPath}:${key}`);
+				},
+				getOrCreate: (repoPath, key, factory) => {
+					calls.push(`getOrCreate:${repoPath}:${key}`);
+					return factory(new CacheController());
+				},
+			};
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', caching: { cache: fakeCache } },
+				'rev-parse',
+				'--verify',
+				'FETCH_HEAD^{commit}',
+			);
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', caching: { cache: fakeCache } },
+				'rev-parse',
+				'--verify',
+				'main',
+			);
+
+			assert.deepStrictEqual(calls, ['getOrCreate:/repo:git rev-parse --verify main']);
+		});
+
 		// Identical argv is not an identical command when the environment differs (`GIT_INDEX_FILE` for a
 		// temporary index, a credential helper, config injected through `GIT_CONFIG_*`).
 		test('concurrent runs with the same argv but a different per-call env are not shared', async () => {
@@ -398,6 +445,190 @@ suite('Shell Test Suite', () => {
 				git.run({ cwd: '/repo' }, 'update-ref', 'refs/x', 'HEAD'),
 				(err: unknown) => err instanceof Error && err.name !== 'CancellationError',
 			);
+		});
+
+		// A git whose every run exits with `exitCode`, counting the processes it launches
+		function exitingGit(exitCode: number): { git: Git; launches: () => number } {
+			let launches = 0;
+			const spawner: ProcessSpawner = (_command, _args, options) => {
+				launches++;
+				return spawn(execPath, nodeArgs(`process.exit(${exitCode})`), { ...options, cwd: undefined });
+			};
+			return {
+				git: new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner }),
+				launches: () => launches,
+			};
+		}
+
+		function keepsExpectedExit(errors: 'throw' | 'ignore' | undefined): void {
+			test(`keeps an exit code the caller expects under errors: ${errors ?? 'default'}, so the next read launches nothing`, async () => {
+				const { git, launches } = exitingGit(1);
+				const cache = new RepoPromiseCacheMap<string, GitResult>();
+				const read = () =>
+					git.run(
+						{ cwd: '/repo', errors: errors, expectedExitCodes: [1], caching: { cache: cache } },
+						'merge-base',
+						'--fork-point',
+						'a',
+						'b',
+					);
+
+				const first = await read();
+				const second = await read();
+
+				assert.strictEqual(first.exitCode, 1);
+				assert.strictEqual(first.completion.status, 'exited');
+				assert.strictEqual(second.exitCode, 1);
+				assert.strictEqual(second.completion.status, 'exited');
+				assert.strictEqual(launches(), 1);
+			});
+		}
+		keepsExpectedExit('throw');
+		keepsExpectedExit('ignore');
+		keepsExpectedExit(undefined);
+
+		test('shares one run between concurrent reads of an expected exit', async () => {
+			const { git, launches } = exitingGit(1);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run(
+					{ cwd: '/repo', errors: 'throw', expectedExitCodes: [1], caching: { cache: cache } },
+					'merge-base',
+					'--fork-point',
+					'a',
+					'b',
+				);
+
+			const results = await Promise.all([read(), read()]);
+
+			assert.deepStrictEqual(
+				results.map(r => r.exitCode),
+				[1, 1],
+			);
+			assert.strictEqual(launches(), 1);
+		});
+
+		test('invalidates a result unless it is a clean exit or one the caller expects', async () => {
+			const invalidated: boolean[] = [];
+			const cache: GitResultCache = {
+				getOrCreate: async (_repoPath, _key, factory) => {
+					const cacheable = new CacheController();
+					const result = await factory(cacheable);
+					invalidated.push(cacheable.invalidated);
+					return result;
+				},
+				delete: () => {},
+			};
+			const read = (git: Git, expectedExitCodes: readonly number[] | undefined) =>
+				git.run(
+					{ cwd: '/repo', errors: 'ignore', expectedExitCodes: expectedExitCodes, caching: { cache: cache } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			await read(exitingGit(0).git, undefined);
+			await read(exitingGit(0).git, [1]);
+			await read(exitingGit(1).git, [1]);
+			await read(exitingGit(1).git, [1, 2]);
+			await read(exitingGit(1).git, undefined);
+			await read(exitingGit(1).git, [2]);
+			await read(exitingGit(128).git, [1]);
+
+			assert.deepStrictEqual(invalidated, [false, false, false, false, true, true, true]);
+		});
+
+		test('does not keep an unlisted non-zero exit, so the next read launches again', async () => {
+			const { git, launches } = exitingGit(1);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run({ cwd: '/repo', errors: 'ignore', caching: { cache: cache } }, 'merge-base', 'a', 'b');
+
+			await read();
+			await read();
+
+			assert.strictEqual(launches(), 2);
+		});
+
+		test('keeps a clean exit', async () => {
+			const { git, launches } = exitingGit(0);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run(
+					{ cwd: '/repo', errors: 'throw', expectedExitCodes: [1], caching: { cache: cache } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			await read();
+			await read();
+
+			assert.strictEqual(launches(), 1);
+		});
+
+		test('does not keep a run that did not exit, even when an exit it never gave is expected', async () => {
+			let launches = 0;
+			const spawner: ProcessSpawner = (_command, _args, options) => {
+				launches++;
+				return spawn('/nonexistent/git-binary', [], options);
+			};
+			const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = () =>
+				git.run(
+					{ cwd: '/repo', errors: 'ignore', expectedExitCodes: [1], caching: { cache: cache } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			const result = await read();
+			await read();
+
+			assert.notStrictEqual(result.completion.status, 'exited');
+			assert.strictEqual(launches, 2);
+		});
+
+		test('does not keep an expected exit when the aggregate signal aborted', async () => {
+			const { git } = exitingGit(1);
+			const aggregate = AbortSignal.abort();
+			const cacheable = new CacheController();
+			const cache: GitResultCache = {
+				getOrCreate: (_repoPath, _key, factory) => factory(cacheable, aggregate),
+				delete: () => {},
+			};
+
+			await git.run(
+				{ cwd: '/repo', errors: 'ignore', expectedExitCodes: [1], caching: { cache: cache } },
+				'merge-base',
+				'a',
+				'b',
+			);
+
+			assert.strictEqual(cacheable.invalidated, true);
+		});
+
+		test('caching.force runs again over a kept expected exit', async () => {
+			const { git, launches } = exitingGit(1);
+			const cache = new RepoPromiseCacheMap<string, GitResult>();
+			const read = (force: boolean) =>
+				git.run(
+					{ cwd: '/repo', errors: 'throw', expectedExitCodes: [1], caching: { cache: cache, force: force } },
+					'merge-base',
+					'a',
+					'b',
+				);
+
+			await read(false);
+			await read(false);
+			assert.strictEqual(launches(), 1);
+
+			await read(true);
+			assert.strictEqual(launches(), 2);
+
+			await read(false);
+			assert.strictEqual(launches(), 2);
 		});
 	});
 
@@ -1466,7 +1697,11 @@ suite('Git options.spawn', () => {
 					// drain
 				}
 			},
-			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+			(ex: unknown) =>
+				isCancellationError(ex) &&
+				ex.reason === 'timeout' &&
+				ex.original instanceof CancelledRunError &&
+				ex.original.reason === 'timeout',
 		);
 	});
 
@@ -1486,6 +1721,251 @@ suite('Git options.spawn', () => {
 	});
 });
 
+suite('Git.stream cancellation', () => {
+	/**
+	 * A process that writes `first` and then keeps writing for as long as it lives, unless `once`. A closed pipe ends
+	 * it with the exit code git's SIGPIPE death reports, since node ignores the signal.
+	 */
+	function writerGit(options?: { once?: boolean }): Git {
+		const script = options?.once
+			? "process.stdout.write('first\\n'); setTimeout(() => {}, 60000)"
+			: "process.stdout.on('error', () => process.exit(141)); process.stdout.write('first\\n'); setInterval(() => process.stdout.write('x'.repeat(65536)), 5)";
+		const spawner: ProcessSpawner = (_command, _args, options) => spawn(execPath, nodeArgs(script), options);
+		return new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+	}
+
+	/** Rejections no one handled while `fn` ran, and for a turn of the event loop after it */
+	async function unhandledRejectionsDuring(fn: () => Promise<void>): Promise<unknown[]> {
+		const reasons: unknown[] = [];
+		const onUnhandled = (reason: unknown) => reasons.push(reason);
+		process.on('unhandledRejection', onUnhandled);
+		try {
+			await fn();
+			await new Promise(resolve => setTimeout(resolve, 50));
+		} finally {
+			process.off('unhandledRejection', onUnhandled);
+		}
+		return reasons;
+	}
+
+	test('rejects with a cancellation when its caller aborts while it is still being read', async () => {
+		const git = writerGit({ once: true });
+		const controller = new AbortController();
+		const chunks: string[] = [];
+
+		await assert.rejects(
+			async () => {
+				for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+					chunks.push(chunk);
+					controller.abort();
+				}
+			},
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'aborted',
+		);
+		assert.deepStrictEqual(chunks, ['first\n'], 'what arrived before the abort was still handed over');
+	});
+
+	test('rejects with a cancellation when its caller aborted before it started', async () => {
+		const git = writerGit({ once: true });
+		const controller = new AbortController();
+		controller.abort();
+
+		await assert.rejects(
+			async () => {
+				for await (const _chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+					// drain
+				}
+			},
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'aborted',
+		);
+	});
+
+	test('ends cleanly when its reader stops early', async () => {
+		const git = writerGit();
+		const controller = new AbortController();
+
+		const unhandled = await unhandledRejectionsDuring(async () => {
+			for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+				assert.ok(chunk.length > 0);
+				break;
+			}
+		});
+		assert.deepStrictEqual(unhandled, []);
+	});
+
+	test('ends cleanly when its reader aborts the signal itself and then stops', async () => {
+		const git = writerGit();
+		const controller = new AbortController();
+
+		const unhandled = await unhandledRejectionsDuring(async () => {
+			for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+				assert.ok(chunk.length > 0);
+				controller.abort();
+				break;
+			}
+		});
+		assert.deepStrictEqual(unhandled, []);
+	});
+
+	test('ends cleanly when its reader aborts the signal, leaves by throwing, and closes it without waiting', async () => {
+		const git = writerGit();
+		const controller = new AbortController();
+		const stream = git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log');
+
+		const unhandled = await unhandledRejectionsDuring(async () => {
+			await assert.rejects(async () => {
+				try {
+					for await (const _chunk of { [Symbol.asyncIterator]: () => ({ next: () => stream.next() }) }) {
+						controller.abort();
+						throw new Error('left');
+					}
+				} finally {
+					void stream.return(undefined);
+				}
+			}, /left/);
+		});
+		assert.deepStrictEqual(unhandled, []);
+	});
+
+	for (const leave of ['stops', 'reads on'] as const) {
+		test(`leaves no rejection unhandled when its reader holds a chunk past the process's end, then ${leave}`, async () => {
+			const controller = new AbortController();
+			/** Settles a turn after the process's `close`, once the stream has seen it */
+			let closed: Promise<void> | undefined;
+			const spawner: ProcessSpawner = (_command, _args, options) => {
+				const child = spawn(
+					execPath,
+					nodeArgs("process.stdout.write('first\\n'); setTimeout(() => {}, 60000)"),
+					options,
+				);
+				closed = new Promise(resolve => child.once('close', () => setImmediate(resolve)));
+				return child;
+			};
+			const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				await assert.rejects(
+					async () => {
+						for await (const _chunk of git.stream(
+							{ cwd: tmpdir(), cancellation: controller.signal },
+							'log',
+						)) {
+							controller.abort();
+							await closed;
+							if (leave === 'stops') break;
+						}
+						throw new Error('stopped');
+					},
+					leave === 'stops' ? /stopped/ : (ex: unknown) => isCancellationError(ex),
+				);
+			});
+			assert.deepStrictEqual(unhandled, []);
+		});
+	}
+
+	suite('a process its time limit kills after one chunk', () => {
+		function stalledGit(): Git {
+			const spawner: ProcessSpawner = (_command, _args, options) =>
+				spawn(execPath, nodeArgs("process.stdout.write('first\\n'); setTimeout(() => {}, 60000)"), options);
+			return new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+		}
+
+		test('ends cleanly for a reader that already stopped', async () => {
+			const git = stalledGit();
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				for await (const chunk of git.stream({ cwd: tmpdir(), timeout: 300 }, 'log')) {
+					assert.strictEqual(chunk, 'first\n');
+					break;
+				}
+			});
+			assert.deepStrictEqual(unhandled, []);
+		});
+
+		test('leaves nothing unhandled when a disposer closes it without waiting', async () => {
+			const git = stalledGit();
+			const stream = git.stream({ cwd: tmpdir(), timeout: 300 }, 'log');
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				assert.strictEqual((await stream.next()).value, 'first\n');
+				const closed = stream.return(undefined);
+				void closed;
+				// Outlive the time limit, so the kill lands while nothing awaits the close
+				await new Promise(resolve => setTimeout(resolve, 600));
+			});
+			assert.deepStrictEqual(unhandled, []);
+		});
+
+		test('still rejects with the timeout for a reader still reading', async () => {
+			const git = stalledGit();
+			const chunks: string[] = [];
+
+			await assert.rejects(
+				async () => {
+					for await (const chunk of git.stream({ cwd: tmpdir(), timeout: 300 }, 'log')) {
+						chunks.push(chunk);
+					}
+				},
+				(ex: unknown) =>
+					isCancellationError(ex) && ex.reason === 'timeout' && ex.original instanceof CancelledRunError,
+			);
+			assert.deepStrictEqual(chunks, ['first\n']);
+		});
+	});
+
+	suite('a process that exits with a git error after its reader left', () => {
+		function failingGit(): Git {
+			const script =
+				"process.stdout.write('first\\n'); setTimeout(() => { process.stderr.write('fatal: boom'); process.exit(3); }, 100)";
+			const spawner: ProcessSpawner = (_command, _args, options) => spawn(execPath, nodeArgs(script), options);
+			return new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+		}
+
+		const isBoom = (ex: unknown) => ex instanceof GitError && ex.exitCode === 3 && ex.stderr === 'fatal: boom';
+
+		test('fails a reader that breaks out of the stream itself', async () => {
+			const git = failingGit();
+
+			await assert.rejects(async () => {
+				for await (const chunk of git.stream({ cwd: tmpdir() }, 'log')) {
+					assert.strictEqual(chunk, 'first\n');
+					break;
+				}
+			}, isBoom);
+		});
+
+		test('leaves nothing unhandled when a disposer closes it without waiting, as the providers do', async () => {
+			const git = failingGit();
+			const stream = git.stream({ cwd: tmpdir() }, 'log');
+			let closeError: unknown;
+
+			const unhandled = await unhandledRejectionsDuring(async () => {
+				assert.strictEqual((await stream.next()).value, 'first\n');
+				void stream.return(undefined).catch((ex: unknown) => {
+					closeError = ex;
+				});
+				// Outlive the process's exit, so the error lands while nothing awaits the close
+				await new Promise(resolve => setTimeout(resolve, 500));
+			});
+			assert.ok(isBoom(closeError), 'the close still carries the git error');
+			assert.deepStrictEqual(unhandled, []);
+		});
+	});
+
+	test('still hands over everything when the process ends normally', async () => {
+		const spawner: ProcessSpawner = (_command, _args, options) =>
+			spawn(execPath, nodeArgs("process.stdout.write('a'); process.stdout.write('b')"), options);
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }), { spawn: spawner });
+		const controller = new AbortController();
+
+		const chunks: string[] = [];
+		for await (const chunk of git.stream({ cwd: tmpdir(), cancellation: controller.signal }, 'log')) {
+			chunks.push(chunk);
+		}
+		assert.strictEqual(chunks.join(''), 'ab');
+	});
+});
+
 suite('Git locator failure', () => {
 	function flakyLocator(): { locator: () => Promise<{ path: string; version: string }>; calls: () => number } {
 		let calls = 0;
@@ -1498,20 +1978,6 @@ suite('Git locator failure', () => {
 			},
 			calls: () => calls,
 		};
-	}
-
-	async function withTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
-		let timer: NodeJS.Timeout | undefined;
-		try {
-			return await Promise.race([
-				promise,
-				new Promise<never>((_, reject) => {
-					timer = setTimeout(() => reject(new Error(message)), 5000);
-				}),
-			]);
-		} finally {
-			clearTimeout(timer);
-		}
 	}
 
 	test('retries the locator after a failure instead of memoizing the rejection', async () => {
@@ -1546,5 +2012,103 @@ suite('Git locator failure', () => {
 			'identical run hung on an abandoned pending command',
 		);
 		assert.ok(result.stdout.startsWith('git version'));
+	});
+});
+
+// On Windows, Git for Windows' `cmd\git.exe` is a launcher whose child, the real git, holds its pipes; a kill that
+// misses that child leaves these hanging instead of settling
+suite('Git killed while waiting on a remote that never answers', () => {
+	const sockets = new Set<Socket>();
+	const server = createServer(socket => {
+		socket.on('error', () => {});
+		sockets.add(socket);
+		socket.once('close', () => sockets.delete(socket));
+	});
+	let url: string;
+	// Empty until set up, so a failed setup leaves nothing for the teardown to remove
+	let cwd = '';
+
+	suiteSetup(async () => {
+		await new Promise<void>((resolve, reject) => {
+			server.once('error', reject);
+			server.listen(0, '127.0.0.1', () => resolve());
+		});
+		const address = server.address();
+		assert.ok(address != null && typeof address === 'object');
+		url = `git://127.0.0.1:${address.port}/repo`;
+		cwd = await mkdtemp(join(tmpdir(), 'gitlens-exec-test-'));
+	});
+
+	suiteTeardown(async () => {
+		for (const socket of sockets) {
+			socket.destroy();
+		}
+		await new Promise<void>(resolve => server.close(() => resolve()));
+		if (cwd) {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
+	test('runSpawn rejects as a timeout', async () => {
+		await assert.rejects(
+			withTimeout(runSpawn('git', ['ls-remote', url], 'utf8', { timeout: 200 }), 'runSpawn never settled'),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'timeout',
+		);
+	});
+
+	test('runSpawn rejects as aborted', async () => {
+		const controller = new AbortController();
+		const promise = runSpawn('git', ['ls-remote', url], 'utf8', { cancellation: controller.signal });
+		setTimeout(() => controller.abort(), 200);
+		await assert.rejects(
+			withTimeout(promise, 'runSpawn never settled'),
+			(ex: unknown) => ex instanceof CancelledRunError && ex.reason === 'aborted',
+		);
+	});
+
+	test('Git.run rejects as a timeout cancellation', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		await assert.rejects(
+			withTimeout(git.run({ cwd: cwd, timeout: 200 }, 'ls-remote', url), 'Git.run never settled'),
+			(ex: unknown) =>
+				isCancellationError(ex) && ex.reason === 'timeout' && ex.original instanceof CancelledRunError,
+		);
+	});
+
+	test('Git.stream rejects as a timeout cancellation', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		await assert.rejects(
+			withTimeout(
+				(async () => {
+					for await (const _chunk of git.stream({ cwd: cwd, timeout: 200 }, 'ls-remote', url)) {
+						// drain
+					}
+				})(),
+				'Git.stream never settled',
+			),
+			(ex: unknown) =>
+				isCancellationError(ex) && ex.reason === 'timeout' && ex.original instanceof CancelledRunError,
+		);
+	});
+
+	test('Git.stream rejects as an aborted cancellation', async () => {
+		const git = new Git(async () => ({ path: 'git', version: '2.40.0' }));
+		const controller = new AbortController();
+		setTimeout(() => controller.abort(), 200);
+		await assert.rejects(
+			withTimeout(
+				(async () => {
+					for await (const _chunk of git.stream(
+						{ cwd: cwd, cancellation: controller.signal },
+						'ls-remote',
+						url,
+					)) {
+						// drain
+					}
+				})(),
+				'Git.stream never settled',
+			),
+			(ex: unknown) => isCancellationError(ex) && ex.reason === 'aborted',
+		);
 	});
 });

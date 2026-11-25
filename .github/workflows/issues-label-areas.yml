@@ -1,0 +1,84 @@
+name: Label Issue Areas
+
+on:
+    issues:
+        types: [opened]
+    workflow_dispatch:
+        inputs:
+            issues:
+                description: 'Issue numbers (comma or space separated), or "open" for every open issue'
+                required: true
+                type: string
+            dry_run:
+                description: 'Log the labels without adding them'
+                required: false
+                default: true
+                type: boolean
+
+jobs:
+    label-areas:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            issues: write
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  sparse-checkout: scripts/issues/area-signals.mjs
+                  sparse-checkout-cone-mode: false
+            - uses: actions/github-script@v9
+              with:
+                  script: |
+                      const { matchAreaSignals } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/issues/area-signals.mjs`);
+                      const { owner, repo } = context.repo;
+
+                      let issues;
+                      let dryRun = false;
+                      if (context.eventName === 'workflow_dispatch') {
+                        const input = context.payload.inputs.issues.trim();
+                        dryRun = String(context.payload.inputs.dry_run) === 'true';
+
+                        if (input === 'open') {
+                          issues = await github.paginate(github.rest.issues.listForRepo, { owner, repo, state: 'open', per_page: 100 });
+                        } else {
+                          const tokens = input.split(/[\s,]+/).filter(Boolean).map(token => token.replace(/^#/, ''));
+                          if (tokens.length === 0 || tokens.some(token => !/^[1-9]\d*$/.test(token))) {
+                            core.setFailed(`Invalid issues input: ${input}`);
+                            return;
+                          }
+
+                          const numbers = tokens.map(Number);
+
+                          issues = [];
+                          for (const issue_number of numbers) {
+                            issues.push((await github.rest.issues.get({ owner, repo, issue_number })).data);
+                          }
+                        }
+                      } else {
+                        issues = [context.payload.issue];
+                      }
+
+                      issues = issues.filter(issue => issue.pull_request == null);
+
+                      let labeled = 0;
+                      for (const issue of issues) {
+                        const existing = new Set(issue.labels.map(label => (typeof label === 'string' ? label : label.name)));
+                        let signals = matchAreaSignals(`${issue.title}\n${issue.body ?? ''}`).filter(signal => !existing.has(signal.label));
+                        if (signals.length === 0) continue;
+
+                        if (context.eventName === 'workflow_dispatch') {
+                          const events = await github.paginate(github.rest.issues.listEvents, { owner, repo, issue_number: issue.number, per_page: 100 });
+                          const removed = new Set(events.filter(event => event.event === 'unlabeled').map(event => event.label?.name));
+                          signals = signals.filter(signal => !removed.has(signal.label));
+                          if (signals.length === 0) continue;
+                        }
+
+                        labeled++;
+                        const labels = signals.map(signal => signal.label);
+                        core.info(`#${issue.number} +${labels.join(' +')} [${signals.flatMap(signal => signal.matches).join(' | ')}]`);
+                        if (dryRun) continue;
+
+                        await github.rest.issues.addLabels({ owner, repo, issue_number: issue.number, labels });
+                      }
+
+                      core.info(`${dryRun ? 'Would label' : 'Labeled'} ${labeled} of ${issues.length} issue(s)`);

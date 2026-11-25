@@ -1,3 +1,4 @@
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import { trimTrailingSlashes } from '@gitlens/utils/path.js';
 import type { IssueEtagFields } from '../reads/etag.js';
 import type { ProviderAccount, ProviderIssue, ProviderRequestFunction } from './models.js';
@@ -67,7 +68,7 @@ function toAccount(member: JiraIssueMemberResponse | null | undefined): Provider
 	};
 }
 
-function toStatusCategory(key: string): 'TO_DO' | 'IN_PROGRESS' | 'DONE' {
+export function toStatusCategory(key: string): 'TO_DO' | 'IN_PROGRESS' | 'DONE' {
 	switch (key.toLowerCase()) {
 		case 'new':
 			return 'TO_DO';
@@ -89,7 +90,7 @@ function toJiraIssueState(status: JiraIssueStatusResponse): NonNullable<Provider
 	};
 }
 
-function toIssueWebUrl(resourceUrl: string, key: string): string {
+export function toIssueWebUrl(resourceUrl: string, key: string): string {
 	const url = new URL(resourceUrl);
 	url.pathname = `${trimTrailingSlashes(url.pathname)}/browse/${encodeURIComponent(key)}`;
 	url.search = '';
@@ -102,7 +103,7 @@ function fromJiraIssueByKey(issue: JiraIssueByKeyResponse, resourceId: string, r
 	const project = issue.fields.project;
 	const status = issue.fields.status;
 
-	return {
+	const result: ProviderIssue = {
 		id: issue.id,
 		commentCount: issue.fields.comment?.total ?? issue.fields.comment?.comments?.length ?? null,
 		number: issue.key,
@@ -135,6 +136,7 @@ function fromJiraIssueByKey(issue: JiraIssueByKeyResponse, resourceId: string, r
 			name: label,
 		})),
 	};
+	return copyReadProvenance(result, issue);
 }
 
 /**

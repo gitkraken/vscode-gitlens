@@ -3149,7 +3149,10 @@ export class GlGraphWrapper extends SignalWatcher(LitElement) {
 	 *  omitted ids so the component's throttled retry asks for them again. */
 	private onGraphMissingRefsMetadata(event: CustomEvent<GraphMissingRefsMetadata>) {
 		const services = this.services;
-		if (services == null) return;
+		if (services == null) {
+			this.graph?.settleMissingRefsMetadata(event.detail, undefined);
+			return;
+		}
 
 		const metadata = event.detail;
 		fireAndForget(

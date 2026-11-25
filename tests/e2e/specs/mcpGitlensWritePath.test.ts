@@ -38,6 +38,7 @@ import path from 'node:path';
 import { MaxTimeout } from '../baseTest.js';
 import type { McpMessage } from '../fixtures/mcp.js';
 import { expect, mcpTest as test } from '../fixtures/mcp.js';
+import { quickInputSelector } from '../pageObjects/components/quickPick.js';
 
 type ToolResult = { content?: { text?: string }[]; isError?: boolean };
 type RefusalPayload = { message?: string; error?: boolean };
@@ -177,7 +178,7 @@ test.describe('MCP — GitLens write path (validation and failure)', () => {
 		// A wizard that escaped without settling its deferred would leave a picker on screen and the
 		// call unanswered; assert the UI is clear so a future regression names that rather than showing
 		// up as an unrelated failure in the next spec.
-		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
+		await expect(vscode.page.locator(quickInputSelector)).toBeHidden({ timeout: MaxTimeout });
 		expect(localBranches(workspacePath), 'a failed start-work must not leave a branch behind').toEqual(before);
 	});
 
@@ -193,7 +194,7 @@ test.describe('MCP — GitLens write path (validation and failure)', () => {
 
 		expectRelayedRefusal(response);
 
-		await expect(vscode.page.locator('.quick-input-widget')).toBeHidden({ timeout: MaxTimeout });
+		await expect(vscode.page.locator(quickInputSelector)).toBeHidden({ timeout: MaxTimeout });
 		expect(
 			localBranches(workspacePath),
 			'a failed start-review must not leave a branch or worktree behind',

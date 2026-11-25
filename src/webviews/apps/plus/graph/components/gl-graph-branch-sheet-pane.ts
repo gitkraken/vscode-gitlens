@@ -1080,7 +1080,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 				<div class="relationship-card__foot">
 					<div class="relationship-card__actions">
 						${
-							landed
+							landed || this._mergeTargetLoading
 								? nothing
 								: html`<gl-button appearance="secondary" href=${publish.href}
 										>${publish.label}</gl-button
@@ -1093,8 +1093,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 
 		let status: string;
 		let actions: TemplateResult | typeof nothing;
-		if (upstream.missing && landed) {
-			// The merge-target card's Delete is the single destructive action for a landed branch
+		if (upstream.missing && (landed || this._mergeTargetLoading)) {
 			status = l10n.t('Missing from the remote');
 			actions = nothing;
 		} else if (upstream.missing && mergeTarget?.successor != null) {
@@ -1136,7 +1135,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 						? html`<gl-button appearance="secondary" @click=${() => this.pull(checkoutPath)}
 									>${l10n.t('Pull')}</gl-button
 								>${
-									queued
+									queued || landed
 										? nothing
 										: html`<gl-button
 												appearance="secondary"
@@ -1319,9 +1318,7 @@ export class GlGraphBranchSheetPane extends SignalWatcher(LitElement) {
 		const landed = mergeTarget?.landed != null;
 		const successor = mergeTarget?.successor;
 
-		// Switch — a local branch not checked out anywhere. A branch on a (even closed) worktree
-		// can't be switched to; its Worktree row below is the way "onto" it.
-		if (!checkedOut && worktree == null) {
+		if (!checkedOut && worktree == null && !landed) {
 			steps.push({
 				icon: 'gl-switch',
 				label: l10n.t('Switch to {branch}', { branch: branch.name }),

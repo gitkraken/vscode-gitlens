@@ -30,6 +30,11 @@ import { IntegrationReadUnavailableError } from '../errors.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
 import type { PullRequestEtagFields, PullRequestEtagInclude } from '../reads/etag.js';
+import {
+	BitbucketCommitLinksAppMissingError,
+	BitbucketCommitNotFoundError,
+	BitbucketCommitPullRequestsUnindexedError,
+} from './bitbucket/bitbucket.js';
 import { getBitbucketPullRequestIdentityFromMaybeUrl } from './bitbucket/bitbucket.utils.js';
 import type { BitbucketRepositoryDescriptor, BitbucketWorkspaceDescriptor } from './bitbucket/models.js';
 import { bitbucketEtagFieldsMaxIds, toBitbucketPullRequestEtagFields } from './bitbucket/models.js';
@@ -294,18 +299,96 @@ export class BitbucketIntegration extends GitHostIntegration<
 		);
 	}
 
-	protected override async getProviderPullRequestForCommit(
+	protected override async getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: { owner: string; repo: string; project?: string },
+		shas: readonly string[],
+		options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const slots = await super.getProviderPullRequestsForCommits(session, repo, shas, options, cancellation);
+		if (slots == null) return undefined;
+
+		const api = await this.authenticationService.apis.bitbucket;
+		const missing = slots.find(
+			(slot): slot is PromiseRejectedResult & { reason: BitbucketCommitLinksAppMissingError } =>
+				slot.status === 'rejected' && slot.reason instanceof BitbucketCommitLinksAppMissingError,
+		);
+		if (missing != null) {
+			api?.notifyCommitLinksAppMissing(repo.owner, missing.reason.commitUrl);
+		}
+
+		const indexed =
+			slots.some(slot => slot.status === 'fulfilled') ||
+			api?.isRepositoryIndexed(toTokenWithInfo(this.id, session), repo.owner, repo.repo) === true;
+		if (!indexed) return slots;
+
+		return slots.map((slot): PromiseSettledResult<PullRequestShape | undefined> =>
+			slot.status === 'rejected' && slot.reason instanceof BitbucketCommitNotFoundError
+				? { status: 'fulfilled', value: undefined }
+				: slot,
+		);
+	}
+
+	protected override getCommitLookupBackoff(
+		ex: unknown,
+	): { scope: 'repository' | 'commit'; until?: number } | undefined {
+		if (
+			ex instanceof BitbucketCommitLinksAppMissingError ||
+			ex instanceof BitbucketCommitPullRequestsUnindexedError
+		) {
+			return { scope: 'repository' };
+		}
+
+		return super.getCommitLookupBackoff(ex);
+	}
+
+	protected override stopsCommitFanOut(reason: unknown, answered: boolean): boolean {
+		return (
+			reason instanceof BitbucketCommitLinksAppMissingError ||
+			reason instanceof BitbucketCommitPullRequestsUnindexedError ||
+			super.stopsCommitFanOut(reason, answered)
+		);
+	}
+
+	protected override getProviderPullRequestForCommitInBatch(
+		session: ProviderAuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined> {
+		return this.readPullRequestForCommit(session, repo, rev, true, cancellation);
+	}
+
+	protected override getProviderPullRequestForCommit(
 		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.bitbucket)?.getPullRequestForCommit(
+		return this.readPullRequestForCommit(session, repo, rev, false);
+	}
+
+	private async readPullRequestForCommit(
+		session: ProviderAuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
+		deferFailure: boolean,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined> {
+		const api = await this.authenticationService.apis.bitbucket;
+		if (api == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
+		}
+
+		return api.getPullRequestForCommit(
 			this,
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			rev,
 			this.apiBaseUrl,
+			{ deferFailure: deferFailure },
+			cancellation,
 		);
 	}
 

@@ -1,9 +1,13 @@
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { Endpoints } from '@octokit/types';
 import { GitFileIndexStatus } from '@gitlens/git/models/fileStatus.js';
 import type { IssueLabel, IssueProjection } from '@gitlens/git/models/issue.js';
 import { Issue, RepositoryAccessLevel } from '@gitlens/git/models/issue.js';
 import type { IssueMilestone } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
+	PullRequestCheckRun,
+	PullRequestCheckRunConclusion,
+	PullRequestCheckRunStatus,
 	PullRequestMember,
 	PullRequestMergeQueueEntry,
 	PullRequestMergeQueueRemoval,
@@ -304,8 +308,10 @@ export interface GitHubPullRequest extends GitHubPullRequestLite {
 		totalCount: number;
 		nodes: {
 			commit: {
+				id?: string;
 				statusCheckRollup: {
 					state: 'SUCCESS' | 'FAILURE' | 'PENDING' | 'EXPECTED' | 'ERROR';
+					contexts?: GitHubCheckContexts;
 				} | null;
 			};
 		}[];
@@ -333,10 +339,19 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	mergeable?: GitHubPullRequestMergeableState | null;
 	/** Only with `reviewDecision`. `null` on a repository that requires no review. */
 	reviewDecision?: GitHubPullRequestReviewDecision | null;
-	/** Only with `checks`. */
 	commits?: {
-		nodes: { commit: { statusCheckRollup: { state: GitHubPullRequestStatusCheckRollupState } | null } }[];
+		nodes: {
+			commit: {
+				id?: string;
+				statusCheckRollup: {
+					state?: GitHubPullRequestStatusCheckRollupState;
+					contexts?: GitHubCheckContexts<GitHubCheckContextEtagNode>;
+				} | null;
+			};
+		}[];
 	};
+	/** Every page of the head's checks, set by `GitHubApi.getPullRequestsEtagFieldsBatch` when it reads them. */
+	checkRuns?: GitHubCheckContextsRead<GitHubCheckContextEtagNode>;
 	/** Selected when the read selects merge-queue data, like the full read's. `null` when the pull request isn't queued. */
 	mergeQueueEntry?: Pick<GitHubMergeQueueEntry, 'state' | 'enqueuedAt'> | null;
 	/** Selected when the read selects merge-queue data, exactly as the full read selects it. */
@@ -347,6 +362,67 @@ export interface GitHubPullRequestEtagNode extends Pick<
 	 */
 	isMergeQueueEnabled?: boolean;
 }
+
+export type GitHubCheckStatusState = 'REQUESTED' | 'QUEUED' | 'IN_PROGRESS' | 'COMPLETED' | 'WAITING' | 'PENDING';
+export type GitHubCheckConclusionState =
+	| 'ACTION_REQUIRED'
+	| 'TIMED_OUT'
+	| 'CANCELLED'
+	| 'FAILURE'
+	| 'SUCCESS'
+	| 'NEUTRAL'
+	| 'SKIPPED'
+	| 'STARTUP_FAILURE'
+	| 'STALE';
+export type GitHubStatusState = 'EXPECTED' | 'ERROR' | 'FAILURE' | 'PENDING' | 'SUCCESS';
+
+export interface GitHubCheckRunContext {
+	__typename: 'CheckRun';
+	id: string;
+	databaseId: number | null;
+	name: string;
+	status: GitHubCheckStatusState;
+	conclusion: GitHubCheckConclusionState | null;
+	detailsUrl: string | null;
+	url: string | null;
+	title: string | null;
+	startedAt: string | null;
+	completedAt: string | null;
+	isRequired?: boolean;
+	checkSuite: {
+		app: { slug: string } | null;
+		workflowRun: { workflow: { name: string } | null } | null;
+	} | null;
+}
+
+export interface GitHubStatusContext {
+	__typename: 'StatusContext';
+	id: string;
+	context: string;
+	state: GitHubStatusState;
+	targetUrl: string | null;
+	createdAt: string;
+	isRequired?: boolean;
+}
+
+export type GitHubCheckContext = GitHubCheckRunContext | GitHubStatusContext;
+
+export interface GitHubCheckContexts<N extends GitHubCheckContextEtagNode = GitHubCheckContext> {
+	pageInfo: { hasNextPage: boolean; endCursor: string | null };
+	nodes: (N | null)[] | null;
+}
+
+/** A head's checks, read across every page. `truncated` means the head has checks `contexts` lacks. */
+export interface GitHubCheckContextsRead<N extends GitHubCheckContextEtagNode = GitHubCheckContext> {
+	readonly contexts: readonly (N | null)[];
+	readonly truncated: boolean;
+}
+
+export type GitHubCheckContextEtagNode =
+	| (Pick<GitHubCheckRunContext, '__typename' | 'id' | 'databaseId' | 'name' | 'status' | 'conclusion'> & {
+			checkSuite: { app: { slug: string } | null } | null;
+	  })
+	| Pick<GitHubStatusContext, '__typename' | 'id' | 'context' | 'state'>;
 
 /**
  * An input beyond an issue's lifecycle fields that `GitHubApi.getIssuesEtagFieldsBatch` can select. Mirrors the
@@ -389,7 +465,7 @@ export function fromGitHubPullRequestLite(
 	provider: Provider,
 	projection?: PullRequestProjection,
 ): PullRequest {
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromGitHubMemberOrGhost(pr.author),
 		String(pr.number),
@@ -460,6 +536,7 @@ export function fromGitHubPullRequestLite(
 		pr.isMergeQueueEnabled,
 		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
 	);
+	return copyReadProvenance(result, pr);
 }
 
 /** `undefined` only for a node from a selection that left the milestone out, which no fragment does today. */
@@ -645,6 +722,7 @@ export function fromGitHubPullRequest(
 	pr: GitHubPullRequest,
 	provider: Provider,
 	projection?: PullRequestProjection,
+	checkRuns?: GitHubCheckContextsRead,
 ): PullRequest {
 	// `latestReviews` is capped, so keep the viewer's own review even when it falls outside that window, deduped
 	// by review id since the two selections overlap. Unsubmitted drafts are dropped from the union rather than
@@ -659,7 +737,7 @@ export function fromGitHubPullRequest(
 			: []),
 	].filter(review => review.state !== 'PENDING');
 
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromGitHubMemberOrGhost(pr.author),
 		String(pr.number),
@@ -755,11 +833,179 @@ export function fromGitHubPullRequest(
 		fromGitHubPullRequestMergeQueueEntry(pr),
 		pr.isMergeQueueEnabled,
 		fromGitHubMergeQueueRemoval(pr.mergeQueueEvents),
+		checkRuns?.contexts.map(fromGitHubCheckContext).filter((run): run is PullRequestCheckRun => run != null),
+		checkRuns?.truncated ? true : undefined,
+	);
+	return copyReadProvenance(result, pr);
+}
+
+/** What a check run's opaque {@link PullRequestCheckRun.id} names. */
+export type GitHubCheckRunRef =
+	/** A GitHub Actions job, by its job id (the check run's `databaseId`). */
+	| { readonly kind: 'actions-job'; readonly jobId: number }
+	/** Any other check run, by its node id. */
+	| { readonly kind: 'check-run'; readonly nodeId: string }
+	/** A commit status, by its node id. */
+	| { readonly kind: 'status'; readonly nodeId: string };
+
+export function encodeGitHubCheckRunId(ref: GitHubCheckRunRef): string {
+	switch (ref.kind) {
+		case 'actions-job':
+			return `a:${ref.jobId}`;
+		case 'check-run':
+			return `c:${ref.nodeId}`;
+		case 'status':
+			return `s:${ref.nodeId}`;
+	}
+}
+
+/** `undefined` for an id {@link encodeGitHubCheckRunId} didn't make. */
+export function decodeGitHubCheckRunId(id: string): GitHubCheckRunRef | undefined {
+	const value = id.slice(2);
+	if (value.length === 0) return undefined;
+
+	switch (id.slice(0, 2)) {
+		case 'a:': {
+			const jobId = Number(value);
+			return /^\d+$/.test(value) && Number.isSafeInteger(jobId)
+				? { kind: 'actions-job', jobId: jobId }
+				: undefined;
+		}
+		case 'c:':
+			return { kind: 'check-run', nodeId: value };
+		case 's:':
+			return { kind: 'status', nodeId: value };
+		default:
+			return undefined;
+	}
+}
+
+/** An unknown status reads as `pending`, so a state GitHub adds later never fails the row. */
+export function fromGitHubCheckStatusState(status: GitHubCheckStatusState): PullRequestCheckRunStatus {
+	switch (status) {
+		case 'REQUESTED':
+			return 'requested';
+		case 'QUEUED':
+			return 'queued';
+		case 'IN_PROGRESS':
+			return 'in-progress';
+		case 'COMPLETED':
+			return 'completed';
+		case 'WAITING':
+			return 'waiting';
+		default:
+			return 'pending';
+	}
+}
+
+/** An unknown conclusion reads as none, so a value GitHub adds later never fails the row. */
+export function fromGitHubCheckConclusionState(
+	conclusion: GitHubCheckConclusionState | null | undefined,
+): PullRequestCheckRunConclusion | undefined {
+	switch (conclusion) {
+		case 'ACTION_REQUIRED':
+			return 'action-required';
+		case 'TIMED_OUT':
+			return 'timed-out';
+		case 'CANCELLED':
+			return 'cancelled';
+		case 'FAILURE':
+			return 'failure';
+		case 'SUCCESS':
+			return 'success';
+		case 'NEUTRAL':
+			return 'neutral';
+		case 'SKIPPED':
+			return 'skipped';
+		case 'STARTUP_FAILURE':
+			return 'startup-failure';
+		case 'STALE':
+			return 'stale';
+		default:
+			return undefined;
+	}
+}
+
+export function fromGitHubStatusState(state: GitHubStatusState): {
+	status: PullRequestCheckRunStatus;
+	conclusion?: PullRequestCheckRunConclusion;
+} {
+	switch (state) {
+		case 'SUCCESS':
+			return { status: 'completed', conclusion: 'success' };
+		case 'FAILURE':
+			return { status: 'completed', conclusion: 'failure' };
+		case 'ERROR':
+			return { status: 'completed', conclusion: 'error' };
+		default:
+			return { status: 'pending' };
+	}
+}
+
+/**
+ * A check context's kind, name and normalized state: what both a full row's {@link PullRequestCheckRun} and the etag's
+ * cheap check read, so the two agree. `undefined` for a context type this doesn't know.
+ */
+export function fromGitHubCheckContextState(
+	context: GitHubCheckContextEtagNode | null,
+): Pick<PullRequestCheckRun, 'kind' | 'name' | 'status' | 'conclusion'> | undefined {
+	switch (context?.__typename) {
+		case 'CheckRun':
+			return {
+				kind: 'check-run',
+				name: context.name,
+				status: fromGitHubCheckStatusState(context.status),
+				conclusion: fromGitHubCheckConclusionState(context.conclusion),
+			};
+		case 'StatusContext':
+			return { kind: 'status', name: context.context, ...fromGitHubStatusState(context.state) };
+		default:
+			return undefined;
+	}
+}
+
+function gitHubActionsJobId(context: Extract<GitHubCheckContextEtagNode, { __typename: 'CheckRun' }>): number | null {
+	return context.checkSuite?.app?.slug === 'github-actions' ? context.databaseId : null;
+}
+
+export function toGitHubCheckRunId(context: GitHubCheckContextEtagNode): string {
+	if (context.__typename === 'StatusContext') return encodeGitHubCheckRunId({ kind: 'status', nodeId: context.id });
+
+	const jobId = gitHubActionsJobId(context);
+	return encodeGitHubCheckRunId(
+		jobId != null ? { kind: 'actions-job', jobId: jobId } : { kind: 'check-run', nodeId: context.id },
 	);
 }
 
+export function fromGitHubCheckContext(context: GitHubCheckContext | null): PullRequestCheckRun | undefined {
+	const state = fromGitHubCheckContextState(context);
+	if (state == null || context == null) return undefined;
+
+	if (context.__typename === 'StatusContext') {
+		return {
+			...state,
+			id: toGitHubCheckRunId(context),
+			url: context.targetUrl ?? undefined,
+			required: context.isRequired,
+			startedAt: new Date(context.createdAt),
+			hasLog: false,
+		};
+	}
+
+	return {
+		...state,
+		id: toGitHubCheckRunId(context),
+		workflowName: context.checkSuite?.workflowRun?.workflow?.name ?? undefined,
+		url: context.detailsUrl ?? context.url ?? undefined,
+		required: context.isRequired,
+		startedAt: context.startedAt != null ? new Date(context.startedAt) : undefined,
+		completedAt: context.completedAt != null ? new Date(context.completedAt) : undefined,
+		hasLog: gitHubActionsJobId(context) != null || context.title != null,
+	};
+}
+
 export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projection?: IssueProjection): Issue {
-	return new Issue(
+	const result = new Issue(
 		{
 			id: provider.id,
 			name: provider.name,
@@ -819,6 +1065,7 @@ export function fromGitHubIssue(value: GitHubIssue, provider: Provider, projecti
 		undefined, // syncedWith
 		fromGitHubMilestone(value.milestone),
 	);
+	return copyReadProvenance(result, value);
 }
 
 function fromGitHubViewerPermissionToAccessLevel(

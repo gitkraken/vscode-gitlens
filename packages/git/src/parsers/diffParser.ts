@@ -1,5 +1,6 @@
 import { normalizePath } from '@gitlens/utils/path.js';
 import { maybeStopWatch } from '@gitlens/utils/stopwatch.js';
+import { readCQuotedString, unquoteCString } from '@gitlens/utils/string.js';
 import { fileUri, joinUriPath } from '@gitlens/utils/uri.js';
 import type {
 	GitDiffShortStat,
@@ -37,6 +38,174 @@ const diffGitLookaheadRegex = /^(?=diff --git )/m;
 // and at ` (XX%)` otherwise — lazy `(.+?)` would push content into the suffix group.
 const diffSummaryRegex =
 	/(rename|copy) (.*?)\{?([^{]+?)\s+=>\s+([^}]+)\}?(.*?)(?: \(\d+%\))|(create|delete) mode \d+ (.+)|mode change (\d+) => (\d+) (.+)/;
+
+/**
+ * Reads the path a header line names after its fixed lead-in, without the `a/` or `b/` prefix expected of it. A quoted
+ * name carries the prefix inside its quotes. Git ends an unquoted `---` or `+++` name that holds a space with a tab,
+ * which a name can't hold itself
+ */
+function readHeaderPath(rest: string, prefix: string): string | undefined {
+	if (rest.startsWith('"')) {
+		const quoted = readCQuotedString(rest, 0);
+		if (quoted == null || !quoted.value.startsWith(prefix)) return undefined;
+
+		return quoted.value.substring(prefix.length);
+	}
+
+	if (!rest.startsWith(prefix)) return undefined;
+
+	return rest.endsWith('\t') ? rest.substring(prefix.length, rest.length - 1) : rest.substring(prefix.length);
+}
+
+/**
+ * The new-side path of a `diff --git` line (without its lead-in) when no other line names it, so both halves are the
+ * same path: split where they match, since a path can hold ` b/` itself
+ */
+function readGitLinePath(rest: string): string | undefined {
+	if (rest.startsWith('"')) {
+		const quoted = readCQuotedString(rest, 0);
+		if (quoted == null || rest[quoted.end] !== ' ') return undefined;
+
+		return readHeaderPath(rest.substring(quoted.end + 1), 'b/');
+	}
+
+	// `a/<path> b/<path>`
+	const length = rest.length - 5;
+	if (length < 0 || length % 2 !== 0 || !rest.startsWith('a/')) return undefined;
+
+	const half = length / 2;
+	const path = rest.substring(2, 2 + half);
+	return rest.startsWith(' b/', 2 + half) && rest.endsWith(path) ? path : undefined;
+}
+
+/**
+ * Reads the paths of a file's diff section, which starts at its `diff --git` line, from the lines git writes before the
+ * first hunk. The `diff --git` line alone can't be split reliably (a path can hold ` b/`, and git quotes a path with a
+ * `"`, `\`, tab or newline), so it is the last resort: the paths come from `+++`, `---` and the `rename`/`copy` lines.
+ * A path comes out as `git diff --numstat -z` names it.
+ * @returns `originalPath` is `path` for a file that wasn't renamed or copied
+ */
+export function parseDiffFilePaths(section: string): { path: string; originalPath: string } | undefined {
+	let gitLine: string | undefined;
+	let newName: string | undefined;
+	let oldName: string | undefined;
+	let renamedTo: string | undefined;
+	let renamedFrom: string | undefined;
+
+	for (let start = 0; start < section.length;) {
+		let end = section.indexOf('\n', start);
+		if (end === -1) {
+			end = section.length;
+		}
+		const lineStart = start;
+		start = end + 1;
+
+		switch (section.charCodeAt(lineStart)) {
+			case 0x2b /* + */:
+				if (section.startsWith('+++ ', lineStart)) {
+					const rest = section.substring(lineStart + 4, end);
+					if (rest !== '/dev/null') {
+						newName = readHeaderPath(rest, 'b/');
+					}
+				}
+				break;
+			case 0x2d /* - */:
+				if (section.startsWith('--- ', lineStart)) {
+					const rest = section.substring(lineStart + 4, end);
+					if (rest !== '/dev/null') {
+						oldName = readHeaderPath(rest, 'a/');
+					}
+				}
+				break;
+			case 0x72 /* r */:
+				if (section.startsWith('rename to ', lineStart)) {
+					renamedTo = readHeaderPath(section.substring(lineStart + 10, end), '');
+				} else if (section.startsWith('rename from ', lineStart)) {
+					renamedFrom = readHeaderPath(section.substring(lineStart + 12, end), '');
+				}
+				break;
+			case 0x63 /* c */:
+				if (section.startsWith('copy to ', lineStart)) {
+					renamedTo = readHeaderPath(section.substring(lineStart + 8, end), '');
+				} else if (section.startsWith('copy from ', lineStart)) {
+					renamedFrom = readHeaderPath(section.substring(lineStart + 10, end), '');
+				}
+				break;
+			case 0x64 /* d */:
+				if (section.startsWith('diff --git ', lineStart)) {
+					gitLine ??= section.substring(lineStart + 11, end);
+				}
+				break;
+			case 0x40 /* @ */:
+				if (section.startsWith('@@ ', lineStart)) {
+					start = section.length;
+				}
+				break;
+			case 0x47 /* G */:
+				if (end - lineStart === 16 && section.startsWith('GIT binary patch', lineStart)) {
+					start = section.length;
+				}
+				break;
+		}
+	}
+
+	const path = newName ?? renamedTo ?? oldName ?? (gitLine != null ? readGitLinePath(gitLine) : undefined);
+	if (path != null) return { path: path, originalPath: renamedFrom ?? oldName ?? path };
+
+	// Nothing but a `diff --git` line to go on, which a rename may have, so split it as it always was
+	const match = gitLine != null ? diffRegex.exec(`diff --git ${gitLine}`) : null;
+	return match != null ? { path: match[2], originalPath: match[1] } : undefined;
+}
+
+/**
+ * Reads a `--numstat` or `--summary` rename or copy in which git quoted a name. Git then drops the compact
+ * `prefix/{old => new}/suffix` form for `old => new`, each side quoted on its own only when it needs it; a name git
+ * didn't quote holds no `"`. A lone quoted name, as in a numstat line that isn't a rename, comes back as `path` alone.
+ * Names come back as git names them, so a `\` in one stays (git quotes every name holding one)
+ */
+export function parseQuotedRenameOrCopyPaths(
+	text: string,
+	stripPercentage: boolean,
+): { path: string; originalPath?: string } | undefined {
+	let from: string;
+	let toStart: number;
+	if (text.startsWith('"')) {
+		const quoted = readCQuotedString(text, 0);
+		if (quoted == null) return undefined;
+
+		// Just one quoted name, as in a numstat line that isn't a rename
+		if (quoted.end === text.length) return { path: quoted.value };
+		if (!text.startsWith(' => ', quoted.end)) return undefined;
+
+		from = quoted.value;
+		toStart = quoted.end + 4;
+	} else {
+		const index = text.indexOf(' => "');
+		if (index === -1) return undefined;
+
+		from = text.substring(0, index).trim();
+		toStart = index + 4;
+	}
+
+	let to: string;
+	if (text[toStart] === '"') {
+		const quoted = readCQuotedString(text, toStart);
+		if (quoted == null) return undefined;
+
+		to = quoted.value;
+	} else {
+		to = text.substring(toStart);
+		if (stripPercentage && to.endsWith('%)')) {
+			const percentPos = to.lastIndexOf(' (');
+			if (percentPos > -1) {
+				to = to.substring(0, percentPos);
+			}
+		}
+		to = to.trim();
+	}
+
+	return { path: to, originalPath: from };
+}
 
 interface ParsedGitDiffFileResult {
 	status: GitFileStatus;
@@ -141,30 +310,27 @@ export function parseGitDiff(data: string, includeRawContent = false): ParsedGit
 	}
 
 	for (const file of files) {
-		const [line] = file.split('\n', 1);
-
-		const match = diffRegex.exec(`diff --git ${line}`);
-		if (match == null) continue;
-
-		const [, originalPath, path] = match;
-
 		// Check for hunks and parse file status and metadata in a single pass
 		const hunkStartIndex = file.indexOf('\n@@ -');
 		const hasHunks = hunkStartIndex !== -1;
+
+		const header = `diff --git ${hasHunks ? file.substring(0, hunkStartIndex) : file}`;
+
+		const paths = parseDiffFilePaths(header);
+		if (paths == null) continue;
+
+		const { path, originalPath } = paths;
 		const { status, metadata } = parseFileStatusAndMetadata(file, originalPath, path, hasHunks);
 
-		let header: string;
 		let rawContent: string | undefined;
 		let hunks: ParsedGitDiffHunk[];
 
 		if (!hasHunks) {
 			// No hunks - file without content changes (renames, mode changes, etc.)
-			header = `diff --git ${file}`;
 			rawContent = includeRawContent ? file : undefined;
 			hunks = [];
 		} else {
-			// Has hunks - extract header and content efficiently
-			header = `diff --git ${file.substring(0, hunkStartIndex)}`;
+			// Has hunks - extract content efficiently
 			const content = file.substring(hunkStartIndex + 1);
 			rawContent = includeRawContent ? content : undefined;
 			hunks = parseGitFileDiff(content, includeRawContent)?.hunks ?? [];
@@ -203,10 +369,7 @@ export async function filterDiffFiles(
 	if (!chunks.length) return diff;
 
 	// Extract path from each chunk's header line
-	const filesWithChunks = chunks.map(chunk => {
-		const match = diffRegex.exec(chunk.split('\n', 1)[0]);
-		return { path: match?.[2] ?? '', chunk: chunk };
-	});
+	const filesWithChunks = chunks.map(chunk => ({ path: parseDiffFilePaths(chunk)?.path ?? '', chunk: chunk }));
 
 	const allPaths = filesWithChunks.map(f => f.path);
 	const includedPaths = await getIncludedPaths(allPaths);
@@ -480,6 +643,18 @@ export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFil
 			line = line.trim();
 			if (!line) continue;
 
+			// A quoted name can hold the `{`, `}` or ` => ` the regex splits the compact form at
+			if (line.startsWith('copy ') && line.includes('"')) {
+				const copied = parseQuotedRenameOrCopyPaths(line.substring(5), true);
+				if (copied != null) {
+					const file = files.get(normalizePath(copied.path));
+					if (file != null) {
+						file.status = 'C';
+					}
+					continue;
+				}
+			}
+
 			const match = diffSummaryRegex.exec(line);
 			if (match == null) continue;
 
@@ -500,7 +675,7 @@ export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFil
 			] = match;
 
 			if (createOrDelete != null) {
-				const file = files.get(normalizePath(createOrDeletePath));
+				const file = files.get(normalizePath(unquoteCString(createOrDeletePath)));
 				if (file != null) {
 					file.status = createOrDelete === 'create' ? 'A' : 'D';
 				}
@@ -515,7 +690,7 @@ export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFil
 				// File-type boundary: 100xxx = regular file, 120000 = symlink, 160000 = gitlink.
 				// Promote to T only when the high two octal digits differ (ignore permission-only changes).
 				if (oldMode.substring(0, 2) !== newMode.substring(0, 2)) {
-					const file = files.get(normalizePath(modeChangePath));
+					const file = files.get(normalizePath(unquoteCString(modeChangePath)));
 					if (file != null) {
 						file.status = 'T';
 					}
@@ -530,6 +705,10 @@ export function parseGitDiffNumStatFiles(data: string, repoPath: string): GitFil
 	return files.size > 0 ? [...files.values()] : undefined;
 }
 
+/**
+ * Parses the output of `git apply --numstat --summary -z`. Unlike `git diff`, `git apply` writes the names of its
+ * summary lines as they are, never C-quoted, so they are read as written
+ */
 export function parseGitApplyFiles(data: string, repoPath: string): GitFileChange[] {
 	using sw = maybeStopWatch('Git.parseApplyFiles', { log: { onlyExit: true, level: 'debug' } });
 	if (!data) {
@@ -549,7 +728,14 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 		line = line.trim();
 		if (!line) continue;
 
-		const [insertions, deletions, path] = line.split('\t');
+		// The name is everything after the second tab: with `-z` it is as it is on disk, so it can hold tabs itself
+		const tab1 = line.indexOf('\t');
+		const tab2 = tab1 === -1 ? -1 : line.indexOf('\t', tab1 + 1);
+		if (tab2 === -1) continue;
+
+		const insertions = line.substring(0, tab1);
+		const deletions = line.substring(tab1 + 1, tab2);
+		const path = line.substring(tab2 + 1);
 		files.set(
 			normalizePath(path),
 			new GitFileChange(repoPath, path, 'M', getUri(path), undefined, undefined, undefined, {
@@ -582,17 +768,20 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 
 		if (renameOrCopy != null) {
 			// Reconstruct both sides: prefix + leaf + suffix, handling all compact and non-compact forms.
-			const newPath = normalizePath(renameRoot + renameNewLeaf + renameSuffix);
-			const originalPath = normalizePath(renameRoot + renameOriginalLeaf + renameSuffix);
+			const newPath = renameRoot + renameNewLeaf + renameSuffix;
+			const originalPath = renameRoot + renameOriginalLeaf + renameSuffix;
+			const key = normalizePath(newPath);
 
-			const file = files.get(newPath)!;
+			const file = files.get(key);
+			if (file == null) continue;
+
 			files.set(
-				newPath,
+				key,
 				new GitFileChange(
 					repoPath,
-					newPath,
+					file.path,
 					renameOrCopy === 'copy' ? 'C' : 'R',
-					getUri(newPath),
+					getUri(file.path),
 					originalPath,
 					getUri(originalPath),
 					undefined,
@@ -600,9 +789,12 @@ export function parseGitApplyFiles(data: string, repoPath: string): GitFileChang
 				),
 			);
 		} else if (createOrDelete != null) {
-			const file = files.get(normalizePath(createOrDeletePath))!;
+			const key = normalizePath(createOrDeletePath);
+			const file = files.get(key);
+			if (file == null) continue;
+
 			files.set(
-				createOrDeletePath,
+				key,
 				new GitFileChange(
 					repoPath,
 					file.path,

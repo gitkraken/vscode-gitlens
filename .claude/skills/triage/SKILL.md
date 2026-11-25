@@ -56,6 +56,10 @@ Is the body empty, incoherent, or unrelated to GitLens?
 
 Does `issue.type` match the actual nature of the report? Do the labels correctly categorize it? Note any relabeling needed. Use label descriptions from the evidence pack to understand what each label means.
 
+`areaSignals` lists area labels whose keywords (from `scripts/issues/area-signals.mjs`) appear in the title, body, or fetched comments, with the matched text. The `Label Issue Areas` workflow applies the same labels from the title and body when an issue is opened, and won't re-add a label someone removed when run manually. Recommend a matched area label the issue lacks, and recommend removing one that the evidence shows is incidental. A match means the issue mentions the area, not that the area caused it.
+
+**`blocked: *` labels** (`blocked: cli`, `blocked: vscode`, …) state a cause, so keywords and the reporter's own attribution are not enough. Recommend one only when an investigation traces the behavior to that upstream component, and name the upstream issue (e.g. a `gitkraken/gk-cli` issue) or say one needs to be filed. If an issue already carries a `blocked: *` label but the pack shows no upstream issue link, flag it for a human to confirm the link exists. The pack holds only recent comments and PR cross-references, so a missing link there isn't proof.
+
 #### 3. Already triaged check
 
 Does the issue have a milestone, assignee, or triage-specific label indicating it has been processed? If so, classify as `Valid - Already Triaged`.

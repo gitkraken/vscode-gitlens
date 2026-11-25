@@ -23,6 +23,8 @@ import {
 	resolveAzureProjectlessRepository,
 } from '../providers/azureDevOps.js';
 import { discoveryCacheTtl } from '../providers/utils/discoveryCache.js';
+import { failureBackoffMaxMs } from '../utils/failureBackoff.js';
+import { advanceClock, restoreClock } from './clock.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 import { watchRequestFailures } from './sweepHelpers.js';
 
@@ -413,6 +415,9 @@ suite('Azure native discovery retry', () => {
 					assert.equal(server.requests.length, before, 'discovery failure must not reach an object request');
 					const expected =
 						kind === 'commit' ? '7' : kind === 'metadata' ? 'r' : kind === 'defaultBranch' ? 'main' : '9';
+					if (kind === 'commit') {
+						advanceClock(failureBackoffMaxMs);
+					}
 					assert.equal(await read(), expected);
 					assert.equal(attempts, 2, 'the same lookup retries discovery after recovery');
 					const recovered = server.requests.length;
@@ -431,6 +436,7 @@ suite('Azure native discovery retry', () => {
 					assert.equal(missingRequests, 1, 'proven object absence remains cached');
 					assert.equal(server.requests.length, absent);
 				} finally {
+					restoreClock();
 					manager.dispose();
 				}
 			});
@@ -1333,15 +1339,33 @@ suite('Azure DevOps Server remotes of repositories named after their project', (
 					assert.equal(await azure.getDefaultBranch(repo), undefined);
 					assert.equal(await azure.getRepositoryMetadata(repo), undefined);
 					const misses = ['feature', 'sha', 'default branch', 'metadata'];
-					assert.deepEqual(invalidated(), kept ? [] : misses);
+					assert.deepEqual(invalidated(), kept ? ['sha'] : misses);
 					// A full path reads as parsed either way, its answer kept.
 					assert.equal((await azure.getPullRequestForBranch(descriptorFor(fullRemote), 'main'))?.id, '7');
-					assert.deepEqual(invalidated(), kept ? [] : misses);
+					assert.deepEqual(invalidated(), kept ? ['sha'] : misses);
 				} finally {
 					manager.dispose();
 				}
 			});
 		}
+
+		test('a commit whose project-less route the server refuses is not asked again within its backoff', async () => {
+			const server = createServer({ installation: '/tfs', failCollections: 401 });
+			server.runtime.cache.getPullRequestForSha = (_sha, _repo, _integration, loader) =>
+				loader(new CacheController()).value;
+			const { manager, azure } = await connect(server);
+			try {
+				const repo = descriptorFor(shortRemote);
+				const queries = () => server.requests.filter(p => p.toLowerCase().endsWith('/pullrequestquery')).length;
+
+				assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
+				assert.equal(queries(), 1);
+				assert.equal(await azure.getPullRequestForCommit(repo, sha), undefined);
+				assert.equal(queries(), 1, 'the refused commit is not asked again within its backoff');
+			} finally {
+				manager.dispose();
+			}
+		});
 
 		test('a full path below the virtual directory reads without discovery, its miss cached', async () => {
 			const server = createServer({ installation: '/tfs', failCollections: 500 });

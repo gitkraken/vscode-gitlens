@@ -135,6 +135,10 @@ export interface ActionablePullRequestStackMembership {
 
 /** Copy of provider-apis' `PullRequestWithUniqueID` (its `GitPullRequest` plus the entity-identifier `uuid`). */
 export interface ActionablePullRequestInput {
+	/** Epoch milliseconds at the start of the request that supplied this result. */
+	readonly capturedAt?: number;
+	/** Opaque identity shared by results from the same request. */
+	readonly captureId?: string;
 	id: string;
 	graphQLId?: string;
 	number: number;

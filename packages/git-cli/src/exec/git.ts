@@ -76,6 +76,9 @@ const queueWaitAnnotationThreshold = 100;
 const eventLoopDelayAnnotationThreshold = 500;
 export const maxGitCliLength = 30000;
 
+/** The time limit, in milliseconds, of a run that sets none of its own when `GitOptions.gitTimeout` isn't set either */
+export const defaultGitTimeout = 60000;
+
 /** Rejections from a host's `beforeIndexLockRetry` — typed writes rethrow these as thrown instead of mapping them to their own error. */
 const runHookFailures = new WeakSet<object>();
 
@@ -121,7 +124,33 @@ export function batchLiteralPathspecs(
 }
 
 export const gitConfigsBranch = ['-c', 'color.branch=false'] as const;
-export const gitConfigsDiff = ['-c', 'color.diff=false', '-c', 'diff.mnemonicPrefix=false'] as const;
+// Settings that change the shape of the output, so every caller sees the same hunks whatever the repository's config:
+// every file header carries the `a/` and `b/` prefixes the parser expects, hunks join by git's default rule only, a
+// blank context line keeps its leading space, and a submodule change is a normal diff section rather than a log glued
+// onto the previous file. A git older than `diff.srcPrefix`/`diff.dstPrefix` ignores them
+export const gitConfigsDiff = [
+	'-c',
+	'color.diff=false',
+	'-c',
+	'diff.mnemonicPrefix=false',
+	'-c',
+	'diff.noprefix=false',
+	'-c',
+	'diff.srcPrefix=a/',
+	'-c',
+	'diff.dstPrefix=b/',
+	'-c',
+	'diff.interHunkContext=0',
+	'-c',
+	'diff.suppressBlankEmpty=false',
+	'-c',
+	'diff.submodule=short',
+] as const;
+// These are background reads, so they must never rewrite the index or take its lock (a stat-dirty file otherwise makes
+// git refresh and write it). Only for a git supporting `git:diff:autoRefreshIndex:off`. Caveat: a
+// `--name-status`/`--name-only`/`--raw` diff against the working tree reports a file whose timestamps moved but whose
+// content did not as modified, so those forms must not use this against a working tree.
+export const gitConfigsDiffNoIndexRefresh = [...gitConfigsDiff, '-c', 'diff.autoRefreshIndex=false'] as const;
 export const gitConfigsLog = ['-c', 'log.showSignature=false'] as const;
 export const gitConfigsLogWithFiles = ['-c', 'log.showSignature=false', '-c', 'diff.renameLimit=0'] as const;
 export const gitConfigsLogWithSignatures = ['-c', 'log.showSignature=true'] as const;
@@ -700,7 +729,20 @@ export interface GitOptions {
 	env?: Record<string, string | undefined>;
 	/** Dynamic environment provider called for each command (e.g., host-discovered SCM credentials) */
 	getEnvironment?: () => Record<string, string | undefined> | undefined;
-	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to 60000. Set to 0 to disable. */
+	/**
+	 * The environment for network commands core runs without a person present (a default-branch lookup,
+	 * a remote probe, a background `remote set-head`), which is how a host supplies an askpass that ends the asking
+	 * ssh without answering, so a jump host isn't sent empty answers. When it returns an environment, the host owns
+	 * the ssh askpass of those commands: core drops its own `SSH_ASKPASS*` defaults (an empty `SSH_ASKPASS`, plus
+	 * `SSH_ASKPASS_REQUIRE=never` on the default-branch reads), so an `SSH_ASKPASS*` key the host leaves out comes
+	 * from the inherited environment and `{}` means "use the inherited askpass".
+	 * A key set to `undefined` leaves that variable unset; a key core doesn't set (`DISPLAY`, a helper's own
+	 * variables) is added. `GIT_TERMINAL_PROMPT=0`, `GIT_ASKPASS=''` and `GCM_INTERACTIVE` keep core's values
+	 * whatever it returns, as does `credential.interactive=false` on the default-branch reads (the probe sets none).
+	 * Called per command; return the same object while nothing changes. Without it, core's defaults apply unchanged.
+	 */
+	getQuietNetworkEnvironment?: () => Record<string, string | undefined> | undefined;
+	/** Git command timeout in milliseconds, for runs that don't set their own. Defaults to {@link defaultGitTimeout}. Set to 0 to disable. */
 	gitTimeout?: number;
 	/**
 	 * Returns whether git may be run in `repoPath`. Defaults to trusted when not provided. Called on every exec/stream,
@@ -864,6 +906,12 @@ export class Git {
 	/** Last dynamic env reference, used to detect when getEnvironment() returns a new object */
 	private _lastDynamicEnv: Record<string, string | undefined> | undefined | null;
 
+	/** Merged quiet-network environments, by the defaults they extend, rebuilt only when the host returns a new reference */
+	private readonly _quietNetworkEnvs = new WeakMap<
+		Record<string, string>,
+		{ hostEnv: Record<string, string | undefined>; merged: Record<string, string | undefined> }
+	>();
+
 	/** Bound via {@link bindChangeNotifier}; announces a `notify`-flagged run's changes. No-op until bound. */
 	private _changeNotifier:
 		| ((
@@ -957,6 +1005,29 @@ export class Git {
 		this._lastDynamicEnv = dynamicEnv;
 		this._fullEnv = dynamicEnv != null ? { ...this.getBaseEnv(), ...dynamicEnv } : this.getBaseEnv();
 		return this._fullEnv;
+	}
+
+	/**
+	 * Returns `defaults` with its `SSH_ASKPASS*` keys replaced by the host's quiet-network environment. Every other
+	 * default key is pinned. Returns `defaults` itself without a host environment, and the same merged object while
+	 * the host returns the same reference.
+	 */
+	quietNetworkEnv(defaults: Record<string, string>): Record<string, string | undefined> {
+		const hostEnv = this.options.getQuietNetworkEnvironment?.() ?? undefined;
+		if (hostEnv == null) return defaults;
+
+		let cached = this._quietNetworkEnvs.get(defaults);
+		if (cached?.hostEnv === hostEnv) return cached.merged;
+
+		const merged: Record<string, string | undefined> = { ...hostEnv };
+		for (const [key, value] of Object.entries(defaults)) {
+			if (!key.startsWith('SSH_ASKPASS')) {
+				merged[key] = value;
+			}
+		}
+		cached = { hostEnv: hostEnv, merged: merged };
+		this._quietNetworkEnvs.set(defaults, cached);
+		return merged;
 	}
 
 	/** The environment git runs with, before a run's own `env` */
@@ -1057,6 +1128,11 @@ export class Git {
 		return this._gitLocation != null
 			? compare(fromString(this._gitLocation.version), fromString(version)) !== -1
 			: this.version().then(v => compare(fromString(v), fromString(version)) !== -1);
+	}
+
+	/** The configs for a diff read of the working tree: ones that leave the index alone when this git can do so safely. */
+	async getDiffReadConfigs(): Promise<readonly string[]> {
+		return (await this.supports('git:diff:autoRefreshIndex:off')) ? gitConfigsDiffNoIndexRefresh : gitConfigsDiff;
 	}
 
 	supported<T extends GitFeatureOrPrefix>(feature: T): FilteredGitFeatures<T>[] | Promise<FilteredGitFeatures<T>[]> {
@@ -1211,8 +1287,9 @@ export class Git {
 
 		const gitCommand = `git ${runArgs.join(' ')}`;
 
-		// If cache is provided, use it to cache the full result
-		if (options.caching != null) {
+		// If cache is provided, use it to cache the full result. Never for a run that names `FETCH_HEAD`: a fetch can
+		// rewrite it without moving any ref, and nothing clears the cache for that
+		if (options.caching != null && !gitCommand.includes('FETCH_HEAD')) {
 			const cachePath = options.caching.commonPath ?? options.cwd!;
 			// Drop the cached (or in-flight) entry first so `getOrCreate` below always creates a fresh
 			// entry with its own `AbortAggregate` — the underlying spawn can then never join an in-flight
@@ -1236,18 +1313,25 @@ export class Git {
 					// Never cache a result that isn't a genuine command outcome. Under `errors: 'ignore'` a
 					// cancelled/aborted run RESOLVES an empty result, which — left cached — would be served as a
 					// real empty result for the full TTL (e.g. a valid merge-base read back as "none").
-					// Invalidate on anything that isn't a clean exit, or whenever the aggregate signal aborted,
+					// Invalidate on anything that isn't an answer, or whenever the aggregate signal aborted,
 					// so the entry self-evicts instead of poisoning later callers.
+					//
+					// An answer is a clean exit, or an exit the caller listed in `expectedExitCodes`, which
+					// `runCore` resolves as `exited` under every `errors` mode. Any other non-zero exit stays
+					// uncached: nothing says it is stable, and it may be a failure that a retry clears.
 					//
 					// `status !== 'exited'` is what catches the case a bare `exitCode` check cannot. A swallowed
 					// `GitWarnings` match used to report `exitCode: 0` UNCONDITIONALLY — the old code read it off
 					// a `result` that is only ever assigned on the non-throwing path, so it was always the `?? 0`
 					// fallback — which meant `exitCode !== 0` could never fire and every swallowed failure was
 					// cached. A `warned` result now carries git's real code, so it's the status, not the code,
-					// that has to do the work here. The `exitCode !== 0` half is kept as-is — a non-zero exit is
-					// a real answer and arguably cacheable, but it isn't cached today and this isn't the change
-					// to start.
-					if (result.completion.status !== 'exited' || result.exitCode !== 0 || signal?.aborted) {
+					// that has to do the work here.
+					const exitCode = result.exitCode;
+					const answered =
+						result.completion.status === 'exited' &&
+						exitCode != null &&
+						(exitCode === 0 || options.expectedExitCodes?.includes(exitCode) === true);
+					if (!answered || signal?.aborted) {
 						cacheable.invalidate();
 					}
 					return result;
@@ -1420,7 +1504,7 @@ export class Git {
 		} = options;
 
 		// A run's own timeout holds even when the default is disabled (0), so an unrequested background run stays capped
-		const runTimeout = opts.timeout ?? this.options.gitTimeout ?? 60000;
+		const runTimeout = opts.timeout ?? this.options.gitTimeout ?? defaultGitTimeout;
 		const runOpts: Mutable<RunOptions> = {
 			...opts,
 			timeout: runTimeout === 0 ? undefined : runTimeout,
@@ -1806,20 +1890,16 @@ export class Git {
 				}
 
 				if (signal === 'SIGTERM') {
-					// If the caller aborted, just resolve
-					if (cancellation?.aborted) {
-						resolve();
-					} else {
-						reject(
-							new CancelledRunError(
-								proc.spawnargs.join(' '),
-								true,
-								code ?? undefined,
-								signal,
-								proc.killed ? 'timeout' : 'unknown',
-							),
-						);
-					}
+					// Rejected as `run` rejects a killed process; output cut short must not read as complete. Only
+					// the caller's abort and the time limit kill it from here (`killed`); any other SIGTERM came
+					// from outside
+					const reason = cancellation?.aborted ? 'aborted' : proc.killed ? 'timeout' : 'unknown';
+					reject(
+						new CancellationError(
+							new CancelledRunError(proc.spawnargs.join(' '), true, code ?? undefined, signal, reason),
+							reason,
+						),
+					);
 					return;
 				}
 
@@ -1850,6 +1930,9 @@ export class Git {
 				);
 			});
 		});
+		// The process can end while the consumer holds a chunk, a turn or more before the `finally` below awaits this;
+		// that await still delivers the rejection
+		void promise.catch(() => {});
 
 		let cleanedUp = false;
 		const cleanup = () => {
@@ -1884,6 +1967,9 @@ export class Git {
 		// setup (e.g. locating git) throws.
 		this.beginActiveCommand();
 
+		// Set while the consumer holds a chunk: if it closes the generator there, it has stopped reading by choice
+		let consumerLeft = false;
+
 		try {
 			this.logGitCommandStart(gitCommand, streamId);
 
@@ -1895,7 +1981,10 @@ export class Git {
 				if (enc === 'utf8' || enc === 'binary' || enc === 'buffer') {
 					proc.stdout.setEncoding(enc === 'buffer' ? 'utf8' : enc);
 					for await (const chunk of proc.stdout) {
+						consumerLeft = true;
 						yield chunk;
+
+						consumerLeft = false;
 					}
 				} else {
 					// Non-UTF-8 encoding: collect raw buffers and decode at the end.
@@ -1912,7 +2001,11 @@ export class Git {
 					for await (const chunk of proc.stdout) {
 						buffers.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
 					}
-					yield await decode(Buffer.concat(buffers), { encoding: enc });
+					const decoded = await decode(Buffer.concat(buffers), { encoding: enc });
+					consumerLeft = true;
+					yield decoded;
+
+					consumerLeft = false;
 				}
 			} finally {
 				// This await MUST be in this inner finally block to ensure the child process close event completes
@@ -1920,7 +2013,15 @@ export class Git {
 				// async generator (e.g., reading only the first chunk), the git process receives SIGPIPE and triggers
 				// the close handler asynchronously. Without awaiting here, removeAllListeners() would execute before
 				// the close handler finishes, causing a race condition and potential resource leaks.
-				await promise;
+				await promise.catch((ex: unknown) => {
+					// A consumer that stopped reading took what it wanted, even when it (or its caller) aborted the
+					// signal as it left, or git ran on until its time limit killed it; failing its `break`, or the
+					// `return()` a disposer fires without waiting, would only surface an error nobody handles. Every
+					// kill rejects as a cancellation (above), while a git error still fails it
+					if (consumerLeft && isCancellationError(ex)) return;
+
+					throw ex;
+				});
 			}
 		} catch (ex) {
 			exception = ex;
@@ -2169,7 +2270,7 @@ export class Git {
 				undefined,
 				`${formatLoggableScopeBlock(id ? `GIT:\u2190${id}` : 'GIT')} ${command} \u00b7 ${
 					isCancellationError(ex)
-						? 'cancelled'
+						? `cancelled${ex.reason != null ? ` (${ex.reason === 'aborted' ? 'cancellation' : ex.reason})` : ''}`
 						: (ex.message || String(ex) || '')
 								.trim()
 								.replace(/fatal:\s*/g, '')

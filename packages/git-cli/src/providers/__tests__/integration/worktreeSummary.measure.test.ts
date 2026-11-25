@@ -98,6 +98,8 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 	let linked: { path: string; cleanup: () => void }[];
 	let service: GitService;
 	let subs: WorktreeSummarySubscription[];
+	/** The processes the subscriptions below ran, up to each checkout's first summary */
+	let subscribed: string[];
 
 	setup(async () => {
 		root = makeTempDir('gitlens-summary-measure-');
@@ -132,11 +134,13 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
 
 		subs = [];
+		const mark = completed.length;
 		for (const path of [main.path, ...linked.map(wt => wt.path)]) {
 			provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
 			subs.push(service.summaries!.subscribe(path, { delayMs: 10, workingTreeDelayMs: 10 }));
 			await service.summaries!.getSummary(path);
 		}
+		subscribed = completed.slice(mark);
 	});
 
 	teardown(() => {
@@ -150,6 +154,33 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 		}
 		main.cleanup();
 		rmSync(root, { recursive: true, force: true });
+	});
+
+	/**
+	 * A linked worktree's first base read takes the name its branch was created from out of the branch's reflog file,
+	 * and leaves `main@{u}` to one read in the main checkout for every checkout, since a named branch's upstream comes
+	 * from the config they share.
+	 */
+	test('subscribing reads no created-from reflog in a linked worktree, and asks main@{u} once for all of them (was once each)', () => {
+		const perWorktree = linked.map(wt => {
+			const key = getRepositoryKey(wt.path);
+			return subscribed.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
+		});
+		console.error(
+			`[measure] subscribe: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${subscribed.length} in all`,
+		);
+		for (const line of perWorktree[0]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		for (const [i, lines] of perWorktree.entries()) {
+			assert.deepStrictEqual(
+				lines.filter(m => m.includes('] git reflog ') || m.includes('main@{u}')),
+				[],
+				`linked worktree ${i}`,
+			);
+		}
+		assert.strictEqual(subscribed.filter(m => m.includes('main@{u}')).length, 1, subscribed.join('\n'));
 	});
 
 	test('a fetch moving origin/main costs each linked worktree no git process for its base (was 4)', async () => {
@@ -198,6 +229,85 @@ suite('WorktreeSummaryService base refresh after a fetch (spawn count)', () => {
 			[],
 			'no config-key read after a fetch',
 		);
+	});
+
+	/**
+	 * The processes each linked worktree ran in its own checkout once `move`, run in the main checkout, reached every
+	 * summary, and those run anywhere else
+	 */
+	async function spawnedByMove(
+		move: () => Promise<unknown>,
+	): Promise<{ perWorktree: string[][]; shared: string[]; spawned: string[] }> {
+		const mark = completed.length;
+		await move();
+		// Lets the refreshes start and any trailing read finish, so a late spawn is counted too; a base that stays the
+		// same changes no summary, so there is no change event to wait for
+		await delay(150);
+		await Promise.all(linked.map(wt => service.summaries!.getSummary(wt.path)));
+		const spawned = completed.slice(mark);
+		const perWorktree = linked.map(wt => {
+			const key = getRepositoryKey(wt.path);
+			return spawned.filter(m => (m.includes(`[${key}]`) || m.includes(`[${wt.path}]`)) && !isSharedRead(m));
+		});
+		const shared = spawned.filter(m => !perWorktree.some(lines => lines.includes(m)));
+		return { perWorktree: perWorktree, shared: shared, spawned: spawned };
+	}
+
+	test('a fast-forward of local main costs each linked worktree no git process for its base (was 4)', async () => {
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'push', 'origin', 'main');
+		await spawnedByMove(() => service.forRepo(main.path)!.ops!.fetch({ remote: 'origin' }));
+		const before = subs.slice(1).map(sub => sub.current?.base);
+		for (const base of before) {
+			assert.strictEqual(base?.ref, 'origin/main');
+		}
+
+		const { perWorktree, shared } = await spawnedByMove(() =>
+			service.forRepo(main.path)!.ops!.merge('origin/main', { fastForward: 'only' }),
+		);
+		assert.strictEqual(git(main.path, 'rev-parse', 'main'), git(main.path, 'rev-parse', 'origin/main'));
+		console.error(
+			`[measure] base refresh after a fast-forward of main: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${shared.length} elsewhere`,
+		);
+		for (const line of [...perWorktree[0], ...shared]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		assert.deepStrictEqual(
+			subs.slice(1).map(sub => sub.current?.base),
+			before,
+			'the bases are unchanged',
+		);
+		for (const [i, lines] of perWorktree.entries()) {
+			assert.strictEqual(lines.length, 0, `linked worktree ${i} ran ${lines.join('\n')}`);
+		}
+	});
+
+	test('a pull moving local main and origin/main costs each linked worktree no git process for its base (was 4)', async () => {
+		addCommit(peer.path, 'moved.txt', 'moved', 'Peer moved');
+		git(peer.path, 'push', 'origin', 'main');
+		const tip = git(peer.path, 'rev-parse', 'HEAD');
+
+		const { perWorktree, shared } = await spawnedByMove(() =>
+			service.forRepo(main.path)!.ops!.pull({ fastForward: 'only' }),
+		);
+		assert.strictEqual(git(main.path, 'rev-parse', 'main'), tip);
+		console.error(
+			`[measure] base refresh after a pull: ${perWorktree.map(l => l.length).join(', ')} git process(es) per linked worktree, ${shared.length} elsewhere`,
+		);
+		for (const line of [...perWorktree[0], ...shared]) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		for (const sub of subs.slice(1)) {
+			assert.strictEqual(sub.current?.base?.sha, tip, 'the base follows the new tip');
+			assert.strictEqual(sub.current?.base?.ahead, 1);
+		}
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		const own = (await provider.git.supports('git:for-each-ref:ahead-behind')) ? 0 : 1;
+		for (const [i, lines] of perWorktree.entries()) {
+			assert.strictEqual(lines.length, own, `linked worktree ${i} ran ${lines.join('\n')}`);
+		}
 	});
 
 	test('a fetch moving origin/main, with a branch created during the refreshes, shares one reflog read and one count (was 2 each)', async () => {
@@ -737,5 +847,142 @@ suite('WorktreeSummaryService after a packed-refs rewrite (spawn count)', functi
 		for (const [i, other] of subs.slice(2).entries()) {
 			assert.strictEqual(other.current?.sha, git(linked[i + 1].path, 'rev-parse', 'HEAD'));
 		}
+	});
+});
+
+/**
+ * A commit in a subscribed linked worktree moves its HEAD, so its summary reads every group. The base used to be read
+ * in full there, with 4 processes (`rev-parse main@{u}`, `merge-base --fork-point` against `main` and against
+ * `origin/main`, and `rev-list --left-right --count`). Now one `rev-list --parents` shows the new HEAD is an ordinary
+ * commit on the last one that no value of a ref the base depends on reaches, and the base is carried forward one commit.
+ */
+suite('WorktreeSummaryService base refresh after a commit (spawn count)', function () {
+	this.timeout(60000);
+
+	const completed: string[] = [];
+	const countingLogger: LogChannel = {
+		name: 'spawn-counter',
+		logLevel: 0,
+		dispose: () => {},
+		trace: () => {},
+		debug: () => {},
+		info: (msg: string) => {
+			if (msg.includes('• completed')) {
+				completed.push(msg);
+			}
+		},
+		warn: () => {},
+		error: () => {},
+	};
+
+	let root: string;
+	let origin: string;
+	let main: TestRepo;
+	let task: { path: string; cleanup: () => void };
+	let service: GitService;
+	let sub: WorktreeSummarySubscription;
+	let watchers: { basePath: string; fire: (e: { path: string; reason: 'change' }) => void }[];
+
+	setup(async () => {
+		root = makeTempDir('gitlens-summary-commit-');
+		origin = join(root, 'origin.git');
+		git(root, 'init', '--bare', '-b', 'main', origin);
+
+		main = createTestRepo();
+		git(main.path, 'remote', 'add', 'origin', origin);
+		git(main.path, 'push', '-u', 'origin', 'main');
+		git(main.path, 'remote', 'set-head', 'origin', 'main');
+		git(main.path, 'branch', '--no-track', 'task', 'origin/main');
+		task = createWorktree(main.path, 'task');
+		addCommit(task.path, 'task.txt', 'task', 'Work on task');
+
+		watchers = [];
+		// Not the shadow-checked service: its full base reads would add to the process counts measured here. It
+		// validates unwatched caches, which is what has a full read measure from the branch's listed tip
+		service = createCliGitService({
+			context: { fs: fs, config: noCommitGraphWritesConfig },
+			gitOptions: { logger: countingLogger },
+			validateUnwatchedCaches: true,
+			watchingProvider: {
+				createWatcher: (basePath, _pattern, onEvent) => {
+					watchers.push({ basePath: basePath, fire: onEvent });
+					return createDisposable(() => {});
+				},
+			} satisfies FileWatchingProvider,
+		});
+		const provider = service.getProvider(main.path)!.provider as CliGitProvider;
+		for (const path of [main.path, task.path]) {
+			provider.cache.registerRepoPath(fileUri(path), await provider.config.getGitDir(path));
+		}
+		sub = service.summaries!.subscribe(task.path, { delayMs: 10, workingTreeDelayMs: 10 });
+		await service.summaries!.getSummary(task.path);
+		assert.strictEqual(sub.current?.base?.ref, 'origin/main');
+		await settle();
+	});
+
+	teardown(() => {
+		sub.dispose();
+		service.dispose();
+		task.cleanup();
+		main.cleanup();
+		rmSync(root, { recursive: true, force: true });
+	});
+
+	/** Waits until no git process completed for `quietMs` */
+	async function settle(quietMs: number = 300): Promise<void> {
+		let last = completed.length;
+		let lastAt = Date.now();
+		const start = lastAt;
+		while (Date.now() - start < 15000) {
+			await delay(25);
+			if (completed.length !== last) {
+				last = completed.length;
+				lastAt = Date.now();
+			} else if (Date.now() - lastAt >= quietMs) {
+				return;
+			}
+		}
+	}
+
+	/** Commits on the task branch, reports it as the watcher would, and returns the base's git processes it led to */
+	async function commitAndMeasure(name: string): Promise<string[]> {
+		const previous = sub.current!;
+		addCommit(task.path, `${name}.txt`, name, name);
+		const mark = completed.length;
+		const changed = nextChange(sub);
+		// The branch's ref, which the watcher over the common git dir names
+		const commonGitDir = join(main.path, '.git');
+		const fired = watchers.filter(w => w.basePath === commonGitDir);
+		assert.ok(fired.length !== 0, `no watcher on ${commonGitDir}`);
+		for (const watcher of fired) {
+			watcher.fire({ path: join(commonGitDir, 'refs', 'heads', 'task'), reason: 'change' });
+		}
+		const summary = await changed;
+		await settle();
+
+		const key = getRepositoryKey(task.path);
+		const spawned = completed
+			.slice(mark)
+			.filter(m => (m.includes(`[${key}]`) || m.includes(`[${task.path}]`)) && !isSharedRead(m));
+		console.error(`[measure] base refresh after a commit: ${spawned.length} git process(es) in the worktree`);
+		for (const line of spawned) {
+			console.error(`[measure]   ${line.replace(/^.*?\]\s*/, '')}`);
+		}
+
+		assert.strictEqual(summary.sha, git(task.path, 'rev-parse', 'HEAD'));
+		assert.deepStrictEqual(summary.base, { ...previous.base, ahead: previous.base!.ahead + 1 });
+		// The dirty flag's own reads aside
+		return spawned.filter(m => !/\] git (diff --quiet HEAD|ls-files --others)/.test(m));
+	}
+
+	test('a commit costs its worktree one git process for its base, the first after a full read too (was 4)', async () => {
+		// The full read measured from the branch's listed tip, so the first carry knows its count is the last HEAD's
+		const first = await commitAndMeasure('two');
+		assert.strictEqual(first.length, 1, first.join('\n'));
+		assert.ok(first[0].includes('] git rev-list --parents'), first[0]);
+
+		const second = await commitAndMeasure('three');
+		assert.strictEqual(second.length, 1, second.join('\n'));
+		assert.ok(second[0].includes('] git rev-list --parents'), second[0]);
 	});
 });

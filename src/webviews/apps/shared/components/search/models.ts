@@ -189,7 +189,7 @@ export const searchCompletionOperators: SearchCompletionOperator[] = [
 				value: 'wip',
 				label: 'wip',
 				description: l10n.t('Filter to only show working tree changes (current and other worktrees)'),
-				icon: 'gl-wip',
+				icon: 'pencil',
 			},
 		],
 	},

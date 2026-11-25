@@ -58,6 +58,8 @@ export async function getPullRequestsBatch(
 		etagIncludes?: readonly PullRequestEtagInclude[];
 		/** See {@link IntegrationManager.getPullRequestsBatch}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		checkRuns?: boolean;
 	},
 ): Promise<ProviderResult<PullRequestBatchResult>> {
 	const refused = (warning: ProviderWarning): ProviderResult<PullRequestBatchResult> => ({
@@ -122,6 +124,7 @@ export async function getPullRequestsBatch(
 	// Resolved once, so the cheap check and the full read select the same data and their etags agree even if the host's
 	// setting changes while the call is in flight.
 	const mergeQueue = options.mergeQueue ?? ctx.getPullRequestReadOptions().mergeQueue === true;
+	const checkRuns = options.checkRuns === true;
 	const toCoordinate = (t: PullRequestBatchTarget) => ({
 		owner: t.owner,
 		repo: t.repo,
@@ -153,6 +156,7 @@ export async function getPullRequestsBatch(
 								options.connectionId,
 							)),
 							mergeQueue: mergeQueue,
+							checkRuns: checkRuns,
 						},
 						undefined,
 						options.connectionId,
@@ -169,7 +173,7 @@ export async function getPullRequestsBatch(
 				() =>
 					integration.getPullRequestsEtagFieldsResult(
 						batch.map(toCoordinate),
-						{ etagIncludes: etagIncludes, mergeQueue: mergeQueue },
+						{ etagIncludes: etagIncludes, mergeQueue: mergeQueue, checkRuns: checkRuns },
 						undefined,
 						options.connectionId,
 					),

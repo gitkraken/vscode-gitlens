@@ -11,6 +11,7 @@ import type {
 	TrelloBoard,
 	TrelloList,
 } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { IssueProviderState } from '@gitlens/git/models/issue.js';
 import type { PullRequest, PullRequestMergeMethod } from '@gitlens/git/models/pullRequest.js';
 import { base64 } from '@gitlens/utils/base64.js';
@@ -19,7 +20,7 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { isIncompleteCollection, toCollectionScopeFailure, withValidSkippedItems } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
@@ -30,6 +31,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
@@ -55,6 +57,7 @@ import {
 } from './bitbucket-server/pullRequestSearch.js';
 import type { JiraIssueEtagResponse } from './jiraIssueByKey.js';
 import { requestJiraIssueByKey, requestJiraIssuesEtagFields } from './jiraIssueByKey.js';
+import { JiraIssueWriter } from './jiraIssueWrites.js';
 import type { LinearIssueEtagNode } from './linearIssuesEtag.js';
 import { requestLinearIssuesEtagFields } from './linearIssuesEtag.js';
 import type { PagingMode } from './metadata.js';
@@ -241,7 +244,7 @@ function fromTrelloCard(
 	const createdDate = new Date(1000 * parseInt(card.id.substring(0, 8), 16));
 	const list = card.idList != null ? trelloBoardListsById[card.idList] : undefined;
 
-	return {
+	const result: ProviderIssue = {
 		id: card.id,
 		commentCount: card.badges?.comments ?? null,
 		number: String(card.idShort),
@@ -271,6 +274,7 @@ function fromTrelloCard(
 			name: label.name,
 		})),
 	};
+	return copyReadProvenance(result, card);
 }
 
 /**
@@ -611,25 +615,16 @@ export class ProvidersApi implements Disposable {
 		return isRepoIdsInput(input);
 	}
 
-	private async getProviderToken<T extends IntegrationIds>(
-		provider: ProviderInfo & { id: T },
-		options?: { createSessionIfNeeded?: boolean; connectionId?: string },
-	): Promise<TokenWithInfo<T> | undefined> {
-		// When a specific connection is requested, resolve that connection's cloud session (mirroring
-		// `Integration.resolveReadSession`); otherwise keep the plain descriptor so the primary is resolved.
-		// An empty string is not a real target, so it must also fall through to the primary path.
-		const providerDescriptor = options?.connectionId
-			? { domain: provider.domain, scopes: provider.scopes, connectionId: options.connectionId, cloud: true }
+	private async getProviderSession(
+		provider: ProviderInfo,
+		connectionId?: string,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const providerDescriptor = connectionId
+			? { domain: provider.domain, scopes: provider.scopes, connectionId: connectionId, cloud: true }
 			: { domain: provider.domain, scopes: provider.scopes };
 		try {
 			const authProvider = await this.authenticationService.get(provider.id);
-			const session = await authProvider.getSession(providerDescriptor, {
-				createIfNeeded: options?.createSessionIfNeeded,
-			});
-			if (session == null) {
-				return undefined;
-			}
-			return toTokenWithInfo(provider.id, session);
+			return await authProvider.getSession(providerDescriptor, { createIfNeeded: undefined });
 		} catch {
 			return undefined;
 		}
@@ -648,17 +643,15 @@ export class ProvidersApi implements Disposable {
 			throw new Error(`Provider id mismatch: expected ${providerId} but got ${provider.id}`);
 		}
 
+		if (tokenOptInfo.accessToken) return { provider: provider, tokenWithInfo: tokenOptInfo };
+
 		const connectionId = 'connectionId' in tokenOptInfo ? tokenOptInfo.connectionId : undefined;
-		const tokenWithInfo = tokenOptInfo?.accessToken
-			? tokenOptInfo
-			: await this.getProviderToken<T>(provider as ProviderInfo & { id: T }, {
-					connectionId: connectionId,
-				});
-		if (tokenWithInfo == null) {
+		const session = await this.getProviderSession(provider, connectionId);
+		if (session == null) {
 			throw new Error(`Not connected to provider ${providerId}`);
 		}
 
-		return { provider: provider, tokenWithInfo: tokenWithInfo };
+		return { provider: provider, tokenWithInfo: toTokenWithInfo(providerId, session) };
 	}
 
 	private async ensureProviderTokenAndFunction<T extends IntegrationIds>(
@@ -1281,6 +1274,17 @@ export class ProvidersApi implements Disposable {
 		}
 	}
 
+	async getJiraIssueWriter(options: IssueTrackerWriteConnection): Promise<JiraIssueWriter | undefined> {
+		const provider = this.providers[options.providerId];
+		if (provider == null || provider.id !== options.providerId) return undefined;
+
+		const session = await this.getProviderSession(provider, options.connectionId);
+		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
+
+		const isSessionCurrent = this.authenticationService.trackStoredSession(options.providerId, session);
+		return JiraIssueWriter.connect(this.request, session.accessToken, options, isSessionCurrent);
+	}
+
 	async getJiraResourcesForCurrentUser(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Jira>,
 	): Promise<ProviderJiraResource[] | undefined> {
@@ -1405,7 +1409,7 @@ export class ProvidersApi implements Disposable {
 	/** Resolves Linear's current user (viewer). The viewer query returns only id/name/email/displayName. */
 	async getLinearCurrentUser(
 		tokenOptInfo: TokenWithInfo<IssuesCloudHostIntegrationId.Linear>,
-	): Promise<{ id: string; name?: string | null; email?: string | null; displayName?: string | null } | undefined> {
+	): Promise<ProviderAccount | undefined> {
 		const { provider, tokenWithInfo } = await this.ensureProviderTokenAndFunction(
 			tokenOptInfo,
 			'getLinearCurrentUserFn',

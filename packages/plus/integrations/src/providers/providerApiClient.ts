@@ -1,3 +1,4 @@
+import { captureProviderRead } from '@gitkraken/provider-apis/read-provenance';
 import { getAuthenticatedUser } from '../errors.js';
 import type { ProviderRequestFunction, ProviderRequestOptions, ProviderRequestResponse } from './models.js';
 import {
@@ -13,11 +14,13 @@ export function createProviderApiRequest(
 ): ProviderRequestFunction {
 	return async <T>({ url, ...options }: ProviderRequestOptions): Promise<ProviderRequestResponse<T>> => {
 		try {
-			const response = await fetch(url, {
-				...options,
-				headers: { ...(userAgent != null ? { 'User-Agent': userAgent } : {}), ...options.headers },
+			return await captureProviderRead(async () => {
+				const response = await fetch(url, {
+					...options,
+					headers: { ...(userAgent != null ? { 'User-Agent': userAgent } : {}), ...options.headers },
+				});
+				return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
 			});
-			return await parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
 		} catch (ex) {
 			throw markRequestError(ex, { url: url, method: options.method });
 		}

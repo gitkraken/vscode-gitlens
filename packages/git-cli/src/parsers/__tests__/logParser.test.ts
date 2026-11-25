@@ -10,6 +10,7 @@ import {
 	getContributorsLogParser,
 	getGraphParser,
 	getShaAndDatesWithFilesLogParser,
+	getShaAndFileRangeLogParser,
 	getShaAndFilesAndStatsLogParser,
 	getShaAndFileSummaryLogParser,
 	getShaAndStatsLogParser,
@@ -1951,6 +1952,375 @@ suite('Log Parser - Generated Input, Malformed Input, and Streaming (#5659)', ()
 					`${path}: examined ${examined} chars for ${data.length} of input`,
 				);
 			}
+		});
+	});
+});
+
+suite('Log Parser - Commit With Very Many Files Test Suite', () => {
+	const fileCount = 200_000;
+
+	async function* streamOf(chunks: string[]): AsyncGenerator<string> {
+		for (const c of chunks) {
+			yield c;
+		}
+	}
+
+	function buildRawAndNumstat(): string {
+		const raw: string[] = [];
+		const numstat: string[] = [];
+		for (let i = 0; i < fileCount; i++) {
+			raw.push(`:000000 100644 0000000 abc1234 A\tdir/file${i}.txt`);
+			numstat.push(`1\t0\tdir/file${i}.txt`);
+		}
+		return [...raw, ...numstat].join('\n');
+	}
+
+	function buildCommitsRecord(): string {
+		const parser = getCommitsLogParser(true);
+		const fields = [
+			'abc123',
+			'Test Author',
+			'test@example.com',
+			'1234567890',
+			'Test Committer',
+			'committer@example.com',
+			'1234567890',
+			'',
+			'',
+			'Test commit message',
+			buildRawAndNumstat(),
+		];
+		return parser.separators.record + fields.join(parser.separators.field);
+	}
+
+	test('parse keeps every file of a commit touching 200k files', () => {
+		const parser = getCommitsLogParser(true);
+		const entries = [...parser.parse(buildCommitsRecord())];
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].files?.length, fileCount);
+		assert.strictEqual(entries[0].files?.[fileCount - 1].path, `dir/file${fileCount - 1}.txt`);
+	});
+
+	test('parseAsync keeps every file of a commit touching 200k files', async () => {
+		const parser = getCommitsLogParser(true);
+		const entries = [];
+		for await (const e of parser.parseAsync(streamOf([buildCommitsRecord()]))) {
+			entries.push(e);
+		}
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].files?.length, fileCount);
+	});
+
+	test('file-summary parse keeps every file of a commit touching 200k files', () => {
+		const parser = getShaAndFileSummaryLogParser();
+		const lines: string[] = [];
+		for (let i = 0; i < fileCount; i++) {
+			lines.push(` create mode 100644 dir/file${i}.txt`);
+		}
+		const data = `${parser.separators.record}abc123${parser.separators.field}\n${lines.join('\n')}`;
+		const entries = [...parser.parse(data)];
+
+		assert.strictEqual(entries.length, 1);
+		assert.strictEqual(entries[0].files.length, fileCount);
+	});
+});
+
+suite('Log Parser - File Range Test Suite', () => {
+	function parseRange(patch: string) {
+		const parser = getShaAndFileRangeLogParser();
+		const data = `${parser.separators.record}abc123${parser.separators.field}\n\n${patch}`;
+		const entries = [...parser.parse(data)];
+		assert.strictEqual(entries.length, 1);
+		return entries[0].files[0];
+	}
+
+	test('reads the path and range of an ordinary file', () => {
+		const file = parseRange(
+			[
+				'diff --git a/src/foo.ts b/src/foo.ts',
+				'--- a/src/foo.ts',
+				'+++ b/src/foo.ts',
+				'@@ -2,3 +4,5 @@',
+				' x',
+			].join('\n'),
+		);
+
+		assert.strictEqual(file.path, 'src/foo.ts');
+		assert.strictEqual(file.originalPath, undefined);
+		assert.strictEqual(file.status, 'M');
+		assert.deepStrictEqual(file.range, { startLine: 4, endLine: 8 });
+		assert.deepStrictEqual(file.originalRange, { startLine: 2, endLine: 4 });
+	});
+
+	test('reads the path of a file holding " b/"', () => {
+		const file = parseRange(
+			[
+				'diff --git a/Plan b/notes.md b/Plan b/notes.md',
+				'--- a/Plan b/notes.md\t',
+				'+++ b/Plan b/notes.md\t',
+				'@@ -1 +1,2 @@',
+				' x',
+			].join('\n'),
+		);
+
+		assert.strictEqual(file.path, 'Plan b/notes.md');
+	});
+
+	test('reads the path of a file git C-quotes', () => {
+		const file = parseRange(
+			[
+				'diff --git "a/q\\"uote\\ttab.txt" "b/q\\"uote\\ttab.txt"',
+				'--- "a/q\\"uote\\ttab.txt"',
+				'+++ "b/q\\"uote\\ttab.txt"',
+				'@@ -1 +1,2 @@',
+				' x',
+			].join('\n'),
+		);
+
+		assert.strictEqual(file.path, 'q"uote\ttab.txt');
+	});
+});
+
+// Output of `git log` as git writes it with `core.quotepath=false`, which C-quotes a name holding a `"`, `\`, tab or
+// newline and leaves a non-ASCII name raw
+suite('Log Parser - Quoted Paths Test Suite', () => {
+	suite('files and stats (--numstat --raw)', () => {
+		function parseFiles(lines: string[]) {
+			const parser = getShaAndFilesAndStatsLogParser();
+			const data = `${parser.separators.record}abc123${parser.separators.field}\n\n${lines.join('\n')}`;
+			const entries = [...parser.parse(data)];
+			assert.strictEqual(entries.length, 1);
+			return entries[0].files;
+		}
+
+		test('unquotes a double quote, a backslash, a tab, a newline and a space', () => {
+			const files = parseFiles([
+				':100644 100644 587be6b b77b4eb M\t"back\\\\slash.txt"',
+				':100644 100644 587be6b b77b4eb M\t"new\\nline.txt"',
+				':100644 100644 587be6b b77b4eb M\t"q\\"uote.txt"',
+				':100644 100644 587be6b b77b4eb M\tsp ace.txt',
+				':100644 100644 587be6b b77b4eb M\t"tab\\there.txt"',
+				':100644 100644 587be6b b77b4eb M\tcafé 日本.txt',
+				'1\t0\t"back\\\\slash.txt"',
+				'2\t1\t"new\\nline.txt"',
+				'3\t0\t"q\\"uote.txt"',
+				'4\t0\tsp ace.txt',
+				'5\t2\t"tab\\there.txt"',
+				'6\t0\tcafé 日本.txt',
+			]);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status, f.additions, f.deletions, f.mode]),
+				[
+					['back\\slash.txt', 'M', 1, 0, '100644'],
+					['new\nline.txt', 'M', 2, 1, '100644'],
+					['q"uote.txt', 'M', 3, 0, '100644'],
+					['sp ace.txt', 'M', 4, 0, '100644'],
+					['tab\there.txt', 'M', 5, 2, '100644'],
+					['café 日本.txt', 'M', 6, 0, '100644'],
+				],
+			);
+		});
+
+		test('unquotes octal escapes', () => {
+			const files = parseFiles([
+				':000000 100644 0000000 3e75765 A\t"caf\\303\\251 ctl\\001.txt"',
+				'1\t0\t"caf\\303\\251 ctl\\001.txt"',
+			]);
+
+			assert.strictEqual(files[0].path, 'café ctl\x01.txt');
+			assert.strictEqual(files[0].status, 'A');
+		});
+
+		test('reads a deletion and an addition of a quoted path', () => {
+			const files = parseFiles([
+				':100644 000000 587be6b 0000000 D\t"move \\"me\\".txt"',
+				':000000 100644 0000000 3e75765 A\t"new \\"n\\".txt"',
+				'0\t1\t"move \\"me\\".txt"',
+				'1\t0\t"new \\"n\\".txt"',
+			]);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status, f.additions, f.deletions]),
+				[
+					['move "me".txt', 'D', 0, 1],
+					['new "n".txt', 'A', 1, 0],
+				],
+			);
+		});
+
+		test('reads a rename to a quoted path, whose numstat drops the compact form', () => {
+			const files = parseFiles([
+				':100644 100644 587be6b 587be6b R100\tdel me.txt\t"moved \\"it\\".txt"',
+				'0\t0\tdel me.txt => "moved \\"it\\".txt"',
+			]);
+
+			assert.strictEqual(files[0].path, 'moved "it".txt');
+			assert.strictEqual(files[0].originalPath, 'del me.txt');
+			assert.strictEqual(files[0].status, 'R');
+		});
+
+		test('reads a rename of a quoted path to a name that is not', () => {
+			const files = parseFiles([
+				':100644 100644 71ac1b5 71ac1b5 R100\t"dir b/q\\"uote.txt"\tdir b/plain.txt',
+				'0\t0\t"dir b/q\\"uote.txt" => dir b/plain.txt',
+			]);
+
+			assert.strictEqual(files[0].path, 'dir b/plain.txt');
+			assert.strictEqual(files[0].originalPath, 'dir b/q"uote.txt');
+		});
+
+		test('reads a rename between quoted paths', () => {
+			const files = parseFiles([
+				':100644 100644 71ac1b5 71ac1b5 R100\t"dir b/q\\"uote.txt"\t"dir b/r\\"ename.txt"',
+				'0\t0\t"dir b/q\\"uote.txt" => "dir b/r\\"ename.txt"',
+			]);
+
+			assert.strictEqual(files[0].path, 'dir b/r"ename.txt');
+			assert.strictEqual(files[0].originalPath, 'dir b/q"uote.txt');
+			assert.strictEqual(files[0].status, 'R');
+		});
+
+		test('keeps the backslashes of a rename between quoted paths', () => {
+			const files = parseFiles([
+				':100644 100644 587be6b 587be6b R100\t"back\\\\slash.txt"\t"back\\\\slash2.txt"',
+				'0\t0\t"back\\\\slash.txt" => "back\\\\slash2.txt"',
+			]);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.originalPath, f.status, f.mode]),
+				[['back\\slash2.txt', 'back\\slash.txt', 'R', '100644']],
+			);
+		});
+
+		test('keeps the whitespace inside a quoted name and trims an unquoted one', () => {
+			// `git log --numstat --raw` of a commit adding `\tlead.txt`, `q"trail ` and `plain trail ` and renaming
+			// `\tren from.txt` to `q"ren to `
+			const files = parseFiles([
+				':000000 100644 0000000 9115e30 A\t"\\tlead.txt"',
+				':000000 100644 0000000 b9bca01 A\tplain trail ',
+				':100644 100644 71ac1b5 71ac1b5 R100\t"\\tren from.txt"\t"q\\"ren to "',
+				':000000 100644 0000000 0781fd5 A\t"q\\"trail "',
+				'1\t0\t"\\tlead.txt"',
+				'1\t0\tplain trail ',
+				'0\t0\t"\\tren from.txt" => "q\\"ren to "',
+				'1\t0\t"q\\"trail "',
+			]);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.originalPath, f.status, f.mode]),
+				[
+					['\tlead.txt', undefined, 'A', '100644'],
+					['plain trail', undefined, 'A', '100644'],
+					['q"ren to ', '\tren from.txt', 'R', '100644'],
+					['q"trail ', undefined, 'A', '100644'],
+				],
+			);
+		});
+
+		test('reads a quoted name that holds " => "', () => {
+			const files = parseFiles([
+				':100644 100644 587be6b b77b4eb M\t"a => \\"b\\".txt"',
+				'1\t0\t"a => \\"b\\".txt"',
+			]);
+
+			assert.strictEqual(files.length, 1);
+			assert.strictEqual(files[0].path, 'a => "b".txt');
+			assert.strictEqual(files[0].originalPath, undefined);
+		});
+
+		test('reads a rename that git did not quote as before', () => {
+			const files = parseFiles([
+				':100644 100644 71ac1b5 71ac1b5 R100\tdir b/x.txt\tdir b/y.txt',
+				'0\t0\tdir b/{x.txt => y.txt}',
+			]);
+
+			assert.strictEqual(files[0].path, 'dir b/y.txt');
+			assert.strictEqual(files[0].originalPath, 'dir b/x.txt');
+		});
+	});
+
+	suite('file summary (--summary)', () => {
+		function parseSummary(lines: string[]) {
+			const parser = getShaAndFileSummaryLogParser();
+			const data = `${parser.separators.record}abc123${parser.separators.field}\n\n${lines.join('\n')}`;
+			const entries = [...parser.parse(data)];
+			assert.strictEqual(entries.length, 1);
+			return entries[0].files;
+		}
+
+		test('unquotes created and deleted paths', () => {
+			const files = parseSummary([
+				' create mode 100644 "new \\"n\\".txt"',
+				' delete mode 100644 "move \\"me\\".txt"',
+				' create mode 100644 "tab\\there\\\\x.txt"',
+				' create mode 100644 "new\\nline.txt"',
+				' create mode 100644 Plan b/sp ace.txt',
+				' mode change 100644 => 100755 "q\\"uote.sh"',
+			]);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.status]),
+				[
+					['new "n".txt', 'A'],
+					['move "me".txt', 'D'],
+					['tab\there\\x.txt', 'A'],
+					['new\nline.txt', 'A'],
+					['Plan b/sp ace.txt', 'A'],
+				],
+			);
+		});
+
+		test('reads renames in which git quoted a name', () => {
+			const files = parseSummary([
+				' rename del me.txt => "moved \\"it\\".txt" (100%)',
+				' rename "dir b/q\\"uote.txt" => "dir b/r\\"ename.txt" (88%)',
+				' copy "dir b/q\\"uote.txt" => dir b/plain.txt (100%)',
+				' rename dir b/{x.txt => y.txt} (100%)',
+				' rename "back\\\\slash.txt" => "back\\\\slash2.txt" (100%)',
+			]);
+
+			assert.deepStrictEqual(
+				files.map(f => [f.path, f.originalPath, f.status]),
+				[
+					['moved "it".txt', 'del me.txt', 'R'],
+					['dir b/r"ename.txt', 'dir b/q"uote.txt', 'R'],
+					['dir b/plain.txt', 'dir b/q"uote.txt', 'C'],
+					['dir b/y.txt', 'dir b/x.txt', 'R'],
+					['back\\slash2.txt', 'back\\slash.txt', 'R'],
+				],
+			);
+		});
+	});
+
+	suite('file names (--name-only)', () => {
+		test('unquotes names git quotes', () => {
+			const parser = getShaAndDatesWithFilesLogParser();
+			const { record, field } = parser.separators;
+			const names = [
+				'Plan b/notes.md',
+				'"back\\\\slash.txt"',
+				'"moved \\"it\\".txt"',
+				'"new\\nline.txt"',
+				'"tab\\there.txt"',
+				'café 日本.txt',
+			];
+			const entries = [...parser.parse(`${record}abc123${field}1${field}2${field}\n\n${names.join('\n')}`)];
+
+			assert.strictEqual(entries.length, 1);
+			assert.deepStrictEqual(
+				entries[0].files.map(f => f.path),
+				[
+					'Plan b/notes.md',
+					'back\\slash.txt',
+					'moved "it".txt',
+					'new\nline.txt',
+					'tab\there.txt',
+					'café 日本.txt',
+				],
+			);
 		});
 	});
 });

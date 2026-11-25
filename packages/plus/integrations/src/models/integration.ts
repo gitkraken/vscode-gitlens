@@ -1,5 +1,5 @@
 import type { CollectionMetadata, CollectionScope } from '@gitkraken/provider-apis';
-import { getDeferredRequestFailure } from '@gitlens/git/errors.js';
+import { takeDeferredRequestFailure } from '@gitlens/git/errors.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { AutolinkReference, DynamicAutolinkReference } from '@gitlens/git/models/autolink.js';
 import type { Issue, IssueShape } from '@gitlens/git/models/issue.js';
@@ -54,12 +54,14 @@ import { throwIfAllSettledFailed } from '../providers/utils/providerPaging.js';
 import type { ProviderWarningCause, ProviderWarningScope } from '../results.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
+import { FailureBackoff } from '../utils/failureBackoff.js';
 import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type { GitHostIntegration } from './gitHostIntegration.js';
 import { getCachedIssue } from './issueCache.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from './issueReads.js';
 import type { IssuesIntegration } from './issuesIntegration.js';
 import type {
+	IntegrationCacheDescriptor,
 	IntegrationConnectedKey,
 	IntegrationCredential,
 	IntegrationKey,
@@ -102,6 +104,25 @@ export type BatchSlot<T> = PromiseFulfilledResult<T> | (PromiseRejectedResult & 
 /** A batch read's target, in the form its provider addresses it by: a repository coordinate, or a tracker's resource. */
 type BatchTarget = { owner: string; repo: string; project?: string } | { resourceId: string };
 
+function batchTargetRepository(target: BatchTarget): string | undefined {
+	if ('resourceId' in target) return undefined;
+
+	return [target.owner, target.project ?? '', target.repo].join('/').toLowerCase();
+}
+
+function isRefusedCredential(reason: unknown): reason is AuthenticationError {
+	return reason instanceof AuthenticationError && reason.reason !== AuthenticationErrorReason.Forbidden;
+}
+
+function findRefusedCredentialSlot<T>(
+	slots: readonly BatchSlot<T>[],
+): (PromiseRejectedResult & { reason: AuthenticationError }) | undefined {
+	return slots.find(
+		(slot): slot is PromiseRejectedResult & { reason: AuthenticationError } =>
+			slot.status === 'rejected' && slot.failure == null && isRefusedCredential(slot.reason),
+	);
+}
+
 /**
  * The scope a batch read records a refused target under. It is decided here rather than in the read, which has the
  * same targets, because naming the refusal's cause (`describeRefusal`) needs it too. Azure DevOps: the organization
@@ -134,9 +155,12 @@ type SyncReqUsecase = Exclude<
 	| 'getProjectsForOrg'
 	| 'getProjectsForResources'
 	| 'getPullRequest'
+	| 'getPullRequestActivity'
+	| 'getPullRequestCheckLogs'
 	| 'getPullRequestsBatch'
 	| 'getPullRequestsEtagFields'
 	| 'getPullRequestsForBranches'
+	| 'getPullRequestsForCommits'
 	| 'getRepositoriesForOrg'
 	| 'getRepositoriesForUser'
 	| 'getPullRequestForBranch'
@@ -150,6 +174,8 @@ type SyncReqUsecase = Exclude<
 	| 'dequeuePullRequest'
 	| 'enqueuePullRequest'
 	| 'mergePullRequest'
+	| 'mutateIssue'
+	| 'writePullRequest'
 	| 'searchIssuesPage'
 	| 'searchPullRequestsPage'
 	| 'searchMyIssues'
@@ -236,6 +262,10 @@ export abstract class IntegrationBase<
 
 	protected getSessionFingerprint(session: ProviderAuthenticationSession): string {
 		return fnv1aHash64(session.accessToken);
+	}
+
+	protected getPullRequestCacheDescriptor(_session: ProviderAuthenticationSession): IntegrationCacheDescriptor {
+		return this;
 	}
 
 	get connectionExpired(): boolean | undefined {
@@ -335,18 +365,21 @@ export abstract class IntegrationBase<
 		// A truthy connectionId targets a specific account; an empty string is not a real target, so it falls
 		// through to the primary path below.
 		if (connectionId) {
-			// A read of this connection previously failed with an AuthenticationError, so the token in
-			// storage is known-refused. Ask for a refresh through the GK cloud before reading again, which
+			// The provider previously refused this connection's token. Ask for a refresh before using it again, which
 			// is this branch's equivalent of the primary path's `refreshSessionIfExpired`. Claimed here so
 			// the forced refresh runs at most once per rejection.
-			const refreshRejectedToken = this._rejectedTokens.claimRefresh(connectionId);
+			const rejectedToken = this._rejectedTokens.claimRefresh(connectionId);
 			// Never throws, matching the primary path (whose ensureSession/refreshSessionIfExpired swallow
 			// errors), so read methods keep their never-throws contract.
 			try {
 				const authProvider = await this.authenticationService.get(this.authProvider.id);
 				const session = await authProvider.getSession(
 					{ ...this.authProviderDescriptor, connectionId: connectionId, cloud: true },
-					{ source: source, refreshRejectedToken: refreshRejectedToken },
+					{
+						source: source,
+						refreshRejectedToken: rejectedToken === true,
+						isRejectedToken: typeof rejectedToken === 'function' ? rejectedToken : undefined,
+					},
 				);
 				return session != null && this.isSessionForIntegrationHost(session) ? session : undefined;
 			} catch (ex) {
@@ -524,10 +557,15 @@ export abstract class IntegrationBase<
 	/**
 	 * The per-connection counterpart of the primary session's expire-and-resync recovery: a token the
 	 * provider refused is refreshed once through the GK cloud, which exchanges the refresh token server-side
-	 * (the client never holds one). Armed by {@link handleProviderException} and consumed by
+	 * (the client never holds one). Armed by {@link handleConnectionAuthenticationRejection} and consumed by
 	 * {@link resolveReadSession}; a rejection it declines belongs to {@link trackRequestException} instead.
 	 */
 	private readonly _rejectedTokens = new RejectedTokenTracker();
+	protected readonly lookupBackoff = new FailureBackoff();
+
+	protected clearLookupBackoff(): void {
+		this.lookupBackoff.clearAll();
+	}
 
 	/**
 	 * Called by every path that replaces or removes the stored tokens — a disconnect, a forced re-sync, a
@@ -542,6 +580,7 @@ export abstract class IntegrationBase<
 	 */
 	protected onStoredTokensReplaced(): void {
 		this._rejectedTokens.clear();
+		this.clearLookupBackoff();
 		this.invalidateDiscoveryCaches();
 	}
 
@@ -608,6 +647,18 @@ export abstract class IntegrationBase<
 		this.invalidateDiscoveryCaches();
 	}
 
+	onSessionsRemoving(connectionId?: string, cloud?: boolean): void {
+		this.invalidatePublishedSession(
+			{
+				previousSessionId: connectionId,
+				connectionId: connectionId,
+				cloud: cloud,
+				retireAll: connectionId == null,
+			},
+			false,
+		);
+	}
+
 	private static readonly requestExceptionLimit = 5;
 	/** The primary connection's strikes (see {@link trackRequestException}). */
 	private requestExceptionCount = 0;
@@ -636,11 +687,12 @@ export abstract class IntegrationBase<
 		this.connectionRequestExceptionCounts.clear();
 		this._syncRequestsPerFailedUsecase.clear();
 		this._rejectedTokens.clear();
+		this.clearLookupBackoff();
 	}
 
 	/**
-	 * Clears the strikes of the connection `connectionId` names (the primary when omitted) after a read of it
-	 * succeeded, or of every connection for `'all'`.
+	 * Clears the strikes of the selected connection (the primary when omitted) after a successful request,
+	 * or of every connection for `'all'`.
 	 */
 	resetRequestExceptionCount(syncReqUsecase: SyncReqUsecase | 'all', connectionId?: string): void {
 		if (syncReqUsecase === 'all') {
@@ -656,7 +708,7 @@ export abstract class IntegrationBase<
 		}
 
 		this.requestExceptionCount = 0;
-		// Only the primary session's refused token requests a re-sync, so only a read of the primary settles one.
+		// Only the primary session's refused token requests a re-sync.
 		this._syncRequestsPerFailedUsecase.delete(syncReqUsecase);
 	}
 
@@ -747,6 +799,7 @@ export abstract class IntegrationBase<
 					// `GetSessionOptions.refetch`), so a fetch that fails transiently keeps the token it had.
 					if (reason === 'explicit') {
 						this._rejectedTokens.clear();
+						this.clearLookupBackoff();
 						this.beginForcedRefresh();
 					}
 					// The cached session is kept while the replacement is fetched (the refetch does not read it): a
@@ -772,6 +825,7 @@ export abstract class IntegrationBase<
 				// if there was no session or some problem fetching/refreshing the existing session from the cloud api
 				let newSession: ProviderAuthenticationSession | undefined;
 				let refetchFailed = false;
+				const signOutMark = resyncing ? this.authenticationService.getSignOutMark() : undefined;
 				try {
 					newSession = await this.resolveSessionLocked({ sync: forceSync, refetch: resyncing });
 				} catch (ex) {
@@ -798,7 +852,10 @@ export abstract class IntegrationBase<
 				// token is really gone is cleanly disconnected (#5497) while a healthy one survives a blip (#5569).
 				if (resyncing && newSession == null && !refetchFailed) {
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
-					await authProvider.deleteSession(this.authProviderDescriptor, { preserveConfigured: false });
+					await authProvider.deleteSession(this.authProviderDescriptor, {
+						preserveConfigured: false,
+						signOutMark: signOutMark,
+					});
 				}
 
 				break;
@@ -913,11 +970,21 @@ export abstract class IntegrationBase<
 		options?: { keepOtherFailures?: boolean },
 	): Promise<BatchSlot<T>[]> {
 		const keepOtherFailures = options?.keepOtherFailures ?? false;
-		const failures = slots.map((slot, i) =>
-			slot.status === 'rejected' && slot.reason instanceof AuthenticationError
-				? toCollectionScopeFailure(batchTargetScope(this.id, targets[i]), slot.reason)
-				: undefined,
+		const answered = new Set(
+			slots.flatMap((slot, i) => (slot.status === 'fulfilled' ? [batchTargetRepository(targets[i])] : [])),
 		);
+		const credentialDied = slots.some((slot, i) => {
+			if (slot.status !== 'rejected' || !isRefusedCredential(slot.reason)) return false;
+
+			const repository = batchTargetRepository(targets[i]);
+			return repository != null && answered.has(repository);
+		});
+		const failures = slots.map((slot, i) => {
+			if (slot.status !== 'rejected' || !(slot.reason instanceof AuthenticationError)) return undefined;
+			if (credentialDied && isRefusedCredential(slot.reason)) return undefined;
+
+			return toCollectionScopeFailure(batchTargetScope(this.id, targets[i]), slot.reason);
+		});
 		const refused = failures.filter(f => f != null);
 		if (!refused.length) {
 			if (!keepOtherFailures) {
@@ -953,6 +1020,22 @@ export abstract class IntegrationBase<
 		});
 	}
 
+	protected settleBatchCredential<T>(
+		syncReqUsecase: SyncReqUsecase,
+		settled: readonly BatchSlot<T>[],
+		options: { scope: ScopedLogger | undefined; connectionId: string | undefined; reset: boolean },
+	): void {
+		const refusal = findRefusedCredentialSlot(settled);
+		if (refusal != null) {
+			this.handleProviderException(syncReqUsecase, refusal.reason, {
+				scope: options.scope,
+				connectionId: options.connectionId,
+			});
+		} else if (options.reset) {
+			this.resetRequestExceptionCount(syncReqUsecase, options.connectionId);
+		}
+	}
+
 	/**
 	 * Shows one notice, and spends at most one strike, for a batch read whose targets failed with a server error or a
 	 * timeout. Our own clients leave both to the batch (see `reportRequestFailure`) instead of spending them per
@@ -969,7 +1052,7 @@ export abstract class IntegrationBase<
 		for (const slot of slots ?? []) {
 			if (slot.status !== 'rejected') continue;
 
-			notify = getDeferredRequestFailure(slot.reason);
+			notify = takeDeferredRequestFailure(slot.reason);
 			if (notify != null) break;
 		}
 
@@ -1046,6 +1129,19 @@ export abstract class IntegrationBase<
 	}
 
 	/** Returns whether it spent a strike (see {@link trackRequestException}). */
+	protected handleConnectionAuthenticationRejection(
+		connectionId: string,
+		silent?: boolean,
+		rejectedAccessToken?: string,
+	): boolean {
+		this._validatedCredentials.clear();
+		if (this._rejectedTokens.recordRejection(connectionId, rejectedAccessToken)) return false;
+
+		this.trackRequestException({ connectionId: connectionId, silent: silent });
+		return true;
+	}
+
+	/** Returns whether it spent a strike (see {@link trackRequestException}). */
 	protected handleProviderException(
 		syncReqUsecase: SyncReqUsecase,
 		ex: Error,
@@ -1054,7 +1150,7 @@ export abstract class IntegrationBase<
 		if (isCancellationError(ex)) return false;
 
 		// A refused credential may be one a probe passed moments ago: stop vouching for it.
-		if (ex instanceof AuthenticationError) {
+		if (ex instanceof AuthenticationError && !options?.connectionId) {
 			this._validatedCredentials.clear();
 		}
 
@@ -1064,21 +1160,8 @@ export abstract class IntegrationBase<
 			Logger.error(ex);
 		}
 
-		// A per-connection (multi-account) read resolved its session through `resolveReadSession`'s
-		// `connectionId` branch, which deliberately never touches the cached primary `_session`. So the
-		// primary-session recovery below cannot apply to it: expiring `_session` would mark a session this
-		// read never used, while the rejected connection kept its stored token and re-sent it on every
-		// later read — a token the provider has already refused (expired scopes, a revoked grant, an
-		// uninstalled app) is not self-healing, so the read failed identically until the user reconnected
-		// by hand. Record the rejection against the connection instead; `resolveReadSession` consumes it
-		// and forces the cloud `/refresh` on the next read of that connection. When there is nothing to
-		// recover, fall through to that connection's failure budget (see `trackRequestException`), which for
-		// the primary disconnects after `requestExceptionLimit` and surfaces the reconnect prompt.
 		if (ex instanceof AuthenticationError && options?.connectionId) {
-			if (this._rejectedTokens.recordRejection(options.connectionId)) return false;
-
-			this.trackRequestException(options);
-			return true;
+			return this.handleConnectionAuthenticationRejection(options.connectionId, options.silent);
 		}
 
 		if (ex instanceof AuthenticationError && this._session?.cloud && !this.hasSessionSyncRequests()) {
@@ -1503,18 +1586,21 @@ export abstract class IntegrationBase<
 
 		if ((await this.prepareSessionLookup()) != null) return undefined;
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const { throwOnError, ...cacheOptions } = options ?? {};
 
 		const issueOrPR = this.ctx.cache.getIssueOrPullRequest(
 			link.key,
 			options?.type,
 			resource,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {
 						const result = await this.getProviderLinkedIssueOrPullRequest(
-							this._session!,
+							session,
 							resource,
 							link,
 							options?.type,
@@ -1522,7 +1608,6 @@ export abstract class IntegrationBase<
 						this.resetRequestExceptionCount('getIssueOrPullRequest');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer — and a missed issue/PR never expires from the cache.
 						cacheable.invalidate();
 						this.handleProviderException('getIssueOrPullRequest', ex, { scope: scope });
 						if (throwOnError) throw ex;
@@ -1706,18 +1791,20 @@ export abstract class IntegrationBase<
 			return undefined;
 		}
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const pr = await this.ctx.cache.getPullRequest(
 			id,
 			resource,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderPullRequest?.(this._session!, resource, id);
+						const result = await this.getProviderPullRequest?.(session, resource, id);
 						this.resetRequestExceptionCount('getPullRequest');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer — and the by-id bucket never expires a miss.
 						cacheable.invalidate();
 						this.handleProviderException('getPullRequest', ex, { scope: scope });
 						if (options?.throwOnError) throw ex;

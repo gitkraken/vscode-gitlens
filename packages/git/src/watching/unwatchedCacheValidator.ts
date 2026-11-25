@@ -17,11 +17,25 @@ type ProbeStat = { readonly mtime: number; readonly size: number };
 type StatMemo = Map<string, Promise<ProbeStat | undefined>>;
 /** The reading of a path whose stat failed; never a whole second, so never racy */
 const unreadable: ProbeStat = { mtime: -1, size: -1 };
+/** What a batched stat reads of one path (see {@link UnwatchedCacheValidatorOptions.statMany}) */
+export type BatchedStat = ProbeStat | 'missing' | 'unreadable';
 
 export interface UnwatchedCacheValidatorOptions {
 	readonly cache: Cache;
-	/** A path's modification time (ms since the epoch) and size; `undefined` when it doesn't exist */
+	/**
+	 * A path's modification time (ms since the epoch) and size; `undefined` when it doesn't exist. With
+	 * {@link statMany}, only for the paths of a batch that failed and for the stats made while batching backs off
+	 * after one, so both must read a file alike
+	 */
 	readonly stat: (path: string) => Promise<ProbeStat | undefined>;
+	/**
+	 * Stats many paths as one file-system call, answering one reading per path in order: `'missing'` for one that isn't
+	 * there (or under a path that is a file), `'unreadable'` for one whose stat failed otherwise. A rejection fails the
+	 * whole batch, whose paths are then read by {@link stat} one at a time, as are all stats for 30 seconds after.
+	 * When given, the stats a validation needs at once for a repository are made as one call (of at most 128 paths)
+	 * rather than one call each; without it, each is a call of its own
+	 */
+	readonly statMany?: (paths: readonly string[]) => Promise<readonly BatchedStat[]>;
 	/** A directory's entries with their `FileType`s; a rejection whose `code` is `ENOENT` or `FileNotFound` means it isn't there */
 	readonly readDirectory: (path: string) => Promise<readonly (readonly [string, number])[]>;
 	/** A file's bytes; `undefined` when it doesn't exist. Without it, no worktree is ignored */
@@ -53,8 +67,9 @@ export interface UnwatchedCacheValidatorOptions {
 	 */
 	readonly timeoutMs?: number;
 	/**
-	 * How many of Node's file-system threads (libuv's pool) the validator's calls may hold at once, counting those hung
-	 * past {@link timeoutMs}; at most two run at once. Default: 2, which leaves a host two of the pool's default four
+	 * How many threads the validator's file-system calls may hold at once, counting those hung past {@link timeoutMs}:
+	 * Node's file-system threads (libuv's pool), or, for a {@link statMany} batch, whatever thread the host runs it on;
+	 * at most two run at once. Default: 2, which leaves a host two of the pool's default four
 	 */
 	readonly maxFsThreads?: number;
 }
@@ -71,6 +86,21 @@ const validationWindowMs = defaultRepoDelay;
 const unresolvableRetryMs = 30_000;
 /** Targets kept per kind; one dropped just takes a new baseline */
 const maxTargets = 512;
+/**
+ * Other worktrees' first baselines one validation takes with its own. Their stats run one call at a time per repository
+ * inside the read that triggered them, so the batch is kept small enough that a slow file system doesn't push that read
+ * past its timeout; the worktrees left out batch the rest at their own first validation. Never more than fit under
+ * {@link maxTargets}, as a target dropped for them would clear the shared entries again
+ */
+const maxSiblingBaselines = 64;
+/**
+ * Linked worktrees' first baselines one validation clears only their own entries for, when the common git dir vouches
+ * for each one's HEAD; past it, they clear the shared entries too, once. Clearing the shared entries costs a ref listing,
+ * a default branch read and the reader's current branch, and that listing seeds every worktree's current branch again;
+ * clearing a worktree's own entries costs it a read of its own current branch. So past a few worktrees, one clear of the
+ * shared entries is the cheaper
+ */
+const maxOwnBaselines = 3;
 /** Polls one validation runs to take the baselines of the directories it finds; the next validation resumes from there */
 const maxDiscoveryPolls = 16;
 /**
@@ -87,13 +117,21 @@ const defaultValidationTimeoutMs = 1000;
 /** The longest delay `setTimeout` keeps; a longer one (`Infinity` included) fires at once */
 const maxValidationTimeoutMs = 2 ** 31 - 1;
 /**
- * A stat or listing holds one of Node's file-system threads (libuv's pool, 4 by default) until it returns, which on a
- * hung mount is never, as it can't be cancelled. A repository makes one at a time and the validator two, holding no more
- * threads than it's allowed counting those outstanding past the timeout
+ * A stat, a batch of them or a listing holds a thread (one of Node's file-system threads, libuv's pool of 4 by default,
+ * or the one a batch runs on) until it returns, which on a hung mount is never, as it can't be cancelled. A repository
+ * makes one call at a time and the validator two, holding no more threads than it's allowed counting those outstanding
+ * past the timeout
  */
 const maxFsCallsPerRepo = 1;
 const maxFsCalls = 2;
 const defaultMaxFsThreads = 2;
+/** Paths one batch of stats holds at most; more asked together are split into batches of this many */
+const maxBatchPaths = 128;
+/**
+ * How long after a batch of stats failed each stat is a call of its own, before batching is tried again: what failed it
+ * (a worker that can't start or keeps dying) likely fails the next one too
+ */
+const failedBatchBackoffMs = 30_000;
 
 const refNamespaces: readonly string[] = ['refs/heads', 'refs/remotes', 'refs/tags'];
 const reftableProbePath = 'reftable/tables.list';
@@ -160,6 +198,11 @@ interface ValidationResult {
 	readonly changes: ReadonlySet<RepositoryChange>;
 	/** With a `'worktreeHead'` among `changes`, the admin ids of the linked worktrees whose HEAD moved; `undefined` when any may have */
 	readonly movedWorktrees: ReadonlySet<string> | undefined;
+	/**
+	 * Read without a baseline (a first validation, or one after a failure or a reset dropped it), so `changes` is all its
+	 * git dir can report rather than what moved
+	 */
+	readonly noBaseline: boolean;
 }
 
 /** Something reads wait for, at most until their timeout */
@@ -190,11 +233,18 @@ interface ResolutionState extends Waitable {
  * files a watcher would have reported (see {@link UnwatchedCacheValidatorOptions.stat}) and applies what moved to the
  * cache as a watcher event would have. Both a worktree's own git dir and the common one are validated while that
  * worktree is unwatched; while another worktree's watcher covers the common one, what moved there clears only the
- * unwatched worktrees' own entries. A repository whose git dir nothing resolved yet is validated once
+ * unwatched worktrees' own entries, but for a linked worktree's HEAD moving, which is applied as that worktree's own
+ * report would be (see {@link apply}). A repository whose git dir nothing resolved yet is validated once
  * {@link UnwatchedCacheValidatorOptions.resolveGitDir} resolves one; a repository whose files can't show it is looked at
  * again rarely, and one whose resolution failed within the validation window. A read waits at most
  * {@link UnwatchedCacheValidatorOptions.timeoutMs} for a validation (and a resolution before it); one that outlasts it
  * is left to finish on its own, and the reads meanwhile are served as is.
+ *
+ * Each file-system call goes through a gate, one at a time per repository, so what a validation costs is mostly how
+ * many calls it makes, each a round trip to a file-system thread. With
+ * {@link UnwatchedCacheValidatorOptions.statMany}, the stats a repository's git dirs ask for together (a poll's, and the
+ * root and common git dirs' first polls of one validation) are one call, or one per {@link maxBatchPaths} paths;
+ * listings and file reads stay a call each.
  */
 export class UnwatchedCacheValidator {
 	private readonly cache: Cache;
@@ -219,10 +269,13 @@ export class UnwatchedCacheValidator {
 	private readonly resolutions = new Map<string, ResolutionState>();
 	/** The validation {@link onWatched} ran as a watcher attached, by repo path, which reads wait for while it runs */
 	private readonly handoffs = new Map<string, Promise<void>>();
-	/** By the repo path of a watched worktree, what moved in its common git dir that its watcher was left to clear */
+	/**
+	 * By the repo path of a watched worktree, what moved in its common git dir that its watcher was left to clear, and
+	 * whether its own HEAD's move, which the common git dir saw, was left to it to report (see {@link applyMovedHeads})
+	 */
 	private readonly deferred = new Map<
 		string,
-		{ readonly commonPath: string; readonly changes: Set<RepositoryChange> }
+		{ readonly commonPath: string; readonly changes: Set<RepositoryChange>; headMoved: boolean }
 	>();
 
 	constructor(options: UnwatchedCacheValidatorOptions) {
@@ -237,9 +290,12 @@ export class UnwatchedCacheValidator {
 			this.timeoutMs,
 			Number.isNaN(maxFsThreads) ? defaultMaxFsThreads : Math.max(1, maxFsThreads),
 		);
+		const stat = options.stat;
+		const statMany = options.statMany;
 		this.dirOptions = {
 			gate: this.gate,
-			stat: options.stat,
+			stat: stat,
+			batcher: statMany != null ? new StatBatcher(this.gate, statMany, stat, this.now) : undefined,
 			readDirectory: options.readDirectory,
 			readFile: options.readFile,
 			getIgnoredWorktreeRoots: options.getIgnoredWorktreeRoots,
@@ -313,19 +369,27 @@ export class UnwatchedCacheValidator {
 
 	/**
 	 * A watcher left `repoPath`, dropping what it held back unreported. What moved in its common git dir that an
-	 * unwatched sibling's validation left to it is applied now, since that validation took the shared baseline past it;
-	 * whatever else it dropped is still ahead of its own baselines.
+	 * unwatched sibling's validation left to it is applied now, since that validation took the shared baseline past it,
+	 * and so is its own HEAD's move that the common git dir saw, as its watcher would have reported it; whatever else it
+	 * dropped is still ahead of its own baselines.
 	 */
 	onUnwatched(repoPath: string): void {
 		const deferred = this.deferred.get(repoPath);
 		if (deferred == null) return;
 
 		this.deferred.delete(repoPath);
-		// To the common path, which keys the shared entries, as `repoPath` may already be unregistered
-		this.cache.onRepositoryChanged(deferred.commonPath, deferred.changes);
-		// And to a linked worktree's own entries while it is still registered, which its watcher would have cleared too
-		if (repoPath !== deferred.commonPath && this.cache.isRegistered(repoPath)) {
-			this.cache.applyRepositoryChanges(repoPath, deferred.changes, 'share', { worktreeOnly: true });
+		if (deferred.changes.size) {
+			// To the common path, which keys the shared entries, as `repoPath` may already be unregistered
+			this.cache.onRepositoryChanged(deferred.commonPath, deferred.changes);
+			// And to a linked worktree's own entries while it is still registered, which its watcher would have cleared too
+			if (repoPath !== deferred.commonPath && this.cache.isRegistered(repoPath)) {
+				this.cache.applyRepositoryChanges(repoPath, deferred.changes, 'share', { worktreeOnly: true });
+			}
+		}
+		if (deferred.headMoved) {
+			// Not added to the changes, which would clear the main checkout's own entries along with the shared ones
+			const registered = this.cache.getCommonPath(repoPath) === deferred.commonPath;
+			this.cache.onRepositoryChanged(registered ? repoPath : deferred.commonPath, ['head', 'heads']);
 		}
 	}
 
@@ -354,6 +418,10 @@ export class UnwatchedCacheValidator {
 
 		const commonGitDir = (gitDir.commonUri ?? gitDir.uri).fsPath;
 		const root = this.getTarget(this.roots, repoPath, 'root', gitDir.uri.fsPath, commonPath, commonGitDir);
+		// A root never validated reports everything its git dir could have moved, which clears the repository's shared
+		// entries unless the common git dir vouches for its HEAD (see `apply`); the other worktrees never validated take
+		// their first baselines with it, so each clears only its own entries rather than the shared ones again
+		const siblings = root.runs === 0 ? this.getSiblingTargets(repoPath, commonPath, commonGitDir) : [];
 		// Read even while another worktree's watcher covers it: that watcher clears the shared entries, never this
 		// worktree's own
 		const common = this.getTarget(this.commons, commonPath, 'common', commonGitDir, commonPath, commonGitDir);
@@ -383,14 +451,18 @@ export class UnwatchedCacheValidator {
 		const startedCommon = start(common);
 
 		if (startedRoot != null || startedCommon != null) {
-			const job = this.runTargets(repoPath, commonPath, startedRoot, startedCommon, previous);
+			const job = this.runTargets(repoPath, commonPath, startedRoot, startedCommon, common, siblings, previous);
 			if (startedRoot != null) {
 				startedRoot.running = job;
 			}
 			if (startedCommon != null) {
 				startedCommon.running = job;
 			}
-			for (const state of [startedRoot, startedCommon]) {
+			// So a read of one joins this validation rather than starting its own
+			for (const [, state] of siblings) {
+				state.running = job;
+			}
+			for (const state of [startedRoot, startedCommon, ...siblings.map(([, s]) => s)]) {
 				if (state != null) {
 					waits.push([state, job]);
 				}
@@ -499,7 +571,8 @@ export class UnwatchedCacheValidator {
 	/**
 	 * What validating has cost, for a host to weigh against watching: counts since the validator was created of the
 	 * validations run, those that cleared something, the reads served as is after their wait timed out, the git dir
-	 * lookups, and the file-system calls made; and, as of now, the calls stuck on a hung mount and the git dirs kept
+	 * lookups, the file-system calls made (a batch of stats counting as one) and the batches of stats that failed;
+	 * and, as of now, the calls stuck on a hung mount and the git dirs kept
 	 */
 	getResourceUsage(): ResourceUsage {
 		return {
@@ -509,6 +582,7 @@ export class UnwatchedCacheValidator {
 			'unwatchedValidation.gitDirLookups.count': this.counts.gitDirLookups,
 			'unwatchedValidation.fsCalls.count': this.gate.calls,
 			'unwatchedValidation.fsCallsStuck.count': this.gate.stuckCalls,
+			'unwatchedValidation.statBatchesFailed.count': this.dirOptions.batcher?.failedBatches ?? 0,
 			'unwatchedValidation.gitDirs.count': this.roots.size + this.commons.size,
 		};
 	}
@@ -553,15 +627,47 @@ export class UnwatchedCacheValidator {
 		return state;
 	}
 
+	/**
+	 * The root targets, new, of `repoPath`'s registered sibling worktrees that never had one: unwatched (a watcher covers
+	 * its own git dir, and validates it as it attaches), with a git dir the cache resolved in the same common git dir
+	 */
+	private getSiblingTargets(
+		repoPath: string,
+		commonPath: string,
+		commonGitDir: string,
+	): (readonly [string, TargetState])[] {
+		const siblings: (readonly [string, TargetState])[] = [];
+		const room = Math.min(maxSiblingBaselines, maxTargets - this.roots.size);
+		for (const path of this.cache.getWorktreePaths(commonPath)) {
+			if (siblings.length >= room) break;
+			// One that failed and was reset still has its target, as does one in flight
+			if (path === repoPath || this.roots.has(path) || this.isWatched(path)) continue;
+			if (this.cache.getCommonPath(path) !== commonPath) continue;
+
+			const gitDir = this.cache.gitDir.get(path);
+			if (gitDir == null || (gitDir.commonUri ?? gitDir.uri).fsPath !== commonGitDir) continue;
+
+			siblings.push([
+				path,
+				this.getTarget(this.roots, path, 'root', gitDir.uri.fsPath, commonPath, commonGitDir),
+			]);
+		}
+		return siblings;
+	}
+
 	private async runTargets(
 		repoPath: string,
 		commonPath: string,
 		root: TargetState | undefined,
 		common: TargetState | undefined,
+		/** The repository's common target, whether or not this validation started it */
+		commonTarget: TargetState,
+		siblings: readonly (readonly [string, TargetState])[],
 		previous: readonly Promise<void>[],
 	): Promise<void> {
 		const rootRun = root != null ? ++root.runs : 0;
 		const commonRun = common != null ? ++common.runs : 0;
+		const siblingRuns = siblings.map(([, state]) => ++state.runs);
 		// Before anything is awaited: a watcher that attaches from here on reports only what changes after it attached,
 		// and its own validation reads the common git dir after this one, from the baseline this one advances
 		const watchedAtStart = new Set(this.getCommonWatchers(repoPath, commonPath));
@@ -574,17 +680,30 @@ export class UnwatchedCacheValidator {
 			// The root and common git dirs of one validation can share paths: a main checkout's are the same, and a
 			// linked worktree's root is an admin entry of the common one
 			const memo: StatMemo = new Map();
-			const [rootResult, commonResult] = await Promise.all([
+			const [rootResult, commonResult, siblingResults] = await Promise.all([
 				root?.dir.validate(memo, repoPath),
 				common?.dir.validate(memo, repoPath),
+				Promise.all(siblings.map(([path, state]) => state.dir.validate(memo, path))),
 			]);
 			this.counts.validations++;
 			if (rootResult?.changes.size || commonResult?.changes.size) {
 				this.counts.validationsApplied++;
 			}
-			this.apply(repoPath, commonPath, rootResult, commonResult, watchedAtStart);
+			this.apply(
+				repoPath,
+				commonPath,
+				rootResult,
+				commonResult,
+				commonTarget.dir,
+				siblings.map(([path, state], i) => [path, state, siblingResults[i]] as const),
+				watchedAtStart,
+			);
 		} catch {
-			// `validate` never rejects, so only applying can have thrown; whatever it did apply stands
+			// `validate` never rejects, so only applying can have thrown; whatever it did apply stands, but a sibling
+			// may have been left baselined with nothing cleared, so each reports everything again at its next validation
+			for (const [, state] of siblings) {
+				state.dir.reset();
+			}
 		} finally {
 			// Before the validation settles, so a read it gated finds the window open and runs no other
 			const settledAt = this.now();
@@ -600,6 +719,12 @@ export class UnwatchedCacheValidator {
 					common.running = undefined;
 				}
 			}
+			// Never stamped as validated: a sibling's own first read still validates, from the baseline taken here
+			for (const [i, [, state]] of siblings.entries()) {
+				if (state.runs === siblingRuns[i]) {
+					state.running = undefined;
+				}
+			}
 		}
 	}
 
@@ -607,29 +732,70 @@ export class UnwatchedCacheValidator {
 	 * Applies what moved to `repoPath`, and what moved in the common git dir to its other unwatched registered worktrees
 	 * too, as the common watcher would have told each of them. While another worktree's watcher covers the common git
 	 * dir, it already cleared the shared entries, so only the worktrees' own are. A watcher covers it only if it watched
-	 * since before the stats began (`watchedAtStart`)
+	 * since before the stats began (`watchedAtStart`). What each sibling whose first baseline was taken with it reports
+	 * clears that sibling's own entries, as `repoPath`'s report cleared the shared ones.
+	 *
+	 * Once the common git dir (`commonDir`) holds a reading of a linked worktree's HEAD, it reports that HEAD's every
+	 * move, and a commit on its branch as a ref directory moving. Each such move clears the shared entries, as that
+	 * worktree's own report would (see {@link applyMovedHeads}), or is left to its watcher, which reports it or has it
+	 * applied as it leaves. So nothing the shared entries hold of that worktree can go stale unseen: its first report (or
+	 * its first after a reset) clears only its own entries, for up to {@link maxOwnBaselines} of them
 	 */
 	private apply(
 		repoPath: string,
 		commonPath: string,
 		root: ValidationResult | undefined,
 		common: ValidationResult | undefined,
+		commonDir: ProbedGitDir,
+		siblings: readonly (readonly [string, TargetState, ValidationResult])[],
 		watchedAtStart: ReadonlySet<string>,
 	): void {
 		const watchers = this.getCommonWatchers(repoPath, commonPath).filter(p => watchedAtStart.has(p));
 		const commonWatched = watchers.length !== 0;
-		const changes = new Set<RepositoryChange>(root?.changes);
+
+		const own = this.getVouchedBaselines(repoPath, commonPath, root, commonDir, siblings);
+		// A common git dir without a baseline before this validation saw none of those HEADs move before now
+		if (common?.noBaseline || own.size > maxOwnBaselines) {
+			own.clear();
+		}
+
+		// What `repoPath`'s report applies in full, which is what clears the shared entries
+		const changes = new Set<RepositoryChange>(own.has(repoPath) ? undefined : root?.changes);
 		if (!commonWatched) {
 			for (const change of common?.changes ?? []) {
 				changes.add(change);
 			}
 		}
 
+		if (root != null && own.has(repoPath)) {
+			this.cache.applyLinkedWorktreeChanges(repoPath, root.changes, 'share');
+		}
 		if (changes.size) {
 			// Only the common git dir reports a `'worktreeHead'`
 			this.cache.onRepositoryChanged(repoPath, changes, {
 				movedWorktrees: changes.has('worktreeHead') ? common?.movedWorktrees : undefined,
 			});
+		}
+		this.applyMovedHeads(repoPath, commonPath, common, watchers, changes.has('head'));
+
+		// `repoPath`'s report cleared the shared entries of the worktrees registered under its common path as of now, so
+		// it covers a sibling's only while `repoPath` is still under that path and reported all the sibling did
+		const shared = this.cache.getCommonPath(repoPath) === commonPath;
+		for (const [path, state, result] of siblings) {
+			if (!this.cache.isRegistered(path) || this.cache.getCommonPath(path) !== commonPath) {
+				// Nothing was cleared for it, so its baseline goes too
+				state.dir.reset();
+				continue;
+			}
+
+			if (own.has(path)) {
+				this.cache.applyLinkedWorktreeChanges(path, result.changes, 'share');
+			} else if (shared && [...result.changes].every(c => changes.has(c))) {
+				this.cache.applyRepositoryChanges(path, result.changes, 'share', { worktreeOnly: true });
+			} else {
+				// As its own first validation would have
+				this.cache.onRepositoryChanged(path, result.changes);
+			}
 		}
 
 		if (!common?.changes.size) return;
@@ -639,11 +805,7 @@ export class UnwatchedCacheValidator {
 
 			// Kept for each watcher until it leaves (see `onUnwatched`), since one that leaves first drops what it held back
 			for (const path of watchers) {
-				let deferred = this.deferred.get(path);
-				if (deferred?.commonPath !== commonPath) {
-					deferred = { commonPath: commonPath, changes: new Set() };
-					this.deferred.set(path, deferred);
-				}
+				const deferred = this.getDeferred(path, commonPath);
 				for (const change of common.changes) {
 					deferred.changes.add(change);
 				}
@@ -653,6 +815,95 @@ export class UnwatchedCacheValidator {
 			if (path === repoPath || watchers.includes(path)) continue;
 
 			this.cache.applyRepositoryChanges(path, common.changes, 'share', { worktreeOnly: true });
+		}
+	}
+
+	/** What is left to the watcher of `path` until it leaves (see {@link onUnwatched}) */
+	private getDeferred(
+		path: string,
+		commonPath: string,
+	): { readonly commonPath: string; readonly changes: Set<RepositoryChange>; headMoved: boolean } {
+		let deferred = this.deferred.get(path);
+		if (deferred?.commonPath !== commonPath) {
+			deferred = { commonPath: commonPath, changes: new Set(), headMoved: false };
+			this.deferred.set(path, deferred);
+		}
+		return deferred;
+	}
+
+	/**
+	 * The worktrees, of `repoPath` and the `siblings`, whose report without a baseline the common git dir vouches for as
+	 * of now: each a linked worktree registered under `commonPath` whose HEAD `commonDir` holds a reading of
+	 */
+	private getVouchedBaselines(
+		repoPath: string,
+		commonPath: string,
+		root: ValidationResult | undefined,
+		commonDir: ProbedGitDir,
+		siblings: readonly (readonly [string, TargetState, ValidationResult])[],
+	): Set<string> {
+		const vouched = (path: string): boolean => {
+			if (this.cache.getCommonPath(path) !== commonPath) return false;
+
+			const id = this.cache.getLinkedWorktreeId(path);
+			return id != null && commonDir.holdsWorktreeHead(id);
+		};
+
+		const paths = new Set<string>();
+		if (root?.noBaseline && vouched(repoPath)) {
+			paths.add(repoPath);
+		}
+		for (const [path, , result] of siblings) {
+			if (result.noBaseline && vouched(path)) {
+				paths.add(path);
+			}
+		}
+		return paths;
+	}
+
+	/**
+	 * Applies the common git dir's sighting of linked worktrees' HEADs moving as each worktree's own report would be:
+	 * the shared entries hold each one's HEAD too (where the branch list places its branch, what a checkout's reflog
+	 * says a branch was based on), which a `'worktreeHead'` clears nothing of. One whose own watcher covered the common
+	 * git dir reports it itself, or, should that watcher leave first, has it applied as it leaves. A move not attributed to a registered worktree is applied to `repoPath`, as is a report
+	 * without a baseline (whose shared entries a watcher of the common git dir cleared, if not `repoPath`'s report),
+	 * unless what `repoPath`'s report applied in full saw its own HEAD move (`appliedHead`)
+	 */
+	private applyMovedHeads(
+		repoPath: string,
+		commonPath: string,
+		common: ValidationResult | undefined,
+		watchers: readonly string[],
+		appliedHead: boolean,
+	): void {
+		if (common == null) return;
+
+		const paths = new Set<string>();
+		if (common.noBaseline || (common.changes.has('worktreeHead') && common.movedWorktrees == null)) {
+			paths.add(repoPath);
+		} else if (common.changes.has('worktreeHead')) {
+			const pathsById = new Map<string, string>();
+			for (const path of this.cache.getWorktreePaths(commonPath)) {
+				const id = this.cache.getLinkedWorktreeId(path);
+				if (id != null) {
+					pathsById.set(id, path);
+				}
+			}
+			for (const id of common.movedWorktrees ?? []) {
+				const path = pathsById.get(id) ?? repoPath;
+				if (watchers.includes(path)) {
+					this.getDeferred(path, commonPath).headMoved = true;
+				} else {
+					paths.add(path);
+				}
+			}
+		}
+		if (appliedHead) {
+			paths.delete(repoPath);
+		}
+
+		for (const path of paths) {
+			this.cache.onRepositoryChanged(path, ['head', 'heads']);
 		}
 	}
 }
@@ -756,10 +1007,134 @@ class FileSystemGate {
 	}
 }
 
+/**
+ * Collects the stats asked for a gate key in one synchronous run (a poll's probes, the root and common git dirs' first
+ * polls of a validation) and makes them, once that run is over, as one call through the gate per {@link maxBatchPaths}
+ * paths. A batch that fails has its paths read one at a time, each a call of its own, once it gave its slot back: a key
+ * runs one call at a time. For {@link failedBatchBackoffMs} after, every stat is read that way
+ */
+class StatBatcher {
+	/** By gate key, the paths asked for since its last batch went out, each with its reading and what settles it */
+	private readonly pending = new Map<string, Map<string, PendingStat>>();
+	/** When the last batch failed */
+	private failedAt: number | undefined;
+	/** The batches that failed since it was created */
+	failedBatches = 0;
+
+	constructor(
+		private readonly gate: FileSystemGate,
+		private readonly statMany: (paths: readonly string[]) => Promise<readonly BatchedStat[]>,
+		private readonly stat: (path: string) => Promise<ProbeStat | undefined>,
+		private readonly now: () => number,
+	) {}
+
+	/** `path`'s reading, as {@link statThroughGate} reads it; never rejects */
+	read(gateKey: string, path: string): Promise<ProbeStat | undefined> {
+		if (this.failedAt != null) {
+			const backingOff = this.now() - this.failedAt < failedBatchBackoffMs;
+			if (backingOff) return statThroughGate(this.gate, gateKey, this.stat, path);
+
+			this.failedAt = undefined;
+		}
+
+		let batch = this.pending.get(gateKey);
+		if (batch == null) {
+			batch = new Map();
+			this.pending.set(gateKey, batch);
+			// A microtask, not a timer: it runs as soon as the synchronous run that asked is over
+			void Promise.resolve().then(() => this.flush(gateKey));
+		}
+
+		// Asked again in the same batch only by git dirs that don't share a memo, which read it alike
+		let pending = batch.get(path);
+		if (pending == null) {
+			let settle!: PendingStat['settle'];
+			const reading = new Promise<ProbeStat | undefined>(resolve => {
+				settle = resolve;
+			});
+			pending = { reading: reading, settle: settle };
+			batch.set(path, pending);
+		}
+		return pending.reading;
+	}
+
+	private flush(gateKey: string): void {
+		const batch = this.pending.get(gateKey);
+		if (batch == null) return;
+
+		this.pending.delete(gateKey);
+		const paths = [...batch.keys()];
+		for (let i = 0; i < paths.length; i += maxBatchPaths) {
+			this.send(gateKey, batch, paths.slice(i, i + maxBatchPaths));
+		}
+	}
+
+	/** Makes the stats of `paths` as one call through the gate, settling each one's reading in `batch` */
+	private send(gateKey: string, batch: Map<string, PendingStat>, paths: readonly string[]): void {
+		void this.gate
+			.run(gateKey, async () => {
+				const readings = await this.statMany(paths);
+				if (readings.length !== paths.length) {
+					throw new Error(`Expected ${paths.length} stats, got ${readings.length}`);
+				}
+				return readings;
+			})
+			.then(
+				readings => {
+					for (const [i, path] of paths.entries()) {
+						const reading = readings[i];
+						batch
+							.get(path)
+							?.settle(
+								reading === 'missing' ? undefined : reading === 'unreadable' ? unreadable : reading,
+							);
+					}
+				},
+				() => {
+					this.failedBatches++;
+					this.failedAt = this.now();
+					// The batch gave its slot back before this runs, so each waits its turn rather than for itself
+					for (const path of paths) {
+						batch.get(path)?.settle(statThroughGate(this.gate, gateKey, this.stat, path));
+					}
+				},
+			);
+	}
+}
+
+interface PendingStat {
+	readonly reading: Promise<ProbeStat | undefined>;
+	readonly settle: (reading: ProbeStat | undefined | Promise<ProbeStat | undefined>) => void;
+}
+
+/**
+ * `path`'s reading as one call through the gate: `undefined` when it isn't there, {@link unreadable} when its stat
+ * failed otherwise; never rejects
+ */
+function statThroughGate(
+	gate: FileSystemGate,
+	gateKey: string,
+	stat: (path: string) => Promise<ProbeStat | undefined>,
+	path: string,
+): Promise<ProbeStat | undefined> {
+	return gate
+		.run(gateKey, () => stat(path))
+		.catch((ex: unknown) => {
+			// A path under one that is now a file (a ref directory replaced by a ref of its name) isn't there
+			if (isNotFound(ex) || isNotADirectory(ex)) return undefined;
+
+			// Read as a reading of its own rather than skipped (as the probe target skips a stat that throws), so the
+			// path moves as it becomes unreadable and as it becomes readable again
+			return unreadable;
+		});
+}
+
 interface ProbedGitDirOptions {
 	/** Shared by every git dir the validator reads */
 	readonly gate: FileSystemGate;
 	readonly stat: (path: string) => Promise<ProbeStat | undefined>;
+	/** Shared by every git dir the validator reads; without it, each stat is a call of its own */
+	readonly batcher: StatBatcher | undefined;
 	readonly readDirectory: (path: string) => Promise<readonly (readonly [string, number])[]>;
 	readonly readFile: ((path: string) => Promise<Uint8Array | undefined>) | undefined;
 	readonly getIgnoredWorktreeRoots: ((repoPath: string) => Promise<readonly string[]>) | undefined;
@@ -868,25 +1243,42 @@ class ProbedGitDir {
 
 		if (failed || !this.baselined) {
 			if (failed) {
-				this.target = this.createTarget(() => this.getProbes());
-				this.gated.clear();
-				this.addGated(gitDirGatePath, this.kind === 'root' ? rootGatedProbes : commonGatedProbes);
-				this.baselined = false;
-				this.refDirs.clear();
-				this.worktrees.clear();
-				this.pendingDirs.clear();
-				this.pendingEntries.clear();
-				this.reftable = false;
+				this.reset();
 			} else {
 				this.baselined = true;
 			}
 			return {
 				changes: new Set(this.kind === 'root' ? rootReportableChanges : allWatchedRepositoryChanges),
 				movedWorktrees: undefined,
+				noBaseline: true,
 			};
 		}
 
 		return this.classify();
+	}
+
+	/**
+	 * Whether it holds a reading of the HEAD of the linked worktree with the admin id `id`, so it reports that HEAD's
+	 * every move from here on: a common git dir with a baseline, probing that worktree's admin entry (not ignored), whose
+	 * files it read behind it
+	 */
+	holdsWorktreeHead(id: string): boolean {
+		if (this.kind !== 'common' || !this.baselined || this.worktrees.get(id)?.ignored !== false) return false;
+
+		return this.gated.get(`worktrees/${id}`)?.read === true;
+	}
+
+	/** Drops every reading, so the next validation has no baseline and reports everything it can */
+	reset(): void {
+		this.target = this.createTarget(() => this.getProbes());
+		this.gated.clear();
+		this.addGated(gitDirGatePath, this.kind === 'root' ? rootGatedProbes : commonGatedProbes);
+		this.baselined = false;
+		this.refDirs.clear();
+		this.worktrees.clear();
+		this.pendingDirs.clear();
+		this.pendingEntries.clear();
+		this.reftable = false;
 	}
 
 	private createTarget(getProbes: () => Iterable<GitDirProbe>): GitDirProbeTarget {
@@ -920,16 +1312,11 @@ class ProbedGitDir {
 		let stat = this.memo?.get(path);
 		if (stat == null) {
 			// Mapped before it's shared, so the root and common git dirs read the same
-			stat = this.options.gate
-				.run(this.gateKey, () => this.options.stat(path))
-				.catch((ex: unknown) => {
-					// A path under one that is now a file (a ref directory replaced by a ref of its name) isn't there
-					if (isNotFound(ex) || isNotADirectory(ex)) return undefined;
-
-					// Read as a reading of its own rather than skipped (as the probe target skips a stat that throws), so
-					// the path moves as it becomes unreadable and as it becomes readable again
-					return unreadable;
-				});
+			const { gate, batcher } = this.options;
+			stat =
+				batcher != null
+					? batcher.read(this.gateKey, path)
+					: statThroughGate(gate, this.gateKey, this.options.stat, path);
 			this.memo?.set(path, stat);
 		}
 
@@ -1240,7 +1627,7 @@ class ProbedGitDir {
 			movedWorktrees.add(id);
 		}
 
-		return { changes: changes, movedWorktrees: anyWorktreeMoved ? undefined : movedWorktrees };
+		return { changes: changes, movedWorktrees: anyWorktreeMoved ? undefined : movedWorktrees, noBaseline: false };
 	}
 }
 

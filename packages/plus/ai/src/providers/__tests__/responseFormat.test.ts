@@ -165,7 +165,6 @@ suite('Anthropic response format translation', () => {
 			'claude-opus-4-6',
 			'claude-haiku-4-5',
 			'claude-haiku-4-5-20251001',
-			'claude-sonnet-4-5-20250929',
 			'claude-opus-4-5',
 		]) {
 			assert.strictEqual(provider.supportsResponseFormat(await registryModel(anthropic, id)), true, id);

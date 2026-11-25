@@ -226,13 +226,17 @@ export function graphDetailsRegion(graphWebview: FrameLocator, context?: GraphDe
  */
 export async function ensureGraphDetailsPanelOpen(graphWebview: FrameLocator, timeout = 10000): Promise<void> {
 	const detailsRegion = graphDetailsRegion(graphWebview);
+	// KEEP: collapsed, the region still measures 1-2px — gate on the toggle and `inert`, not its box
+	const expandedPane = graphWebview.locator('.graph__details-pane:not([inert])');
 	await expect(async () => {
-		if (await detailsRegion.isVisible()) return;
-
 		const showButton = graphWebview.locator('gl-button[aria-label="Show Details Panel"]').first();
 		if (await showButton.isVisible()) {
 			await showButton.click({ timeout: 2000 });
 		}
+		await expect(graphWebview.locator('gl-button[aria-label="Hide Details Panel"]').first()).toBeVisible({
+			timeout: 2000,
+		});
+		await expect(expandedPane).toHaveCount(1, { timeout: 2000 });
 		await expect(detailsRegion).toBeVisible({ timeout: 2000 });
 	}).toPass({ timeout: timeout });
 }
@@ -271,4 +275,51 @@ export async function dismissCommitHover(graphWebview: FrameLocator): Promise<vo
 		.first()
 		.hover({ force: true, position: { x: 4, y: 4 } });
 	await expect(graphWebview.locator('gl-graph-hover[open]')).toHaveCount(0, { timeout: MaxTimeout });
+}
+
+export async function ensureGraphDetailsPanelOpenAndAdopted(
+	vscode: VSCodeInstance,
+	graphWebview: FrameLocator,
+	timeout = 10000,
+): Promise<void> {
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
+	// HACK: until the first show saves `graph.details.location`, a host state push re-hides the panel
+	await expect
+		.poll(() => vscode.gitlens.isSettingSet('gitlens.graph.details.location'), { timeout: timeout })
+		.toBe(true);
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
+}
+
+export async function selectGraphWip(
+	vscode: VSCodeInstance,
+	graphWebview: FrameLocator,
+	timeout = MaxTimeout,
+): Promise<void> {
+	await ensureGraphDetailsPanelOpenAndAdopted(vscode, graphWebview, timeout);
+
+	const wipHeader = graphWebview.locator('gl-details-wip-header gl-details-header').first();
+	if (await wipHeader.isVisible().catch(() => false)) return;
+
+	const closeButton = graphWebview
+		.locator(
+			'gl-details-commit-panel gl-action-chip[icon="close"], gl-details-multicommit-panel gl-action-chip[icon="close"]',
+		)
+		.first();
+	const overviewButton = graphWebview.locator('gl-button[data-action="wip"]').first();
+	if (await closeButton.isVisible().catch(() => false)) {
+		await closeButton.click();
+	} else if (await overviewButton.isVisible().catch(() => false)) {
+		await overviewButton.click();
+	} else {
+		const wipRow = graphWebview
+			.getByRole('treeitem', { name: /Working (Changes|Tree)/ })
+			.filter({ visible: true })
+			.first();
+		await expect(wipRow).toBeVisible({ timeout: timeout });
+		// KEEP: click the message subject, not the row — the row box also holds the branch pill
+		await wipRow.locator('.gl-graph__message-subject').first().click();
+	}
+
+	await ensureGraphDetailsPanelOpen(graphWebview, timeout);
+	await expect(wipHeader).toBeVisible({ timeout: timeout });
 }

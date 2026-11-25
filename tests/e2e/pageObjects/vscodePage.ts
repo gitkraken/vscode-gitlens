@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import type { Uri } from 'vscode';
+import type { CodeLens, DocumentSymbol, Hover, MarkdownString, SymbolKind, Uri } from 'vscode';
 import { MaxTimeout, ShortTimeout } from '../baseTest.js';
 import type { VSCodeEvaluator } from '../fixtures/vscodeEvaluator.js';
 import { ActivityBar } from './components/activityBar.js';
@@ -8,6 +8,12 @@ import { QuickPick } from './components/quickPick.js';
 import { SecondarySidebar } from './components/secondarySidebar.js';
 import { Sidebar } from './components/sidebar.js';
 import { StatusBar } from './components/statusBar.js';
+
+export type EditorHoverContent = { value: string; trustedCommands: readonly string[] | boolean };
+
+type GitExtensionExports = {
+	getAPI(version: 1): { getRepository(uri: Uri): { inputBox: { value: string } } | null };
+};
 
 /**
  * Base page object for VS Code UI interactions.
@@ -61,21 +67,27 @@ export class VSCodePage {
 		) as Promise<T>;
 	}
 
-	/**
-	 * Write a setting at the user (Global) scope, as the Settings UI would — for specs that have to
-	 * exercise BOTH values of a setting in one worker, where the fixture's static `userSettings` can
-	 * only pin one. Settings written this way land in the worker's own temp user-data dir, so they
-	 * don't leak across workers; a spec that changes one still has to restore it for the specs after it.
-	 */
+	async isSettingSet(section: string): Promise<boolean> {
+		return this.evaluate((vscode, section) => {
+			const inspected = vscode.workspace.getConfiguration().inspect(section);
+			return inspected?.globalValue !== undefined || inspected?.workspaceValue !== undefined;
+		}, section);
+	}
+
+	async getSetting<T>(section: string): Promise<T | undefined> {
+		return this.evaluate((vscode, section) => vscode.workspace.getConfiguration().get<T>(section), section);
+	}
+
 	async updateSetting(section: string, value: unknown): Promise<void> {
 		await this.evaluate(
-			async (vscode, section, value) => {
-				// 1 = ConfigurationTarget.Global — the enum isn't reachable through the evaluator's
-				// serialized boundary, and no workspace is guaranteed to be open.
-				await vscode.workspace.getConfiguration().update(section, value, 1);
+			async (vscode, section, value, remove) => {
+				// KEEP: numeric target (1 = Global) — the enum can't cross the evaluator's JSON boundary
+				// KEEP: `remove` flag — JSON turns `undefined` into `null`, which VS Code stores instead of removing
+				await vscode.workspace.getConfiguration().update(section, remove ? undefined : value, 1);
 			},
 			section,
 			value,
+			value === undefined,
 		);
 	}
 
@@ -115,6 +127,128 @@ export class VSCodePage {
 				line: editor.selection.active.line,
 			};
 		});
+	}
+
+	async moveCursorAndGetHovers(
+		file: string,
+		line: number,
+		character: number | 'end',
+		cursorLine: number = line,
+	): Promise<EditorHoverContent[][]> {
+		return this.evaluate(
+			async (vscode, file, line, character, cursorLine) => {
+				const folder = vscode.workspace.workspaceFolders?.[0];
+				if (folder == null) throw new Error('No workspace folder is open');
+
+				const uri = vscode.Uri.joinPath(folder.uri, file);
+
+				const editor = await vscode.window.showTextDocument(uri);
+				if (editor.selection.active.line !== cursorLine || !editor.selection.isEmpty) {
+					editor.selection = new vscode.Selection(cursorLine, 0, cursorLine, 0);
+				}
+				editor.revealRange(new vscode.Range(cursorLine, 0, cursorLine, 0));
+
+				const position = new vscode.Position(
+					line,
+					character === 'end' ? editor.document.lineAt(line).text.length : character,
+				);
+				const hovers = await vscode.commands.executeCommand<Hover[]>(
+					'vscode.executeHoverProvider',
+					uri,
+					position,
+				);
+				return hovers.map(h =>
+					h.contents.map(c => {
+						if (typeof c === 'string') return { value: c, trustedCommands: false };
+
+						const markdown = c as MarkdownString;
+						const trusted = markdown.isTrusted;
+						return {
+							value: markdown.value,
+							trustedCommands: typeof trusted === 'object' ? trusted.enabledCommands : Boolean(trusted),
+						};
+					}),
+				);
+			},
+			file,
+			line,
+			character,
+			cursorLine,
+		);
+	}
+
+	async insertText(file: string, line: number, character: number, text: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, file, line, character, text) => {
+				const [uri] = await vscode.workspace.findFiles(`**/${file}`, null, 1);
+				if (uri == null) throw new Error(`File not found: ${file}`);
+
+				const editor = await vscode.window.showTextDocument(uri);
+				await editor.edit(edit => edit.insert(new vscode.Position(line, character), text));
+			},
+			file,
+			line,
+			character,
+			text,
+		);
+	}
+
+	async getActiveTabLabel(): Promise<string | undefined> {
+		return this.evaluate(vscode => vscode.window.tabGroups.activeTabGroup.activeTab?.label);
+	}
+
+	async getActiveEditorText(): Promise<string | undefined> {
+		return this.evaluate(vscode => vscode.window.activeTextEditor?.document.getText());
+	}
+
+	async getScmInputBoxValue(repoPath: string): Promise<string | undefined> {
+		return this.evaluate(async (vscode, repoPath) => {
+			const git = (await vscode.extensions.getExtension<GitExtensionExports>('vscode.git')?.activate())?.getAPI(
+				1,
+			);
+			return git?.getRepository(vscode.Uri.file(repoPath))?.inputBox.value;
+		}, repoPath);
+	}
+
+	async setScmInputBoxValue(repoPath: string, value: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, repoPath, value) => {
+				const git = (
+					await vscode.extensions.getExtension<GitExtensionExports>('vscode.git')?.activate()
+				)?.getAPI(1);
+				const repo = git?.getRepository(vscode.Uri.file(repoPath));
+				if (repo == null) throw new Error(`No Git repository open at ${repoPath}`);
+
+				repo.inputBox.value = value;
+			},
+			repoPath,
+			value,
+		);
+	}
+
+	async getDocumentsInTabs(scheme: string): Promise<{ viewType?: string; text: string }[]> {
+		return this.evaluate(async (vscode, scheme) => {
+			const documents: { viewType?: string; text: string }[] = [];
+			for (const group of vscode.window.tabGroups.all) {
+				for (const tab of group.tabs) {
+					const input = tab.input as { uri?: Uri; viewType?: string } | undefined;
+					if (input?.uri?.scheme !== scheme) continue;
+
+					const document = await vscode.workspace.openTextDocument(input.uri);
+					documents.push({ viewType: input.viewType, text: document.getText() });
+				}
+			}
+			return documents;
+		}, scheme);
+	}
+
+	get editorHover(): Locator {
+		return this.page.locator('.monaco-hover:not(.hidden)');
+	}
+
+	async showEditorHover(): Promise<void> {
+		await this.executeCommand('workbench.action.focusActiveEditorGroup');
+		await this.executeCommand('editor.action.showHover');
 	}
 
 	/** The host editor's URI scheme (e.g. `vscode`, `cursor`, `windsurf`, `kiro`) */
@@ -222,4 +356,118 @@ export class VSCodePage {
 	async waitForHidden(locator: Locator, timeout = MaxTimeout): Promise<void> {
 		await locator.waitFor({ state: 'hidden', timeout: timeout });
 	}
+
+	async getCodeLenses(fileName: string): Promise<EditorCodeLens[]> {
+		return this.evaluate(async (vscode, fileName) => {
+			const doc = vscode.workspace.textDocuments.find(
+				d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+			);
+			if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+			const lenses =
+				(await vscode.commands.executeCommand<CodeLens[] | undefined>(
+					'vscode.executeCodeLensProvider',
+					doc.uri,
+					// KEEP: resolve count — GitLens sets titles and commands only on resolve
+					100,
+				)) ?? [];
+			return lenses
+				.map(l => ({
+					line: l.range.start.line,
+					title: l.command?.title,
+					command: l.command?.command || undefined,
+				}))
+				.sort((a, b) => a.line - b.line);
+		}, fileName);
+	}
+
+	async getDocumentSymbolLines(fileName: string): Promise<number[]> {
+		return this.evaluate(async (vscode, fileName) => {
+			const doc = vscode.workspace.textDocuments.find(
+				d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+			);
+			if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+			const symbols =
+				(await vscode.commands.executeCommand<DocumentSymbol[] | undefined>(
+					'vscode.executeDocumentSymbolProvider',
+					doc.uri,
+				)) ?? [];
+			const lines: number[] = [];
+			const visit = (s: DocumentSymbol): void => {
+				lines.push(s.range.start.line);
+				for (const child of s.children ?? []) {
+					visit(child);
+				}
+			};
+			for (const s of symbols) {
+				visit(s);
+			}
+			return lines.sort((a, b) => a - b);
+		}, fileName);
+	}
+
+	async registerDocumentSymbols(fileName: string, symbols: FakeDocumentSymbol[]): Promise<void> {
+		await this.evaluate(
+			(vscode, fileName, symbols) => {
+				const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
+				store.__glE2eSymbols?.dispose();
+
+				const toSymbol = (s: FakeDocumentSymbol): DocumentSymbol => {
+					// KEEP: kind by name — the enum can't cross the evaluator's JSON boundary
+					const range = new vscode.Range(s.startLine, 0, s.endLine, 1);
+					const symbol = new vscode.DocumentSymbol(s.name, '', vscode.SymbolKind[s.kind], range, range);
+					symbol.children = (s.children ?? []).map(toSymbol);
+					return symbol;
+				};
+
+				store.__glE2eSymbols = vscode.languages.registerDocumentSymbolProvider(
+					{ scheme: 'file', pattern: `**/${fileName}` },
+					{ provideDocumentSymbols: () => symbols.map(toSymbol) },
+				);
+			},
+			fileName,
+			symbols,
+		);
+	}
+
+	async unregisterDocumentSymbols(): Promise<void> {
+		await this.evaluate(() => {
+			const store = globalThis as { __glE2eSymbols?: { dispose(): unknown } };
+			store.__glE2eSymbols?.dispose();
+			store.__glE2eSymbols = undefined;
+		});
+	}
+
+	async insertLine(fileName: string, line: number, text: string): Promise<void> {
+		await this.evaluate(
+			async (vscode, fileName, line, text) => {
+				const doc = vscode.workspace.textDocuments.find(
+					d => d.uri.scheme === 'file' && d.uri.path.endsWith(`/${fileName}`),
+				);
+				if (doc == null) throw new Error(`Document not open: ${fileName}`);
+
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(doc.uri, new vscode.Position(line, 0), `${text}\n`);
+				if (!(await vscode.workspace.applyEdit(edit))) throw new Error(`Edit not applied: ${fileName}`);
+			},
+			fileName,
+			line,
+			text,
+		);
+	}
+}
+
+export interface EditorCodeLens {
+	line: number;
+	title: string | undefined;
+	command: string | undefined;
+}
+
+export interface FakeDocumentSymbol {
+	name: string;
+	kind: keyof typeof SymbolKind;
+	startLine: number;
+	endLine: number;
+	children?: FakeDocumentSymbol[];
 }

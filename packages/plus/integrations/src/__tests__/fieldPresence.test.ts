@@ -331,6 +331,15 @@ function answer(operation: string, query: string, variables: Record<string, unkn
 			return keyed('p', () => ({ pullRequest: selectNativePullRequest(query) }));
 		case 'getPullRequestsForBranches':
 			return keyed('b', () => ({ pullRequests: { totalCount: 1, nodes: [selectNativePullRequest(query)] } }));
+		case 'getPullRequestsForCommits':
+			return {
+				repository: Object.fromEntries(
+					Object.keys(variables)
+						.map(name => /^sha(\d+)$/.exec(name)?.[1])
+						.filter((i): i is string => i != null)
+						.map(i => [`c${i}`, { associatedPullRequests: { nodes: [selectNativePullRequest(query)] } }]),
+				),
+			};
 		case 'getIssue':
 			return { repository: { issue: selectNativeIssue(query) } };
 		case 'getIssuesBatch':
@@ -409,14 +418,21 @@ const repo = { key: 'o/r', owner: 'o', name: 'r' };
 const repos = [{ namespace: 'o', name: 'r' }];
 
 suite('Field presence: every GitHub read stamps its tag, and its table holds for the row it produces', () => {
-	test('point reads: by number, for a branch and for a commit', async () => {
+	test('point reads: by number, for a branch and for a commit, and the batch of commits', async () => {
 		const { manager, gh } = await connected();
 
 		const byNumber = await gh.getPullRequest(repo, '1', { throwOnError: true });
 		const forBranch = await gh.getPullRequestForBranch(repo, 'feature', { throwOnError: true });
 		const forCommit = await gh.getPullRequestForCommit(repo, 'a'.repeat(40), { throwOnError: true });
+		// The single-commit lookup's rows, so its tag.
+		const forCommits = await manager.getPullRequestsForCommits({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			owner: 'o',
+			repo: 'r',
+			shas: ['b'.repeat(40)],
+		});
 
-		for (const pr of [byNumber, forBranch, forCommit]) {
+		for (const pr of [byNumber, forBranch, forCommit, forCommits.items[0]?.pullRequest]) {
 			const presence = assertPullRequestRow(pr, 'point');
 			assert.equal(presence.stack, 'fetched');
 			assert.equal(presence.mergeable, 'not-requested');
@@ -441,9 +457,16 @@ suite('Field presence: every GitHub read stamps its tag, and its table holds for
 			summary: true,
 		});
 		const listed = await manager.listPullRequestsPage({ providerId: GitCloudHostIntegrationId.GitHub });
+		const forCommits = await manager.getPullRequestsForCommits({
+			providerId: GitCloudHostIntegrationId.GitHub,
+			owner: 'o',
+			repo: 'r',
+			shas: ['b'.repeat(40)],
+		});
 
 		for (const [pr, projection] of [
 			[byNumber, 'point'],
+			[forCommits.items[0]?.pullRequest, 'point'],
 			[search.items[0], 'search'],
 			[summary.items[0], 'search-summary'],
 			[listed.items[0], 'account-summary'],
@@ -651,12 +674,16 @@ function assertFullRow(
 	assert.equal(presence.milestone, 'fetched');
 }
 
-/** A row as an opting-in host reads it: a read that selected the merge-queue data always sets `mergeQueueRequired`. */
+/**
+ * A row as an opting-in read gets it: a read that selected the merge-queue data always sets `mergeQueueRequired`, and
+ * one that selected check runs always sets `checkRuns`.
+ */
 function pullRequestRow(providerId: string, projection: string | undefined): PullRequestShape {
 	return {
 		provider: { id: providerId },
 		projection: projection,
 		mergeQueueRequired: true,
+		checkRuns: [],
 	} as unknown as PullRequestShape;
 }
 
@@ -735,6 +762,42 @@ suite('Field presence lookup', () => {
 					);
 					assert.ok(Object.isFrozen(unread), label);
 				}
+			}
+		}
+	});
+
+	test('`checkRuns` is fetched only on a GitHub or GitHub Enterprise batch row that carries them, and unavailable elsewhere', () => {
+		for (const providerId of [
+			GitCloudHostIntegrationId.GitHub,
+			GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+			GitCloudHostIntegrationId.GitLab,
+		]) {
+			for (const projection of pullRequestProjections) {
+				const read = getPullRequestFieldPresence(pullRequestRow(providerId, projection));
+				if (read == null) continue;
+
+				const label = `${providerId}.${projection}`;
+				const unread = getPullRequestFieldPresence({
+					...pullRequestRow(providerId, projection),
+					checkRuns: undefined,
+					mergeQueueRequired: undefined,
+				});
+				if (providerId === GitCloudHostIntegrationId.GitLab) {
+					assert.equal(read.checkRuns, 'unavailable', label);
+					assert.equal(unread?.checkRuns, 'unavailable', label);
+					continue;
+				}
+
+				assert.equal(read.checkRuns, projection === 'batch' ? 'fetched' : 'not-requested', label);
+				assert.deepEqual(
+					unread,
+					{
+						...read,
+						checkRuns: 'not-requested',
+						mergeQueue: read.mergeQueue === 'fetched' ? 'not-requested' : read.mergeQueue,
+					},
+					label,
+				);
 			}
 		}
 	});

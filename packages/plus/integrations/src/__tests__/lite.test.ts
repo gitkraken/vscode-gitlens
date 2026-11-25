@@ -84,6 +84,42 @@ suite('createTokenScopedGitHostIntegration — token-scoped reads', () => {
 		assert.equal(metadata.parent, undefined);
 	});
 
+	test('GitLab: a failed project lookup rejects, and the next read asks again', async () => {
+		let fails = true;
+		let lookups = 0;
+		const fetch = (input: string | URL) => {
+			const discovery = azureRestDiscoveryResponse(input);
+			if (discovery != null) return Promise.resolve(discovery);
+
+			const url = input.toString();
+			if (url.includes('/graphql')) {
+				lookups++;
+				if (fails) {
+					fails = false;
+					return Promise.resolve(new Response(JSON.stringify({ message: 'boom' }), { status: 500 }));
+				}
+			}
+
+			const body = url.includes('/graphql')
+				? { data: { project: { id: 'gid://gitlab/Project/42' } } }
+				: { id: '42', path: 'my-repo', namespace: { full_path: 'my-group' }, forked_from_project: null };
+			return Promise.resolve(
+				new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } }),
+			);
+		};
+
+		const gl = createTokenScopedGitHostIntegration(
+			GitCloudHostIntegrationId.GitLab,
+			{ accessToken: 'tok' },
+			{ fetch: fetch },
+		);
+		await assert.rejects(gl.getRepositoryMetadata('my-group', 'my-repo'));
+
+		const metadata = await gl.getRepositoryMetadata('my-group', 'my-repo');
+		assert.equal(metadata?.owner, 'my-group');
+		assert.equal(lookups, 2);
+	});
+
 	test('Bitbucket: maps repository metadata and default branch', async () => {
 		const repo = {
 			slug: 'my-repo',

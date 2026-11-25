@@ -6,6 +6,7 @@ import { Cache } from '../../cache.js';
 import { FileType } from '../../context.js';
 import type { RepositoryChange } from '../../models/repository.js';
 import { allWatchedRepositoryChanges } from '../classifyChange.js';
+import type { BatchedStat } from '../unwatchedCacheValidator.js';
 import { UnwatchedCacheValidator } from '../unwatchedCacheValidator.js';
 
 type Stat = { mtime: number; size: number };
@@ -30,6 +31,12 @@ function createFakeFs(): {
 	contents: Map<string, string>;
 	stats: string[];
 	stat: (path: string) => Promise<Stat | undefined>;
+	/** Reads as `stat` does, as one call: a batch with a hung path settles only once `release` is called */
+	statMany: (paths: readonly string[]) => Promise<readonly BatchedStat[]>;
+	/** The paths of each `statMany` call */
+	batches: string[][];
+	/** Whether `statMany` rejects a batch of these paths, as a batch whose worker died would */
+	failBatches: boolean | ((paths: readonly string[]) => boolean);
 	readDirectory: (path: string) => Promise<readonly (readonly [string, number])[]>;
 	readFile: (path: string) => Promise<Uint8Array | undefined>;
 	/** Bumps a path's reading and its directory's, as a write by lockfile and rename, a create or a delete would */
@@ -44,6 +51,7 @@ function createFakeFs(): {
 	const unlistable = new Set<string>();
 	const contents = new Map<string, string>();
 	const stats: string[] = [];
+	const batches: string[][] = [];
 	const hung: ((reading: Stat | undefined) => void)[] = [];
 	const maxInFlight = { overall: 0, byRepo: new Map<string, number>() };
 	const inFlight = new Map<string, number>();
@@ -63,12 +71,14 @@ function createFakeFs(): {
 		});
 	}
 
-	return {
+	const fake: ReturnType<typeof createFakeFs> = {
 		files: files,
 		dirs: dirs,
 		unlistable: unlistable,
 		contents: contents,
 		stats: stats,
+		batches: batches,
+		failBatches: false,
 		stat: function (path) {
 			const p = normalizePath(path);
 			stats.push(p);
@@ -79,6 +89,30 @@ function createFakeFs(): {
 				if (file === 'enotdir') return notADirectory();
 
 				return Promise.resolve(file);
+			});
+		},
+		statMany: function (paths) {
+			const normalized = paths.map(p => normalizePath(p));
+			batches.push(normalized);
+			stats.push(...normalized);
+			return track(normalized[0], () => {
+				const fail = typeof fake.failBatches === 'function' ? fake.failBatches(normalized) : fake.failBatches;
+				if (fail) return Promise.reject(new Error('The stat worker exited'));
+
+				const read = (p: string, hungReading?: Stat): BatchedStat => {
+					const file = files.get(p);
+					if (file === 'hang') return hungReading ?? 'missing';
+					if (file === 'throw') return 'unreadable';
+					if (file === 'enotdir' || file == null) return 'missing';
+
+					return file;
+				};
+				if (normalized.some(p => files.get(p) === 'hang')) {
+					return new Promise<readonly BatchedStat[]>(resolve =>
+						hung.push(reading => resolve(normalized.map(p => read(p, reading)))),
+					);
+				}
+				return Promise.resolve(normalized.map(p => read(p)));
 			});
 		},
 		readDirectory: function (path) {
@@ -118,6 +152,7 @@ function createFakeFs(): {
 		},
 		maxInFlight: maxInFlight,
 	};
+	return fake;
 }
 
 /** Lets every validation whose file-system calls already settled run to its end */
@@ -133,6 +168,8 @@ interface Harness {
 	clock: { now: number };
 	/** Each `onRepositoryChanged` call, as `[repoPath, sorted changes, sorted moved worktrees]` */
 	applied: () => [string, RepositoryChange[], string[] | undefined][];
+	/** Each `applyLinkedWorktreeChanges` call, as `[repoPath, sorted changes]` */
+	ownApplied: () => [string, RepositoryChange[]][];
 	/** Validates `repoPath` and waits for it; `false` when there was nothing to wait for */
 	validate: (repoPath?: string) => Promise<boolean>;
 	/** Moves the clock past the window */
@@ -152,8 +189,9 @@ function addRepo(cache: Cache, fs: ReturnType<typeof createFakeFs>, repoPath: st
 	}
 }
 
-/** A standard repository at `/repo`, with nothing in its git dir until a test adds it */
-function createHarness(options?: {
+interface HarnessOptions {
+	/** Batches the stats through the fake `statMany`. Default: false */
+	batched?: boolean;
 	register?: boolean;
 	timeoutMs?: number;
 	maxFsThreads?: number;
@@ -162,7 +200,12 @@ function createHarness(options?: {
 	/** Leaves `/repo`'s git dir for `resolveGitDir` to resolve */
 	unresolved?: boolean;
 	resolveGitDir?: (repoPath: string) => Promise<boolean>;
-}): Harness {
+	/** In place of answering {@link ignoredRoots} */
+	getIgnoredWorktreeRoots?: (repoPath: string) => Promise<readonly string[]>;
+}
+
+/** A standard repository at `/repo`, with nothing in its git dir until a test adds it */
+function createHarness(options?: HarnessOptions): Harness {
 	const cache = new Cache();
 	if (options?.register) {
 		cache.registerRepoPath(fileUri('/repo'), { uri: fileUri('/repo/.git') });
@@ -179,9 +222,11 @@ function createHarness(options?: {
 	const validator = new UnwatchedCacheValidator({
 		cache: cache,
 		stat: fs.stat,
+		statMany: options?.batched ? fs.statMany : undefined,
 		readDirectory: fs.readDirectory,
 		readFile: fs.readFile,
-		getIgnoredWorktreeRoots: () => Promise.resolve(options?.ignoredRoots ?? []),
+		getIgnoredWorktreeRoots:
+			options?.getIgnoredWorktreeRoots ?? (() => Promise.resolve(options?.ignoredRoots ?? [])),
 		resolveGitDir: options?.resolveGitDir,
 		isWatched: p => watched.has(p),
 		now: () => clock.now,
@@ -189,6 +234,7 @@ function createHarness(options?: {
 		maxFsThreads: options?.maxFsThreads,
 	});
 	const spy = mock.method(cache, 'onRepositoryChanged');
+	const ownSpy = mock.method(cache, 'applyLinkedWorktreeChanges');
 
 	return {
 		cache: cache,
@@ -205,6 +251,7 @@ function createHarness(options?: {
 					opts?.movedWorktrees ? [...opts.movedWorktrees].sort() : undefined,
 				];
 			}),
+		ownApplied: () => ownSpy.mock.calls.map(c => [c.arguments[0], [...c.arguments[1]].sort()]),
 		validate: async repoPath => {
 			const validation = validator.validate(repoPath ?? '/repo');
 			if (validation == null) return false;
@@ -253,26 +300,41 @@ function countStats(stats: readonly string[]): Map<string, number> {
 	return counts;
 }
 
-/** A linked worktree `/wt` (admin entry `wt1`) of the repository at `/repo`, both registered */
-function addLinkedWorktree(h: Harness): void {
-	const gitDir = { uri: fileUri('/repo/.git/worktrees/wt1'), commonUri: fileUri('/repo/.git') };
-	h.cache.registerRepoPath(fileUri('/wt'), gitDir);
-	h.cache.gitDir.set('/wt', gitDir);
-	h.fs.dirs.set('/repo/.git/worktrees', ['wt1']);
-	h.fs.files.set('/repo/.git/worktrees', { mtime: 1, size: 10 });
-	h.fs.files.set('/repo/.git/worktrees/wt1', { mtime: 1, size: 10 });
-	for (const path of ['HEAD', 'logs/HEAD', 'gitdir']) {
-		h.fs.files.set(`/repo/.git/worktrees/wt1/${path}`, { mtime: 1, size: 10 });
-	}
+/** Registers the linked worktree at `worktreePath`, of the admin entry `id` in `/repo`'s git dir, which the cache resolved */
+function registerLinkedWorktree(h: Harness, worktreePath: string, id: string): void {
+	const gitDir = { uri: fileUri(`/repo/.git/worktrees/${id}`), commonUri: fileUri('/repo/.git') };
+	h.cache.registerRepoPath(fileUri(worktreePath), gitDir);
+	h.cache.gitDir.set(worktreePath, gitDir);
+}
+
+/** A linked worktree at `worktreePath` (admin entry `id`) of the repository at `/repo`, both registered */
+function addLinkedWorktree(h: Harness, worktreePath = '/wt', id = 'wt1'): void {
+	addWorktreeEntry(h, id, worktreePath);
+	registerLinkedWorktree(h, worktreePath, id);
 }
 
 const allWatched = [...allWatchedRepositoryChanges].sort();
 /** What a worktree's own git dir can report */
 const rootReportable: RepositoryChange[] = ['cherryPick', 'head', 'heads', 'merge', 'pausedOp', 'rebase', 'revert'];
 
-describe('UnwatchedCacheValidator', () => {
-	it('reports what validating cost in its resource usage', async () => {
+// Every test again with the stats batched, which must read and report alike
+for (const batched of [false, true]) {
+	describe(batched ? 'UnwatchedCacheValidator, with its stats batched' : 'UnwatchedCacheValidator', () =>
+		defineTests(batched, options => createHarness({ ...options, batched: options?.batched ?? batched })),
+	);
+}
+
+/** Defines the suite's tests, each harness batching its stats as `batched` says unless its options say otherwise */
+function defineTests(batched: boolean, createHarness: (options?: HarnessOptions) => Harness): void {
+	it(batched ? 'batches its stats' : 'makes each stat a call of its own', async () => {
 		const h = createHarness();
+		await h.validate();
+		assert.strictEqual(h.fs.batches.length > 0, batched);
+	});
+
+	it('reports what validating cost in its resource usage', async () => {
+		// Each stat a call of its own
+		const h = createHarness({ batched: false });
 		await h.validate();
 		h.advance();
 		await h.validate();
@@ -288,6 +350,7 @@ describe('UnwatchedCacheValidator', () => {
 		assert.strictEqual(usage['unwatchedValidation.gitDirs.count'], 2, 'its root and common git dirs');
 		assert.ok((usage['unwatchedValidation.fsCalls.count'] ?? 0) >= h.fs.stats.length, 'every stat goes through it');
 		assert.strictEqual(usage['unwatchedValidation.fsCallsStuck.count'], 0);
+		assert.strictEqual(usage['unwatchedValidation.statBatchesFailed.count'], 0);
 	});
 
 	it('applies every change a watcher reports when there is no baseline, then only what moved', async () => {
@@ -349,20 +412,29 @@ describe('UnwatchedCacheValidator', () => {
 		h.fs.touch('/repo/.git/worktrees/wt1/HEAD');
 		await h.validate();
 
-		assert.deepStrictEqual(h.applied().at(-1), ['/repo', ['worktreeHead', 'worktrees'], ['wt1']]);
+		assert.deepStrictEqual(h.applied().slice(1), [
+			['/repo', ['worktreeHead', 'worktrees'], ['wt1']],
+			['/wt', ['head', 'heads'], undefined],
+		]);
 	});
 
-	it("reports only what a linked worktree's own git dir can at its first validation", async () => {
+	it("reports only what a linked worktree's own git dir can at its first validation, to its own entries once the common git dir holds a reading of its HEAD", async () => {
 		const h = createHarness({ register: true });
-		addLinkedWorktree(h);
+		addWorktreeEntry(h, 'wt1', '/wt');
 		await h.validate();
 
+		// Registered after the main checkout's first validation, which would otherwise have taken its baseline
+		registerLinkedWorktree(h, '/wt', 'wt1');
+		h.cache.refs.set('/repo', Promise.resolve([]));
+		h.cache.branches.set('/wt', Promise.resolve({ values: [] }));
+		h.cache.pausedOperationStatus.set('/wt', Promise.resolve(undefined));
 		h.advance();
 		await h.validate('/wt');
-		assert.deepStrictEqual(h.applied(), [
-			['/repo', allWatched, undefined],
-			['/wt', rootReportable, undefined],
-		]);
+		assert.deepStrictEqual(h.applied(), [['/repo', allWatched, undefined]]);
+		assert.deepStrictEqual(h.ownApplied(), [['/wt', rootReportable]]);
+		assert.ok(h.cache.refs.has('/repo'), 'the shared entries');
+		assert.strictEqual(h.cache.branches.has('/wt'), false, 'its copy of them, which marks its branch current');
+		assert.strictEqual(h.cache.pausedOperationStatus.has('/wt'), false, 'and its own entries');
 	});
 
 	it("keeps the shared entries a sibling's watcher covers at a linked worktree's first validation", async () => {
@@ -896,18 +968,24 @@ describe('UnwatchedCacheValidator', () => {
 			addLinkedWorktree(h);
 			h.fs.touch('/repo/.git/worktrees');
 			await h.validate();
-			assert.deepStrictEqual(h.applied()[1], ['/repo', ['worktreeHead', 'worktrees'], ['wt1']]);
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/repo', ['worktreeHead', 'worktrees'], ['wt1']],
+				['/wt', ['head', 'heads'], undefined],
+			]);
 
 			// A switch in it, which renames its HEAD into place
 			h.advance();
 			h.fs.touch('/repo/.git/worktrees/wt1/HEAD');
 			await h.validate();
-			assert.deepStrictEqual(h.applied()[2], ['/repo', ['worktreeHead', 'worktrees'], ['wt1']]);
+			assert.deepStrictEqual(h.applied().slice(3), [
+				['/repo', ['worktreeHead', 'worktrees'], ['wt1']],
+				['/wt', ['head', 'heads'], undefined],
+			]);
 
 			h.advance();
 			h.fs.stats.length = 0;
 			await h.validate();
-			assert.strictEqual(h.applied().length, 3);
+			assert.strictEqual(h.applied().length, 5);
 			assert.ok(!h.fs.stats.includes('/repo/.git/worktrees/wt1/HEAD'), 'skipped while its entry holds still');
 		});
 
@@ -976,12 +1054,19 @@ describe('UnwatchedCacheValidator', () => {
 			h.fs.contents.set('/repo/.git/worktrees/sync1/gitdir', '/wts/sync1/.git\n');
 			h.fs.files.set('/repo/.git/worktrees/sync1/gitdir', { mtime: 2, size: 16 });
 			await h.validate();
-			assert.deepStrictEqual(h.applied()[1], ['/repo', ['worktreeHead', 'worktrees'], ['sync1']]);
+			// Never registered, so the shared entries are cleared for it through the main checkout
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/repo', ['worktreeHead', 'worktrees'], ['sync1']],
+				['/repo', ['head', 'heads'], undefined],
+			]);
 
 			h.advance();
 			h.fs.touch('/repo/.git/worktrees/sync1/HEAD');
 			await h.validate();
-			assert.deepStrictEqual(h.applied()[2], ['/repo', ['worktreeHead', 'worktrees'], ['sync1']]);
+			assert.deepStrictEqual(h.applied().slice(3), [
+				['/repo', ['worktreeHead', 'worktrees'], ['sync1']],
+				['/repo', ['head', 'heads'], undefined],
+			]);
 		});
 
 		it('reports a worktree moved into the ignored folder, then nothing of it', async () => {
@@ -993,12 +1078,15 @@ describe('UnwatchedCacheValidator', () => {
 			h.fs.contents.set('/repo/.git/worktrees/wt1/gitdir', '/repo/.git/sync-tools-worktrees/wt1/.git\n');
 			h.fs.files.set('/repo/.git/worktrees/wt1/gitdir', { mtime: 2, size: 40 });
 			await h.validate();
-			assert.deepStrictEqual(h.applied()[1], ['/repo', ['worktreeHead', 'worktrees'], ['wt1']]);
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/repo', ['worktreeHead', 'worktrees'], ['wt1']],
+				['/repo', ['head', 'heads'], undefined],
+			]);
 
 			h.advance();
 			h.fs.touch('/repo/.git/worktrees/wt1/HEAD');
 			await h.validate();
-			assert.strictEqual(h.applied().length, 2);
+			assert.strictEqual(h.applied().length, 3);
 		});
 
 		it('reports nothing of an ignored worktree added or removed', async () => {
@@ -1053,6 +1141,681 @@ describe('UnwatchedCacheValidator', () => {
 			h.fs.touch('/repo/.git/worktrees');
 			await h.validate();
 			assert.deepStrictEqual(h.applied()[1], ['/repo', ['worktreeHead', 'worktrees'], undefined]);
+		});
+	});
+
+	describe("with a linked worktree's HEAD moved where only the common git dir sees it", () => {
+		/** `/repo` and its linked worktrees `/a`, `/b` and `/c` (admin entries `a`, `b` and `c`), all registered and validated */
+		async function createValidated(): Promise<Harness> {
+			const h = createHarness({ register: true });
+			for (const id of ['a', 'b', 'c']) {
+				addLinkedWorktree(h, `/${id}`, id);
+			}
+			await h.validate();
+			h.cache.refs.set('/repo', Promise.resolve([]));
+			h.advance();
+			return h;
+		}
+
+		/** `git checkout` in the linked worktree of the admin entry `id`, from outside, which renames its HEAD into place */
+		function checkoutIn(h: Harness, id: string): void {
+			h.fs.touch(`/repo/.git/worktrees/${id}/HEAD`);
+		}
+
+		it("applies that worktree's own report in full at the main checkout's validation", async () => {
+			const h = await createValidated();
+			checkoutIn(h, 'a');
+			await h.validate();
+
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/repo', ['worktreeHead', 'worktrees'], ['a']],
+				['/a', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false, 'the shared entries, which place its branch');
+		});
+
+		it("applies that worktree's own report in full at a sibling's validation", async () => {
+			const h = await createValidated();
+			checkoutIn(h, 'a');
+			await h.validate('/b');
+
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/b', ['worktreeHead', 'worktrees'], ['a']],
+				['/a', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it("applies that worktree's own report in full while another worktree's watcher covers the common git dir", async () => {
+			const h = await createValidated();
+			h.watched.add('/c');
+			checkoutIn(h, 'a');
+			await h.validate('/b');
+
+			assert.deepStrictEqual(h.applied().slice(1), [['/a', ['head', 'heads'], undefined]]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it('leaves a worktree whose own watcher covers the common git dir to report it', async () => {
+			const h = await createValidated();
+			h.watched.add('/a');
+			checkoutIn(h, 'a');
+			await h.validate('/b');
+
+			assert.deepStrictEqual(h.applied().slice(1), []);
+			assert.ok(h.cache.refs.has('/repo'));
+		});
+
+		it('applies it as the watcher it was left to leaves without reporting it', async () => {
+			const h = await createValidated();
+			h.watched.add('/a');
+			checkoutIn(h, 'a');
+			await h.validate('/b');
+			const applied = h.applied().length;
+
+			h.watched.delete('/a');
+			h.validator.onUnwatched('/a');
+			assert.deepStrictEqual(h.applied().slice(applied), [
+				['/repo', ['worktreeHead', 'worktrees'], undefined],
+				['/a', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+
+			h.validator.onUnwatched('/a');
+			assert.strictEqual(h.applied().length, applied + 2, 'applied once');
+		});
+
+		it('applies it to the common path as the watcher it was left to leaves, once that worktree was unregistered', async () => {
+			const h = await createValidated();
+			h.watched.add('/a');
+			checkoutIn(h, 'a');
+			await h.validate('/b');
+			const applied = h.applied().length;
+
+			h.cache.unregisterRepoPath('/a');
+			h.watched.delete('/a');
+			h.validator.onUnwatched('/a');
+			assert.deepStrictEqual(h.applied().slice(applied), [
+				['/repo', ['worktreeHead', 'worktrees'], undefined],
+				['/repo', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it('applies it once the watcher it was left to is suspended, which announces nothing', async () => {
+			const h = await createValidated();
+			h.watched.add('/a');
+			checkoutIn(h, 'a');
+			await h.validate('/b');
+			const applied = h.applied().length;
+
+			h.watched.delete('/a');
+			h.advance();
+			await h.validate('/b');
+			assert.deepStrictEqual(h.applied().slice(applied), [
+				['/repo', ['worktreeHead', 'worktrees'], undefined],
+				['/a', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it("leaves nothing of a HEAD to a watcher whose own HEAD didn't move", async () => {
+			const h = await createValidated();
+			h.watched.add('/a');
+			checkoutIn(h, 'b');
+			await h.validate('/c');
+			assert.deepStrictEqual(h.applied().slice(1), [['/b', ['head', 'heads'], undefined]]);
+			const applied = h.applied().length;
+
+			h.watched.delete('/a');
+			h.validator.onUnwatched('/a');
+			assert.deepStrictEqual(h.applied().slice(applied), [['/repo', ['worktreeHead', 'worktrees'], undefined]]);
+		});
+
+		it('applies it once to the worktree validated, when that is the worktree whose HEAD moved', async () => {
+			const h = await createValidated();
+			checkoutIn(h, 'a');
+			await h.validate('/a');
+
+			assert.deepStrictEqual(
+				h.applied().slice(1),
+				[['/a', ['head', 'heads', 'worktreeHead', 'worktrees'], ['a']]],
+				'its own git dir saw it too',
+			);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it('applies it to the worktree validated for a worktree never registered', async () => {
+			const h = createHarness({ register: true });
+			addLinkedWorktree(h, '/a', 'a');
+			addWorktreeEntry(h, 'u');
+			await h.validate();
+
+			h.advance();
+			checkoutIn(h, 'u');
+			await h.validate('/a');
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/a', ['worktreeHead', 'worktrees'], ['u']],
+				['/a', ['head', 'heads'], undefined],
+			]);
+		});
+
+		it('applies it once to the worktree validated when it names no worktree', async () => {
+			const h = await createValidated();
+			h.fs.touch('/repo/.git/worktrees');
+			await h.validate();
+
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/repo', ['worktreeHead', 'worktrees'], undefined],
+				['/repo', ['head', 'heads'], undefined],
+			]);
+		});
+
+		it("clears the shared entries once at a validation whose common git dir lost its baseline while another worktree's watcher covers it", async () => {
+			let fail = false;
+			const h = createHarness({
+				register: true,
+				getIgnoredWorktreeRoots: () => {
+					if (fail) {
+						fail = false;
+						throw new Error('EIO');
+					}
+					return Promise.resolve([]);
+				},
+			});
+			addLinkedWorktree(h, '/a', 'a');
+			addLinkedWorktree(h, '/b', 'b');
+			await h.validate();
+			h.watched.add('/a');
+			h.cache.refs.set('/repo', Promise.resolve([]));
+
+			// `git worktree add`, whose entry fails the read of whether it is ignored, which resets the common git dir
+			h.advance();
+			addWorktreeEntry(h, 'c');
+			h.fs.touch('/repo/.git/worktrees');
+			fail = true;
+			await h.validate('/b');
+
+			assert.deepStrictEqual(h.applied().slice(1), [['/b', ['head', 'heads'], undefined]]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+	});
+
+	describe('with linked worktrees never validated', () => {
+		/** `/repo` and its linked worktrees `/a`, `/b` and `/c` (admin entries `a`, `b` and `c`), all registered */
+		function createWithWorktrees(): Harness {
+			const h = createHarness({ register: true });
+			for (const id of ['a', 'b', 'c']) {
+				addLinkedWorktree(h, `/${id}`, id);
+			}
+			return h;
+		}
+
+		/**
+		 * As {@link createWithWorktrees} (with the worktrees of `ids`), but with the worktrees registered after the main
+		 * checkout's first validation, so the common git dir has its baseline and theirs are still to take
+		 */
+		async function createWithWorktreesAfterCommon(ids: readonly string[] = ['a', 'b', 'c']): Promise<Harness> {
+			const h = createHarness({ register: true });
+			for (const id of ids) {
+				addWorktreeEntry(h, id, `/${id}`);
+			}
+			await h.validate();
+			for (const id of ids) {
+				registerLinkedWorktree(h, `/${id}`, id);
+			}
+			h.advance();
+			return h;
+		}
+
+		it("takes the other worktrees' baselines at the main checkout's first validation", async () => {
+			const h = createWithWorktrees();
+			await h.validate();
+			assert.deepStrictEqual(h.applied(), [['/repo', allWatched, undefined]]);
+
+			// Within the window, which a baseline it never asked for doesn't open for it
+			h.fs.stats.length = 0;
+			assert.ok(await h.validate('/a'));
+			assert.ok(h.fs.stats.length > 0, 'its own validation');
+			assert.ok(
+				h.fs.stats.every(p => p.startsWith('/repo/.git/worktrees/a')),
+				`of its own git dir alone: ${h.fs.stats.join(', ')}`,
+			);
+			assert.strictEqual(h.applied().length, 1, 'from the baseline taken, so nothing moved');
+
+			h.advance();
+			for (const id of ['a', 'b', 'c']) {
+				h.fs.stats.length = 0;
+				assert.ok(await h.validate(`/${id}`));
+				assert.ok(
+					!h.fs.stats.includes(`/repo/.git/worktrees/${id}/HEAD`),
+					`${id} reads as an idle baselined one`,
+				);
+			}
+			assert.strictEqual(h.applied().length, 1, 'their baselines were taken, so nothing moved');
+		});
+
+		it("takes the other worktrees' baselines at a linked worktree's first validation", async () => {
+			const h = createWithWorktrees();
+			h.cache.pausedOperationStatus.set('/b', Promise.resolve(undefined));
+			h.cache.pausedOperationStatus.set('/c', Promise.resolve(undefined));
+
+			await h.validate('/a');
+			assert.deepStrictEqual(h.applied(), [['/a', allWatched, undefined]], 'its own and the common report');
+			assert.strictEqual(h.cache.pausedOperationStatus.has('/b'), false);
+			assert.strictEqual(h.cache.pausedOperationStatus.has('/c'), false);
+
+			h.cache.refs.set('/repo', Promise.resolve([]));
+			h.advance();
+			await h.validate('/b');
+			await h.validate('/c');
+			assert.strictEqual(h.applied().length, 1);
+			assert.ok(h.cache.refs.has('/repo'), 'the shared entries read since are kept');
+		});
+
+		it("clears only the worktrees' own entries once the common git dir holds a reading of each one's HEAD, for three of them", async () => {
+			const h = await createWithWorktreesAfterCommon();
+			h.cache.pausedOperationStatus.set('/b', Promise.resolve(undefined));
+			h.cache.pausedOperationStatus.set('/c', Promise.resolve(undefined));
+			h.cache.refs.set('/repo', Promise.resolve([]));
+			h.cache.branches.set('/b', Promise.resolve({ values: [] }));
+
+			await h.validate('/a');
+			assert.deepStrictEqual(h.applied().slice(1), [], 'the shared entries are left alone');
+			assert.deepStrictEqual(h.ownApplied(), [
+				['/a', rootReportable],
+				['/b', rootReportable],
+				['/c', rootReportable],
+			]);
+			assert.strictEqual(h.cache.pausedOperationStatus.has('/b'), false, "a sibling's own entries");
+			assert.strictEqual(h.cache.pausedOperationStatus.has('/c'), false);
+			assert.ok(h.cache.refs.has('/repo'), 'the shared entries');
+			assert.strictEqual(h.cache.branches.has('/b'), false, "and a sibling's copy of them");
+
+			h.cache.refs.set('/repo', Promise.resolve([]));
+			h.advance();
+			await h.validate('/b');
+			await h.validate('/c');
+			await h.validate('/repo');
+			assert.strictEqual(h.applied().length, 1);
+			assert.strictEqual(h.ownApplied().length, 3);
+			assert.ok(h.cache.refs.has('/repo'), 'the shared entries read since are kept');
+		});
+
+		it("evicts the shared entries once, clearing each other worktree only of its own, past three worktrees' first baselines", async () => {
+			const h = await createWithWorktreesAfterCommon(['a', 'b', 'c', 'd']);
+			const spy = mock.method(h.cache, 'applyRepositoryChanges');
+
+			await h.validate('/a');
+			assert.deepStrictEqual(
+				h
+					.applied()
+					.slice(1)
+					.map(([path]) => path),
+				['/a'],
+			);
+			assert.deepStrictEqual(
+				spy.mock.calls
+					.filter(c => c.arguments[0] !== '/a')
+					.map(c => [c.arguments[0], [...c.arguments[1]].sort(), c.arguments[3]?.worktreeOnly])
+					.sort(),
+				[
+					['/b', rootReportable, true],
+					['/c', rootReportable, true],
+					['/d', rootReportable, true],
+				],
+			);
+			assert.deepStrictEqual(h.ownApplied(), []);
+		});
+
+		it("reports a HEAD move in a worktree whose baseline a sibling's validation took", async () => {
+			const h = createWithWorktrees();
+			await h.validate();
+
+			// `git switch` in it
+			h.advance();
+			h.fs.touch('/repo/.git/worktrees/b/HEAD');
+			h.fs.touch('/repo/.git/worktrees/b/logs/HEAD');
+			await h.validate('/b');
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/b', ['head', 'heads', 'worktreeHead', 'worktrees'], ['b']],
+			]);
+		});
+
+		it('clears what a HEAD move in a worktree before its baseline was taken could have left stale', async () => {
+			const h = await createWithWorktreesAfterCommon();
+			h.cache.worktrees.set('/repo', Promise.resolve([]));
+			h.cache.branches.set('/b', Promise.resolve({ values: [] }));
+			h.cache.pausedOperationStatus.set('/b', Promise.resolve(undefined));
+
+			h.cache.refs.set('/repo', Promise.resolve([]));
+
+			// A switch in it, which renames its HEAD into place and appends to its reflog
+			h.fs.touch('/repo/.git/worktrees/b/HEAD');
+			h.fs.touch('/repo/.git/worktrees/b/logs/HEAD');
+			await h.validate('/a');
+			assert.strictEqual(h.cache.worktrees.has('/repo'), false, 'the worktree list, which holds its branch');
+			assert.strictEqual(h.cache.refs.has('/repo'), false, 'the shared entries, which place its branch');
+			assert.strictEqual(h.cache.branches.has('/b'), false);
+			assert.strictEqual(h.cache.pausedOperationStatus.has('/b'), false);
+		});
+
+		it('leaves a watched worktree to take its own baseline', async () => {
+			const h = createWithWorktrees();
+			h.watched.add('/b');
+			await h.validate();
+			assert.ok(!h.fs.stats.includes('/repo/.git/worktrees/b/logs/HEAD'), 'nothing of its own git dir is read');
+			assert.strictEqual(
+				h.validator.getResourceUsage()['unwatchedValidation.gitDirs.count'],
+				4,
+				'the roots of /repo, /a and /c, and the common git dir',
+			);
+
+			h.watched.delete('/b');
+			h.validator.onUnwatched('/b');
+			h.advance();
+			await h.validate('/b');
+			assert.deepStrictEqual(h.ownApplied().at(-1), ['/b', rootReportable]);
+			assert.ok(!h.applied().some(([path]) => path === '/b'));
+		});
+
+		it('leaves a worktree whose git dir the cache never resolved', async () => {
+			const h = createWithWorktrees();
+			h.cache.gitDir.delete('/c');
+			await h.validate();
+			assert.ok(!h.fs.stats.includes('/repo/.git/worktrees/c/logs/HEAD'));
+			assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.gitDirs.count'], 4);
+		});
+
+		it("takes no other worktree's baseline at a validation of a worktree the cache never registered", async () => {
+			const h = createWithWorktrees();
+			addWorktreeEntry(h, 'u', '/u');
+			h.cache.gitDir.set('/u', { uri: fileUri('/repo/.git/worktrees/u'), commonUri: fileUri('/repo/.git') });
+			await h.validate('/u');
+			assert.strictEqual(
+				h.validator.getResourceUsage()['unwatchedValidation.gitDirs.count'],
+				2,
+				'its own root and common git dirs',
+			);
+		});
+
+		it("takes no other worktree's baseline at a later validation of the main checkout", async () => {
+			const h = createWithWorktrees();
+			addWorktreeEntry(h, 'd', '/d');
+			await h.validate();
+			const gitDirs = h.validator.getResourceUsage()['unwatchedValidation.gitDirs.count'];
+
+			registerLinkedWorktree(h, '/d', 'd');
+			h.advance();
+			await h.validate();
+			assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.gitDirs.count'], gitDirs);
+
+			h.advance();
+			await h.validate('/d');
+			assert.deepStrictEqual(h.ownApplied().at(-1), ['/d', rootReportable]);
+			assert.strictEqual(h.applied().length, 1);
+		});
+
+		it("validates a worktree whose baseline a sibling's validation took from that baseline as a watcher attaches", async () => {
+			const h = createWithWorktrees();
+			await h.validate();
+			h.cache.refs.set('/repo', Promise.resolve([]));
+			h.cache.branches.set('/repo', Promise.resolve({ values: [] }));
+
+			h.watched.add('/a');
+			h.validator.onWatched('/a');
+			assert.ok(await h.validate('/a'));
+			assert.strictEqual(h.applied().length, 1, 'nothing moved since');
+			assert.ok(h.cache.refs.has('/repo'), 'so the shared entries read since are kept');
+			assert.ok(h.cache.branches.has('/repo'));
+		});
+
+		it("reports a HEAD move since a sibling's validation took the baseline as a watcher attaches", async () => {
+			const h = createWithWorktrees();
+			await h.validate();
+
+			// `git switch` in it
+			h.fs.touch('/repo/.git/worktrees/a/HEAD');
+			h.watched.add('/a');
+			h.validator.onWatched('/a');
+			assert.ok(await h.validate('/a'));
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/a', ['head', 'heads', 'worktreeHead', 'worktrees'], ['a']],
+			]);
+		});
+
+		it("takes the other worktrees' baselines at the first validation run as a watcher attaches", async () => {
+			const h = createHarness();
+			for (const id of ['a', 'b', 'c', 'd']) {
+				addWorktreeEntry(h, id, `/${id}`);
+			}
+			for (const id of ['a', 'b', 'c']) {
+				registerLinkedWorktree(h, `/${id}`, id);
+			}
+
+			h.watched.add('/a');
+			h.validator.onWatched('/a');
+			assert.ok(await h.validate('/a'));
+			assert.deepStrictEqual(h.applied(), [['/a', allWatched, undefined]]);
+
+			h.advance();
+			await h.validate('/b');
+			await h.validate('/c');
+			assert.strictEqual(h.applied().length, 1, 'their baselines were taken');
+
+			// Its watcher left, and a worktree registered since validates first: its baseline is kept, not taken again
+			h.watched.delete('/a');
+			h.validator.onUnwatched('/a');
+			registerLinkedWorktree(h, '/d', 'd');
+			const spy = mock.method(h.cache, 'applyRepositoryChanges');
+			h.advance();
+			await h.validate('/d');
+			assert.strictEqual(h.applied().length, 1);
+			assert.deepStrictEqual(h.ownApplied(), [['/d', rootReportable]]);
+			assert.ok(!spy.mock.calls.some(c => c.arguments[0] === '/a'));
+		});
+
+		it('takes at most 64 baselines of other worktrees in one validation', async () => {
+			const h = createHarness({ register: true });
+			for (let i = 0; i < 66; i++) {
+				addLinkedWorktree(h, `/wt${i}`, `wt${i}`);
+			}
+			await h.validate();
+			assert.strictEqual(
+				h.validator.getResourceUsage()['unwatchedValidation.gitDirs.count'],
+				66,
+				"the main checkout's root, 64 others and the common git dir",
+			);
+
+			h.advance();
+			await h.validate('/wt65');
+			assert.deepStrictEqual(
+				h.ownApplied(),
+				[
+					['/wt65', rootReportable],
+					['/wt64', rootReportable],
+				],
+				'one left out, whose validation took the rest',
+			);
+			h.advance();
+			await h.validate('/wt64');
+			assert.strictEqual(h.ownApplied().length, 2);
+			assert.strictEqual(h.applied().length, 1);
+		});
+
+		it('takes only as many baselines of other worktrees as there is room for, dropping none it holds', async () => {
+			const h = createWithWorktrees();
+			// 512 roots at most: 510 other repositories, then the main checkout's, leave room for one
+			const others = Array.from({ length: 510 }, (_, i) => `/other${i}`);
+			for (const repo of others) {
+				addRepo(h.cache, h.fs, repo);
+			}
+			for (let i = 0; i < others.length; i += 2) {
+				await Promise.all(others.slice(i, i + 2).map(p => h.validate(p)));
+			}
+			await h.validate();
+			const applied = h.applied().length;
+
+			h.advance();
+			await h.validate(others[0]);
+			assert.strictEqual(h.applied().length, applied, 'the oldest kept its baseline');
+			await h.validate('/a');
+			assert.strictEqual(h.applied().length, applied, 'the one there was room for');
+			await h.validate('/b');
+			assert.deepStrictEqual(h.ownApplied().at(-1), ['/b', rootReportable], 'one left out');
+			assert.strictEqual(h.applied().length, applied);
+		});
+
+		it("applies a main checkout's first report in full, though the common git dir has a baseline", async () => {
+			const h = createHarness();
+			addLinkedWorktree(h, '/a', 'a');
+			await h.validate('/a');
+
+			h.cache.registerRepoPath(fileUri('/repo'), { uri: fileUri('/repo/.git') });
+			h.advance();
+			await h.validate('/repo');
+			assert.deepStrictEqual(h.applied().at(-1), ['/repo', rootReportable, undefined]);
+			assert.deepStrictEqual(h.ownApplied(), []);
+		});
+
+		it('applies the first report in full of a linked worktree the cache never registered', async () => {
+			const h = createHarness({ register: true });
+			addWorktreeEntry(h, 'u', '/u');
+			h.cache.gitDir.set('/u', { uri: fileUri('/repo/.git/worktrees/u'), commonUri: fileUri('/repo/.git') });
+			await h.validate();
+
+			h.advance();
+			await h.validate('/u');
+			// With its own path as its common path, as the cache keys it, whose first report comes with it
+			assert.deepStrictEqual(h.applied().at(-1), ['/u', allWatched, undefined]);
+			assert.deepStrictEqual(h.ownApplied(), []);
+		});
+
+		it('applies the first report in full of an ignored worktree, whose HEAD the common git dir never reads', async () => {
+			const h = createHarness({ register: true, ignoredRoots: ['/repo/.git/sync-tools-worktrees'] });
+			const path = '/repo/.git/sync-tools-worktrees/sync1';
+			addWorktreeEntry(h, 'sync1', path);
+			await h.validate();
+
+			registerLinkedWorktree(h, path, 'sync1');
+			h.advance();
+			await h.validate(path);
+			assert.deepStrictEqual(h.applied().at(-1), [path, rootReportable, undefined]);
+			assert.deepStrictEqual(h.ownApplied(), []);
+		});
+
+		it('applies a first report in full while the common git dir has no baseline', async () => {
+			let fail = false;
+			const h = createHarness({
+				register: true,
+				getIgnoredWorktreeRoots: () => {
+					if (fail) {
+						fail = false;
+						throw new Error('EIO');
+					}
+					return Promise.resolve([]);
+				},
+			});
+			addWorktreeEntry(h, 'a', '/a');
+			await h.validate();
+
+			// `git worktree add`, whose entry fails the read of whether it is ignored, which resets the common git dir
+			registerLinkedWorktree(h, '/a', 'a');
+			h.advance();
+			addWorktreeEntry(h, 'b');
+			h.fs.touch('/repo/.git/worktrees');
+			fail = true;
+			await h.validate('/repo');
+
+			// Within the window, so the common git dir isn't read again
+			await h.validate('/a');
+			assert.deepStrictEqual(h.applied().at(-1), ['/a', rootReportable, undefined]);
+			assert.deepStrictEqual(h.ownApplied(), []);
+		});
+
+		it("applies first reports in full at a validation that takes the common git dir's first baseline", async () => {
+			const h = createHarness({ register: true });
+			addLinkedWorktree(h, '/a', 'a');
+			await h.validate('/a');
+			assert.deepStrictEqual(h.applied(), [['/a', allWatched, undefined]]);
+			assert.deepStrictEqual(h.ownApplied(), []);
+		});
+
+		it('clears what a HEAD move before its first validation left stale, when it is the worktree validated', async () => {
+			const h = await createWithWorktreesAfterCommon(['a']);
+			h.cache.refs.set('/repo', Promise.resolve([]));
+
+			h.fs.touch('/repo/.git/worktrees/a/HEAD');
+			await h.validate('/a');
+			assert.deepStrictEqual(h.ownApplied(), [['/a', rootReportable]]);
+			assert.deepStrictEqual(h.applied().slice(1), [
+				['/a', ['worktreeHead', 'worktrees'], ['a']],
+				['/a', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it('clears the shared entries a HEAD move left stale in a worktree validated before its first read, as an unread entry heals at the next common validation', async () => {
+			const h = await createWithWorktreesAfterCommon(['a']);
+			await h.validate('/repo');
+
+			// After the common git dir's validation, within its window
+			h.fs.touch('/repo/.git/worktrees/a/HEAD');
+			h.cache.refs.set('/repo', Promise.resolve([]));
+			await h.validate('/a');
+			assert.deepStrictEqual(h.ownApplied(), [['/a', rootReportable]]);
+			assert.ok(h.cache.refs.has('/repo'), 'stale until the common git dir is read again');
+
+			h.advance();
+			await h.validate('/repo');
+			assert.deepStrictEqual(h.applied().slice(-2), [
+				['/repo', ['worktreeHead', 'worktrees'], ['a']],
+				['/a', ['head', 'heads'], undefined],
+			]);
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+
+		it("takes the same route for a worktree's report after its validation failed", async () => {
+			const h = await createWithWorktreesAfterCommon(['a']);
+			await h.validate('/a');
+			assert.deepStrictEqual(h.ownApplied(), [['/a', rootReportable]]);
+
+			// A poll that throws, as no file-system call does, so the root target's reset
+			const roots = (h.validator as unknown as { roots: Map<string, { dir: { reset: () => void } }> }).roots;
+			const dir = roots.get('/a')!.dir as unknown as { poll: () => Promise<void> };
+			const poll = mock.method(dir, 'poll', () => Promise.reject(new Error('EIO')), { times: 1 });
+			h.advance();
+			await h.validate('/a');
+			assert.strictEqual(poll.mock.callCount(), 1);
+			assert.deepStrictEqual(h.ownApplied().slice(1), [['/a', rootReportable]]);
+			assert.strictEqual(h.applied().length, 1);
+		});
+
+		it('clears the shared entries at the first validation of a worktree whose HEAD moved while its watcher, which left without reporting it, covered the common git dir', async () => {
+			const h = createWithWorktrees();
+			h.watched.add('/b');
+			await h.validate();
+			// What was left to it applied as it leaves; it attaches again before its git dir is cached, so validates nothing
+			h.watched.delete('/b');
+			h.validator.onUnwatched('/b');
+			const gitDir = h.cache.gitDir.get('/b');
+			assert.ok(gitDir != null);
+			h.cache.gitDir.delete('/b');
+			h.watched.add('/b');
+			h.validator.onWatched('/b');
+			h.cache.gitDir.set('/b', gitDir);
+			h.cache.refs.set('/repo', Promise.resolve([]));
+
+			h.advance();
+			h.fs.touch('/repo/.git/worktrees/b/HEAD');
+			await h.validate();
+			assert.ok(h.cache.refs.has('/repo'), 'left to its watcher');
+
+			h.watched.delete('/b');
+			h.validator.onUnwatched('/b');
+			h.advance();
+			await h.validate('/b');
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
 		});
 	});
 
@@ -1347,14 +2110,26 @@ describe('UnwatchedCacheValidator', () => {
 
 		it("makes one file-system call at a time for a repository, across its worktrees' git dirs", async () => {
 			const h = createHarness({ register: true });
-			addLinkedWorktree(h);
+			addWorktreeEntry(h, 'wt1', '/wt');
 			h.fs.dirs.set('/repo/.git/refs/heads', ['feature', 'fix']);
 			h.fs.dirs.set('/repo/.git/refs/heads/feature', []);
 			h.fs.dirs.set('/repo/.git/refs/heads/fix', []);
 			h.fs.dirs.set('/repo/.git/refs/remotes', ['origin']);
 			h.fs.dirs.set('/repo/.git/refs/remotes/origin', []);
+			for (const path of ['refs/heads/feature', 'refs/heads/fix', 'refs/remotes/origin']) {
+				h.fs.files.set(`/repo/.git/${path}`, { mtime: 1, size: 10 });
+			}
+			await h.validate();
 
+			// Registered after the main checkout's first validation, so its own is a validation of its own beside the
+			// main checkout's next one
+			registerLinkedWorktree(h, '/wt', 'wt1');
+			h.advance();
+			h.fs.stats.length = 0;
+			h.fs.maxInFlight.byRepo.clear();
 			assert.deepStrictEqual(await Promise.all([h.validate('/repo'), h.validate('/wt')]), [true, true]);
+			assert.deepStrictEqual(h.applied().slice(1), []);
+			assert.deepStrictEqual(h.ownApplied(), [['/wt', rootReportable]], 'its own validation');
 			assert.ok(h.fs.stats.includes('/repo/.git/refs/heads/feature'), 'the ref directories are probed');
 			assert.ok(h.fs.stats.includes('/repo/.git/worktrees/wt1/HEAD'), "and the linked worktree's git dir");
 			assert.strictEqual(h.fs.maxInFlight.byRepo.get('/repo'), 1);
@@ -1506,6 +2281,8 @@ describe('UnwatchedCacheValidator', () => {
 				addRepo(h.cache, h.fs, repo);
 			}
 			await Promise.all(repos.map(p => h.validate(p)));
+			// `/wt`'s first baseline was taken with `/repo`'s, clearing only its own entries
+			const applied = h.applied().length;
 
 			h.advance();
 			const hung = ['/repo', '/a'];
@@ -1523,7 +2300,7 @@ describe('UnwatchedCacheValidator', () => {
 			h.fs.touch('/b/.git/packed-refs');
 			startValidation(h, '/b');
 			await settle();
-			assert.deepStrictEqual(h.applied().slice(repos.length), [['/b', ['heads', 'remotes', 'tags'], undefined]]);
+			assert.deepStrictEqual(h.applied().slice(applied), [['/b', ['heads', 'remotes', 'tags'], undefined]]);
 			assert.ok(!h.fs.stats.some(p => p.startsWith('/repo/')), "the worktree's calls wait for the hung one");
 			assert.strictEqual(worktreeSettled(), false);
 
@@ -1535,5 +2312,276 @@ describe('UnwatchedCacheValidator', () => {
 			assert.ok(worktreeSettled(), 'and run once it returns');
 			assert.strictEqual(h.fs.maxInFlight.byRepo.get('/repo'), 1);
 		});
+
+		it("applies nothing to a worktree unregistered while a sibling's validation took its baseline", async () => {
+			mock.timers.enable({ apis: ['setTimeout'] });
+			const h = createHarness({ register: true });
+			addLinkedWorktree(h, '/a', 'a');
+			addLinkedWorktree(h, '/b', 'b');
+			const spy = mock.method(h.cache, 'applyRepositoryChanges');
+
+			h.fs.files.set('/repo/.git', 'hang');
+			const settled = startValidation(h, '/a');
+			await settle();
+			h.cache.unregisterRepoPath('/b');
+			h.fs.files.set('/repo/.git', { mtime: 1, size: 10 });
+			h.fs.release({ mtime: 1, size: 10 });
+			await settle();
+			assert.ok(settled());
+			assert.ok(!spy.mock.calls.some(c => c.arguments[0] === '/b'));
+			assert.ok(!h.applied().some(([path]) => path === '/b'));
+
+			// Its baseline went with it, as nothing was cleared for it, so its next report is a first one
+			registerLinkedWorktree(h, '/b', 'b');
+			h.advance();
+			await h.validator.validate('/b');
+			assert.deepStrictEqual(h.ownApplied().at(-1), ['/b', rootReportable]);
+			assert.ok(!h.applied().some(([path]) => path === '/b'));
+		});
+
+		it("joins a sibling's validation that is taking a worktree's baseline", async () => {
+			mock.timers.enable({ apis: ['setTimeout'] });
+			const h = createHarness({ register: true });
+			addLinkedWorktree(h, '/a', 'a');
+			addLinkedWorktree(h, '/b', 'b');
+
+			h.fs.files.set('/repo/.git', 'hang');
+			const settledA = startValidation(h, '/a');
+			await settle();
+			const settledB = startValidation(h, '/b');
+			h.fs.files.set('/repo/.git', { mtime: 1, size: 10 });
+			h.fs.release({ mtime: 1, size: 10 });
+			await settle();
+			assert.ok(settledA() && settledB());
+			assert.strictEqual(countStats(h.fs.stats).get('/repo/.git/worktrees/b/logs/HEAD'), 1);
+			assert.deepStrictEqual(
+				h.applied().map(([path]) => path),
+				['/a'],
+			);
+		});
+
+		it("clears the shared entries for a sibling's baseline once the worktree that took it was unregistered, past three of them", async () => {
+			mock.timers.enable({ apis: ['setTimeout'] });
+			const h = createHarness({ register: true });
+			const ids = ['a', 'b', 'c', 'd', 'e'];
+			for (const id of ids) {
+				addWorktreeEntry(h, id, `/${id}`);
+			}
+			await h.validate();
+			for (const id of ids) {
+				registerLinkedWorktree(h, `/${id}`, id);
+			}
+			h.cache.refs.set('/repo', Promise.resolve([]));
+
+			h.advance();
+			h.fs.files.set('/repo/.git/worktrees/a', 'hang');
+			const settled = startValidation(h, '/a');
+			await settle();
+			h.cache.unregisterRepoPath('/a');
+			h.fs.files.set('/repo/.git/worktrees/a', { mtime: 1, size: 10 });
+			h.fs.release({ mtime: 1, size: 10 });
+			await settle();
+			assert.ok(settled());
+
+			h.advance();
+			await h.validator.validate('/b');
+			assert.strictEqual(h.cache.refs.has('/repo'), false);
+		});
+	});
+}
+
+describe('UnwatchedCacheValidator, batching its stats', () => {
+	afterEach(() => {
+		mock.timers.reset();
+	});
+
+	it('stats a poll as one call, the root and common git dirs of a validation together', async () => {
+		const h = createHarness({ batched: true, register: true });
+		addLinkedWorktree(h);
+		await h.validate('/wt');
+
+		const [first] = h.fs.batches;
+		assert.ok(first.includes('/repo/.git/worktrees/wt1/logs/HEAD'), "the worktree's own git dir");
+		assert.ok(first.includes('/repo/.git/refs/heads'), 'and the common one');
+		for (const batch of h.fs.batches) {
+			assert.strictEqual(new Set(batch).size, batch.length, 'each path once');
+		}
+
+		// An idle validation polls each git dir once, and reads nothing behind a gate that held still
+		h.advance();
+		h.fs.batches.length = 0;
+		const fsCalls = h.validator.getResourceUsage()['unwatchedValidation.fsCalls.count'] ?? 0;
+		await h.validate('/wt');
+		assert.strictEqual(h.fs.batches.length, 1);
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.fsCalls.count'], fsCalls + 1);
+	});
+
+	it('stats a path two concurrent validations of a repository ask for in the same batch once', async () => {
+		const h = createHarness({ batched: true, register: true });
+		addWorktreeEntry(h, 'wt1', '/wt');
+		await h.validate();
+
+		registerLinkedWorktree(h, '/wt', 'wt1');
+		h.advance();
+		h.fs.batches.length = 0;
+		await Promise.all([h.validate('/repo'), h.validate('/wt')]);
+		for (const batch of h.fs.batches) {
+			assert.strictEqual(new Set(batch).size, batch.length, 'each path once');
+		}
+		assert.strictEqual(h.fs.maxInFlight.byRepo.get('/repo'), 1);
+	});
+
+	it('reads what moved alike, batched or not, for paths found, missing, unreadable and under a file', async () => {
+		const run = async (batched: boolean): Promise<Harness> => {
+			const h = createHarness({ batched: batched, register: true });
+			addLinkedWorktree(h);
+			h.fs.dirs.set('/repo/.git/refs/heads', ['feature']);
+			h.fs.dirs.set('/repo/.git/refs/heads/feature', ['sub']);
+			h.fs.dirs.set('/repo/.git/refs/heads/feature/sub', []);
+			h.fs.files.set('/repo/.git/refs/heads/feature', { mtime: 1, size: 10 });
+			h.fs.files.set('/repo/.git/refs/heads/feature/sub', { mtime: 1, size: 10 });
+			await h.validate();
+
+			// `packed-refs` becomes unreadable and `logs/HEAD` goes
+			h.advance();
+			h.fs.touch('/repo/.git/packed-refs');
+			h.fs.files.set('/repo/.git/packed-refs', 'throw');
+			h.fs.files.delete('/repo/.git/logs/HEAD');
+			await h.validate();
+
+			// A ref directory replaced by a ref of its name, and the linked worktree's HEAD moves
+			h.advance();
+			h.fs.dirs.set('/repo/.git/refs/heads', []);
+			h.fs.dirs.delete('/repo/.git/refs/heads/feature');
+			h.fs.dirs.delete('/repo/.git/refs/heads/feature/sub');
+			h.fs.files.set('/repo/.git/refs/heads/feature', { mtime: 2, size: 41 });
+			h.fs.files.set('/repo/.git/refs/heads/feature/sub', 'enotdir');
+			h.fs.touch('/repo/.git/refs/heads');
+			h.fs.touch('/repo/.git/worktrees/wt1/HEAD');
+			await h.validate('/wt');
+
+			// `packed-refs` reads again
+			h.advance();
+			h.fs.files.set('/repo/.git/packed-refs', { mtime: 3, size: 10 });
+			h.fs.touch('/repo/.git/index');
+			await h.validate();
+			return h;
+		};
+
+		const perPath = await run(false);
+		const batched = await run(true);
+		assert.ok(batched.fs.batches.length > 0);
+		assert.deepStrictEqual(perPath.applied().slice(1), [
+			['/repo', ['head', 'heads', 'remotes', 'tags'], undefined],
+			['/wt', ['head', 'heads', 'worktreeHead', 'worktrees'], ['wt1']],
+			['/repo', ['heads', 'remotes', 'tags'], undefined],
+		]);
+		assert.deepStrictEqual(batched.applied(), perPath.applied());
+		assert.deepStrictEqual(batched.ownApplied(), perPath.ownApplied());
+	});
+
+	it('reads the paths of a batch that failed one at a time, as it would without batching', async () => {
+		const h = createHarness({ batched: true });
+		h.fs.failBatches = true;
+		await h.validate();
+		assert.deepStrictEqual(h.applied(), [['/repo', allWatched, undefined]]);
+		// The rest of the validation backs off, so each path is read on its own as without batching
+		const perPath = createHarness();
+		await perPath.validate();
+		assert.strictEqual(h.fs.batches.length, 1);
+		assert.strictEqual(h.fs.stats.length - h.fs.batches[0].length, perPath.fs.stats.length);
+		assert.strictEqual(h.fs.maxInFlight.byRepo.get('/repo'), 1, 'one call at a time');
+		const failed = h.fs.batches.length;
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.statBatchesFailed.count'], failed);
+
+		// Backing off, each stat is a call of its own
+		h.advance();
+		h.fs.touch('/repo/.git/packed-refs');
+		await h.validate();
+		assert.deepStrictEqual(h.applied()[1], ['/repo', ['heads', 'remotes', 'tags'], undefined]);
+		assert.strictEqual(h.fs.batches.length, failed, 'no batch tried while backing off');
+
+		// A reading taken one at a time matches the batch's next one, once batching is tried again
+		h.clock.now += 30_000;
+		h.fs.failBatches = false;
+		h.fs.touch('/repo/.git/index');
+		await h.validate();
+		assert.ok(h.fs.batches.length > failed, 'batched again');
+		assert.strictEqual(h.applied().length, 2, 'nothing more moved');
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.statBatchesFailed.count'], failed);
+	});
+
+	it('splits the stats asked together past 128 paths into batches, and reads one at a time only those of one that failed', async () => {
+		const run = async (failFirstFull: boolean): Promise<Harness> => {
+			const h = createHarness({ batched: true });
+			for (let i = 0; i < 80; i++) {
+				addWorktreeEntry(h, `wt${i}`);
+			}
+			let failedOne = false;
+			h.fs.failBatches = paths => {
+				if (!failFirstFull || failedOne || paths.length !== 128) return false;
+
+				failedOne = true;
+				return true;
+			};
+			await h.validate();
+			h.advance();
+			for (let i = 0; i < 80; i++) {
+				h.fs.touch(`/repo/.git/worktrees/wt${i}/HEAD`);
+			}
+			await h.validate();
+			return h;
+		};
+
+		const h = await run(false);
+		const full = h.fs.batches.findIndex(b => b.length === 128);
+		assert.ok(full !== -1, 'a full batch');
+		assert.ok(h.fs.batches[full + 1].length > 0, 'and the rest asked with it, a batch of its own');
+		assert.ok(h.fs.batches.every(b => b.length <= 128));
+		assert.strictEqual(h.fs.stats.length, h.fs.batches.flat().length, 'no stat on its own');
+
+		const failing = await run(true);
+		assert.strictEqual(failing.validator.getResourceUsage()['unwatchedValidation.statBatchesFailed.count'], 1);
+		const failed = failing.fs.batches[full];
+		const rest = failing.fs.batches[full + 1];
+		assert.deepStrictEqual(rest, h.fs.batches[full + 1], 'the rest still made as a batch');
+		const start = failing.fs.batches.slice(0, full).flat().length;
+		assert.deepStrictEqual(
+			failing.fs.stats.slice(start + failed.length + rest.length, start + failed.length * 2 + rest.length),
+			failed,
+			'then only the failed batch read again, one at a time',
+		);
+		assert.deepStrictEqual(failing.applied(), h.applied());
+	});
+
+	it('counts a hung batch as one stuck call, and validates other repositories while it hangs', async () => {
+		mock.timers.enable({ apis: ['setTimeout'] });
+		const h = createHarness({ batched: true, maxFsThreads: 3 });
+		addRepo(h.cache, h.fs, '/b');
+		await Promise.all([h.validate('/repo'), h.validate('/b')]);
+
+		h.advance();
+		h.fs.touch('/repo/.git/packed-refs');
+		h.fs.files.set('/repo/.git', 'hang');
+		let settled = false;
+		void h.validator.validate('/repo')!.then(() => {
+			settled = true;
+		});
+		await settle();
+		mock.timers.tick(1000);
+		await settle();
+		assert.ok(settled, 'served as is once the wait timed out');
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.fsCallsStuck.count'], 1);
+
+		h.fs.touch('/b/.git/packed-refs');
+		await h.validate('/b');
+		assert.deepStrictEqual(h.applied().slice(2), [['/b', ['heads', 'remotes', 'tags'], undefined]]);
+
+		h.fs.files.set('/repo/.git', { mtime: 2, size: 10 });
+		h.fs.release({ mtime: 2, size: 10 });
+		await settle();
+		await settle();
+		assert.strictEqual(h.validator.getResourceUsage()['unwatchedValidation.fsCallsStuck.count'], 0);
+		assert.deepStrictEqual(h.applied().slice(3), [['/repo', ['heads', 'remotes', 'tags'], undefined]]);
 	});
 });

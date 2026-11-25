@@ -182,6 +182,8 @@ export interface SpawnedProcess {
 	readonly killed: boolean;
 	readonly exitCode: number | null;
 	readonly spawnargs: string[];
+	/** Used to stop a run that passes its `maxBuffer`; without it the run destroys the output streams instead */
+	kill?(signal?: NodeJS.Signals): boolean;
 	once(event: 'error', listener: (error: Error) => void): this;
 	once(event: 'close', listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
 	removeAllListeners(): this;
@@ -205,6 +207,9 @@ export interface ProcessSpawnOptions {
  *   unless the process has already exited
  * - honour `timeout`: kill with SIGTERM and set `killed`, without emitting `'error'`
  * - report a killed process's `'close'` with a null code and its signal, not an exit code such as 143
+ * - on Windows, end the process's whole tree when killing it (timeout, abort, or `kill`): a launcher such as Git for
+ *   Windows' `cmd\git.exe` runs the real git as a child holding the same pipes, so killing only the launcher leaves
+ *   them open and `'close'` never comes
  * - emit no event before returning, `'error'` at most once, and `'close'` exactly once and last: also after `'error'`
  *   (a failed launch, an abort), and only after `stdout` and `stderr` have ended or been destroyed, with `exitCode`
  *   and `killed` already set
@@ -231,31 +236,121 @@ export function spawnProcess(command: string, args: readonly string[], options: 
 	}
 
 	const child = spawn(command, args, spawnOptions);
+	if (isWindows) {
+		killTreeOnKill(child);
+	}
 
 	if (timeout != null && timeout > 0) {
-		let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
-			if (timeoutId != null) {
-				try {
-					child.kill();
-				} catch (ex) {
-					child.emit('error', ex);
-				}
-				timeoutId = undefined;
-			}
-		}, timeout);
-
-		const clear = () => {
-			if (timeoutId != null) {
-				clearTimeout(timeoutId);
-				timeoutId = undefined;
-			}
-		};
-		// `'exit'` keeps Node's timing; `'close'` covers a launch that fails and never exits
-		child.once('exit', clear);
-		child.once('close', clear);
+		killOnTimeout(child, timeout);
 	}
 
 	return child;
+}
+
+/** Node's spawn `timeout`, but also cleared on `'close'`; see {@link spawnProcess} */
+function killOnTimeout(child: ChildProcess, timeout: number): void {
+	let timeoutId: ReturnType<typeof setTimeout> | undefined = setTimeout(() => {
+		if (timeoutId != null) {
+			try {
+				child.kill();
+			} catch (ex) {
+				child.emit('error', ex);
+			}
+			timeoutId = undefined;
+		}
+	}, timeout);
+
+	const clear = () => {
+		if (timeoutId != null) {
+			clearTimeout(timeoutId);
+			timeoutId = undefined;
+		}
+	};
+	// `'exit'` keeps Node's timing; `'close'` covers a launch that fails and never exits
+	child.once('exit', clear);
+	child.once('close', clear);
+}
+
+const taskkillTimeout = 5000;
+
+/**
+ * Makes `kill` end the child's whole tree (Windows only). There `kill` terminates just the child, and a launcher such
+ * as Git for Windows' `cmd\git.exe` runs the real git as its own child on the same stdout and stderr, so the pipes
+ * stay open and `'close'` never comes. Node's abort and timeout paths call the instance's `kill`, so this covers them.
+ */
+function killTreeOnKill(child: ChildProcess): void {
+	const kill = child.kill.bind(child);
+	const mutable = child as { killed: boolean; exitCode: number | null; signalCode: NodeJS.Signals | null };
+	let killing = false;
+
+	child.kill = (signal?: NodeJS.Signals | number): boolean => {
+		if (child.pid == null || child.exitCode !== null || child.signalCode !== null || typeof signal === 'number') {
+			return kill(signal);
+		}
+		if (killing) return true;
+
+		killing = true;
+		const killSignal = signal ?? 'SIGTERM';
+		mutable.killed = true;
+
+		// Killed from outside, the child exits with taskkill's code 1 and no signal; report it as Node's own kill
+		// would, a null code and the signal, which is what every caller keys on
+		let exitCode: number | null = child.exitCode;
+		Object.defineProperty(child, 'exitCode', {
+			configurable: true,
+			enumerable: true,
+			get: () => exitCode,
+			set: (value: number | null) => {
+				if (value === 1) {
+					exitCode = null;
+					mutable.signalCode = killSignal;
+				} else {
+					exitCode = value;
+				}
+			},
+		});
+
+		// Once it's killed, a descendant left alive (taskkill failed, or its parent was already gone) can still hold the
+		// pipes; destroying them lets `'close'` come anyway. A child that exited on its own keeps its output
+		child.once('exit', (_code, exitSignal) => {
+			if (exitSignal == null) return;
+
+			child.stdout?.destroy();
+			child.stderr?.destroy();
+		});
+
+		// taskkill failed: fall back to Node's kill, unless the child already exited on its own
+		let failed = false;
+		const fail = () => {
+			if (failed || child.exitCode !== null || child.signalCode !== null) return;
+
+			failed = true;
+			try {
+				kill(killSignal);
+			} catch {}
+		};
+
+		try {
+			// By absolute path: Windows searches the current directory before PATH for a bare name. Its own time limit
+			// keeps a stalled taskkill from leaving the kill, and so the run, hanging
+			const taskkill = spawn(
+				joinPaths(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe'),
+				['/T', '/F', '/PID', String(child.pid)],
+				{ stdio: 'ignore', windowsHide: true },
+			);
+			killOnTimeout(taskkill, taskkillTimeout);
+			taskkill.once('error', fail);
+			taskkill.once('exit', code => {
+				if (code !== 0) {
+					fail();
+				}
+			});
+		} catch {
+			fail();
+		}
+
+		return true;
+	};
 }
 
 export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
@@ -269,11 +364,10 @@ export interface RunOptions<TEncoding = BufferEncoding | 'buffer'> {
 	 */
 	readonly decode?: (data: Uint8Array, options?: { readonly encoding: string }) => string | Promise<string>;
 	/**
-	 * The size the output buffer to allocate to the spawned process. Set this
-	 * if you are anticipating a large amount of output.
+	 * The most bytes each of stdout and stderr may produce; past it the process is killed and the run rejects
+	 * with a `RunError` whose `code` is `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`.
 	 *
-	 * If not specified, this will be 10MB (10485760 bytes) which should be
-	 * enough for most Git operations.
+	 * If not specified, `run` allows 1000MB per stream and `runSpawn` allows unlimited output.
 	 */
 	readonly maxBuffer?: number;
 	readonly cancellation?: AbortSignal;
@@ -481,15 +575,64 @@ export function runSpawn<T extends string | Buffer>(
 			// 0 disables it, which the spawner contract spells as absent
 			timeout: opts.timeout === 0 ? undefined : opts.timeout,
 			signal: cancellation,
-			stdio: ['pipe', null, null],
+			stdio: [stdin != null ? 'pipe' : 'ignore', null, null],
 		});
 		const errorEncoding = encoding === 'buffer' ? 'utf8' : encoding;
 
+		const maxBuffer = opts.maxBuffer != null && opts.maxBuffer > 0 ? opts.maxBuffer : undefined;
+		let limitHit = false;
+
+		function collector(buffers: Buffer[], name: 'stdout' | 'stderr'): (data: Buffer) => void {
+			let size = 0;
+			return (data: Buffer) => {
+				if (limitHit) return;
+
+				size += data.length;
+				if (maxBuffer != null && size > maxBuffer) {
+					exceedLimit(name);
+					return;
+				}
+
+				buffers.push(data);
+			};
+		}
+
 		const stdoutBuffers: Buffer[] = [];
-		proc.stdout?.on('data', (data: Buffer) => stdoutBuffers.push(data));
+		const collectStdout = collector(stdoutBuffers, 'stdout');
+		proc.stdout?.on('data', collectStdout);
 
 		const stderrBuffers: Buffer[] = [];
-		proc.stderr?.on('data', (data: Buffer) => stderrBuffers.push(data));
+		const collectStderr = collector(stderrBuffers, 'stderr');
+		proc.stderr?.on('data', collectStderr);
+
+		// Settles the run as soon as a stream passes the limit. Destroying the streams ends a spawner whose process
+		// has no `kill`, and the late `'close'` or `'error'` is ignored through `limitHit`
+		function exceedLimit(name: 'stdout' | 'stderr'): void {
+			limitHit = true;
+			stdoutBuffers.length = 0;
+			stderrBuffers.length = 0;
+			proc.stdout?.off('data', collectStdout);
+			proc.stderr?.off('data', collectStderr);
+
+			try {
+				proc.kill?.();
+			} catch {}
+			proc.stdout?.destroy();
+			proc.stderr?.destroy();
+
+			reject(
+				new RunError(
+					{
+						message: `Command output exceeded the allocated ${name} buffer. Set 'options.maxBuffer' to a larger value than ${maxBuffer} bytes`,
+						cmd: `${command} ${args.join(' ')}`,
+						killed: true,
+						code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+					},
+					'',
+					'',
+				),
+			);
+		}
 
 		function getStdio<T>(
 			encoding: BufferEncoding | 'buffer' | string,
@@ -516,20 +659,36 @@ export function runSpawn<T extends string | Buffer>(
 			}));
 		}
 
-		proc.once('error', async ex => {
+		// An async listener's throw would be an unhandled rejection that leaves the promise pending forever, so
+		// anything it throws (an undecodable output, a failing `decode`) rejects the run instead. It rejects as
+		// thrown: wrapped in a `RunError` with the exit code, a clean exit would read as a run with no output
+		const rejectThrown = (ex: unknown): void => reject(ex instanceof Error ? ex : new Error(String(ex)));
+		proc.once('error', ex => void onError(ex).catch(rejectThrown));
+		proc.once('close', (code, signal) => void onClose(code, signal).catch(rejectThrown));
+
+		async function onError(ex: Error): Promise<void> {
+			if (limitHit) return;
+
 			if (ex?.name === 'AbortError') {
 				reject(new CancelledRunError(`${command} ${args.join(' ')}`, true, undefined, undefined, 'aborted'));
 
 				return;
 			}
 
-			const stdio = getStdio<string>(errorEncoding);
-			const { stdout, stderr } = stdio instanceof Promise ? await stdio : stdio;
+			// The launch failure is what the caller acts on, so output that can't be decoded is left out of it
+			let stdout = '';
+			let stderr = '';
+			try {
+				const stdio = getStdio<string>(errorEncoding);
+				({ stdout, stderr } = stdio instanceof Promise ? await stdio : stdio);
+			} catch {}
 
 			reject(new RunError(ex, stdout, stderr));
-		});
+		}
 
-		proc.once('close', async (code, signal) => {
+		async function onClose(code: number | null, signal: NodeJS.Signals | null): Promise<void> {
+			if (limitHit) return;
+
 			if (options?.exitCodeOnly) {
 				// Resolves unconditionally, so this is the one path that can hand back a signalled run. `code`
 				// is null exactly when the process was killed — report the signal rather than coercing to `0`,
@@ -590,7 +749,7 @@ export function runSpawn<T extends string | Buffer>(
 			// zero exit — `code` cannot be null here. (The optional typing exists for the `exitCodeOnly`
 			// branch, which is where a codeless result can genuinely surface.)
 			resolve({ exitCode: code ?? undefined, signal: signal ?? undefined, stdout: stdout, stderr: stderr });
-		});
+		}
 
 		// Only a host spawner can leave these out; reading no output as empty would pass for a clean answer
 		if (proc.stdout == null || proc.stderr == null) {

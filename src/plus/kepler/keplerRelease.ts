@@ -258,13 +258,18 @@ export function parseKeplerInstallLocation(regOutput: string): string | undefine
 
 /** The version in `text` (what Windows reports for an executable), or `undefined` when it holds none. */
 export function parseKeplerVersion(text: string): string | undefined {
-	return /^\s*(\d+\.\d+\.\d+(?:[-+.][0-9A-Za-z.-]{1,40})?)\s*$/.exec(text)?.[1];
+	const match = /^\s*(\d+\.\d+\.\d+)(?:\.\d+)?([-+][0-9A-Za-z.-]{1,40})?\s*$/.exec(text);
+	if (match == null) return undefined;
+
+	return `${match[1]}${match[2] ?? ''}`;
 }
 
 /** Bytes as whole megabytes (1 MB = 1,000,000 bytes, matching how the download page states sizes). */
 export function toMegabytes(bytes: number): number {
 	return Math.round(bytes / 1_000_000);
 }
+
+export type KeplerNotInstallableReason = 'unavailable' | 'remote' | 'channel' | 'unsupported';
 
 /**
  * Which step of an install failed. `cancelled` = the user cancelled; `unsupported` = nothing

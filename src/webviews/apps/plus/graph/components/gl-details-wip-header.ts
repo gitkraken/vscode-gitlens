@@ -16,6 +16,7 @@ import type { WebviewContext } from '../../../shared/contexts/webview.js';
 import { webviewContext } from '../../../shared/contexts/webview.js';
 import type { NavigationState } from '../../../shared/controllers/navigationStack.js';
 import { ruleStyles } from '../../shared/components/vscode.css.js';
+import { getQueuedPullRequestEntry } from '../../shared/mergeQueue.utils.js';
 import type { RunningOperationExecState } from './detailsState.js';
 import { detailsWipHeaderStyles } from './gl-details-wip-header.css.js';
 import '../../shared/components/merge-rebase-status.js';
@@ -444,9 +445,11 @@ export class GlDetailsWipHeader extends LitElement {
 		const branch = this.wip?.branch;
 		if (!branch) return nothing;
 
+		const queued = getQueuedPullRequestEntry(this.pullRequest) != null;
+		const landed = this.mergeTargetStatus?.mergeTarget?.landed != null;
+
 		if (branch.upstream == null || branch.upstream.missing === true) {
-			// A landed branch's work is already in the merge target, so publishing it would resurrect a dead branch
-			if (this.mergeTargetStatus?.mergeTarget?.landed != null) return nothing;
+			if (landed || this.mergeTargetStatusLoading) return nothing;
 
 			// `git.publish` publishes the main repo's HEAD, so only offer it for the primary worktree's WIP
 			const isSecondaryWorktree =
@@ -480,12 +483,16 @@ export class GlDetailsWipHeader extends LitElement {
 					overlay="tooltip"
 					@click=${() => this.emit('pull')}
 				></gl-action-chip>
-				<gl-action-chip
-					icon="repo-force-push"
-					label=${l10n.t('Force Push')}
-					overlay="tooltip"
-					@click=${() => this.emit('force-push')}
-				></gl-action-chip>`;
+				${
+					!queued && !landed
+						? html`<gl-action-chip
+								icon="repo-force-push"
+								label=${l10n.t('Force Push')}
+								overlay="tooltip"
+								@click=${() => this.emit('force-push')}
+							></gl-action-chip>`
+						: nothing
+				}`;
 		}
 
 		if (behind > 0) {
@@ -497,7 +504,7 @@ export class GlDetailsWipHeader extends LitElement {
 			></gl-action-chip>`;
 		}
 
-		if (ahead > 0) {
+		if (ahead > 0 && !queued) {
 			return html`<gl-action-chip
 				icon="repo-push"
 				label=${l10n.t('Push')}

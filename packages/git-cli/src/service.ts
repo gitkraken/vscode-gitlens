@@ -1,4 +1,6 @@
+import { readdir, readFile } from 'node:fs/promises';
 import { env } from 'node:process';
+import { FileType } from '@gitlens/git/context.js';
 import { GitService } from '@gitlens/git/service.js';
 import type { FileWatchingProvider } from '@gitlens/git/watching/provider.js';
 import { UnwatchedCacheValidator } from '@gitlens/git/watching/unwatchedCacheValidator.js';
@@ -10,6 +12,7 @@ import type { CliGitProviderOptions } from './cliGitProvider.js';
 import { CliGitProvider } from './cliGitProvider.js';
 import type { GitLocation } from './exec/locator.js';
 import { findGitPath } from './exec/locator.js';
+import { statLocal, StatWorkerPool } from './exec/statWorkers.js';
 
 /**
  * Options for {@link createCliGitService}.
@@ -71,10 +74,13 @@ export interface CliGitServiceOptions {
 	 * submodule, `--separate-git-dir`, `core.worktree`) isn't validated until a read resolves it, its files looked at
 	 * again every 30 seconds. What moves in a worktree under an {@link ignoredWorktreeFolders} folder clears nothing. Without a
 	 * {@link watchingProvider}, every repository counts as unwatched. A read waits at most `timeoutMs` (default 1000)
-	 * for the stats, then is served from the cache, and the stats run one at a time per repository and two at once
-	 * overall. A stat on a hung mount holds one of Node's file-system threads until it returns; one outstanding past
-	 * `timeoutMs` lets other repositories' stats go on, as long as the stats hold all but two of the threads
-	 * (`UV_THREADPOOL_SIZE`, default 4), which leaves the host two. Off by default.
+	 * for the stats, then is served from the cache. Its stats, listings and file reads are made straight on the local
+	 * file system rather than through `context.fs`, and the stats a repository's git dirs need together as one batch
+	 * on a worker thread (on the calling thread while no worker is free). The calls run one at a time per repository
+	 * and two at once overall. A call on a hung mount holds its thread (a worker's, or one of Node's file-system
+	 * threads) until it returns; one outstanding past `timeoutMs` lets other repositories' calls go on, as long as the
+	 * calls hold no more threads than Node's file-system pool has less two (`UV_THREADPOOL_SIZE`, default 4), which
+	 * leaves the host two. Off by default.
 	 */
 	validateUnwatchedCaches?: boolean | { readonly timeoutMs?: number };
 
@@ -100,8 +106,25 @@ export interface CliGitServiceOptions {
  *
  * git.dispose(); // cleans up provider, cache, and module-level state
  * ```
+ *
+ * The cache shares a repository's data between its checkouts only once each checkout is registered
+ * (`cache.registerRepoPath`). A host that registers checkouts in the background can have each one registered before
+ * its first read through `forRepo` by setting a registrar once it has the service (see
+ * `Cache.setRepoPathRegistrar`; `undefined` declines a path):
+ *
+ * ```typescript
+ * cache.setRepoPathRegistrar(path =>
+ * 	isKnownCheckout(path)
+ * 		? git.forRepo(path)!.config.getGitDir!().then(gitDir => {
+ * 				if (gitDir != null) cache.registerRepoPath(fileUri(path), gitDir);
+ * 			})
+ * 		: undefined,
+ * );
+ * ```
  */
 export function createCliGitService(options: CliGitServiceOptions): GitService {
+	const maxFsThreads = getThreadPoolSize() - 2;
+	const statWorkers = options.validateUnwatchedCaches ? new StatWorkerPool({ maxWorkers: maxFsThreads }) : undefined;
 	const service = GitService.createSingleton(options.watchingProvider, {
 		watchPolling: options.watchPolling,
 		verifyBaseRemeasure: options.verifyBaseRemeasure,
@@ -109,6 +132,7 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 		readFile: path => options.context.fs.readFile(fileUri(path)),
 		// And lists the directory the admin entries of its worktrees are in
 		readDirectory: path => options.context.fs.readDirectory(fileUri(path)),
+		disposables: statWorkers != null ? [statWorkers] : undefined,
 	});
 
 	const locator = options.locator ?? (() => findGitPath(options.gitPath ?? null));
@@ -123,29 +147,34 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 
 	service.register(provider, () => true);
 
-	if (options.validateUnwatchedCaches) {
-		const fs = options.context.fs;
+	if (statWorkers != null) {
 		const validator = new UnwatchedCacheValidator({
 			cache: provider.cache,
 			timeoutMs:
 				typeof options.validateUnwatchedCaches === 'object'
 					? options.validateUnwatchedCaches.timeoutMs
 					: undefined,
-			maxFsThreads: getThreadPoolSize() - 2,
-			stat: async path => {
-				try {
-					const stat = await fs.stat(fileUri(path));
-					return stat != null ? { mtime: stat.mtime, size: stat.size } : undefined;
-				} catch (ex) {
-					if (isNotFound(ex)) return undefined;
-
-					throw ex;
-				}
+			maxFsThreads: maxFsThreads,
+			// Straight from the local file system, as git reads these paths: a worker thread can't call the host's
+			// `context.fs`, and a path read one way must read the same the other, or a batch that failed (whose paths
+			// are read one at a time) would report as moved what only read differently. Listings and file reads too, so
+			// the validator reads one file system
+			statMany: paths => statWorkers.statMany(paths),
+			stat: statLocal,
+			readDirectory: async path => {
+				const entries = await readdir(path, { withFileTypes: true });
+				return entries.map(
+					e =>
+						[
+							e.name,
+							(e.isDirectory() ? FileType.Directory : FileType.File) |
+								(e.isSymbolicLink() ? FileType.SymbolicLink : 0),
+						] as const,
+				);
 			},
-			readDirectory: path => fs.readDirectory(fileUri(path)),
 			readFile: async path => {
 				try {
-					return await fs.readFile(fileUri(path));
+					return await readFile(path);
 				} catch (ex) {
 					if (isNotFound(ex)) return undefined;
 
@@ -186,7 +215,10 @@ export function createCliGitService(options: CliGitServiceOptions): GitService {
 	service.watchService?.onDidChangeRepository(e => {
 		const changes = e.getUnannouncedChanges();
 		if (changes.length) {
-			provider.cache.onRepositoryChanged(e.repoPath, changes, { movedWorktrees: e.movedWorktrees });
+			provider.cache.onRepositoryChanged(e.repoPath, changes, {
+				movedWorktrees: e.movedWorktrees,
+				observedAt: e.observedAt,
+			});
 		}
 	});
 	// FETCH_HEAD maps to no session change, and there's no `Repository` model here to force-fire `lastFetched` (as

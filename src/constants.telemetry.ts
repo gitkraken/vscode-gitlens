@@ -25,7 +25,12 @@ import type { AutoRebaseUndoRefusalReason } from './plus/coretools/conflict/auto
 import type { OrganizationRole } from './plus/gk/models/organization.js';
 import type { Subscription, SubscriptionAccount, SubscriptionStateString } from './plus/gk/models/subscription.js';
 import type { KeplerProviderId } from './plus/kepler/keplerProviders.js';
-import type { KeplerInstallFailureReason, KeplerReleaseFileKind } from './plus/kepler/keplerRelease.js';
+import type {
+	KeplerInstallFailureReason,
+	KeplerInstallStep,
+	KeplerNotInstallableReason,
+	KeplerReleaseFileKind,
+} from './plus/kepler/keplerRelease.js';
 import type { KeplerChannel } from './plus/kepler/keplerService.js';
 import type { KeplerTaskAction, KeplerTaskIntent } from './plus/kepler/keplerTask.js';
 import type { GraphColumnConfig, GraphScopeSource } from './webviews/plus/graph/protocol.js';
@@ -669,7 +674,9 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when opening an agent session in Kepler fails — Kepler is not installed, or the deep link could not be handed off */
 	'kepler/session/open/failed': KeplerSessionOpenFailedEvent;
 	/** Sent when GitLens starts installing Kepler */
-	'kepler/install/started': KeplerInstallEvent;
+	'kepler/install/started': KeplerInstallStartedEvent;
+	/** Sent when an install of Kepler that never reported an outcome has stopped — its window was closed or reloaded, or VS Code quit, while it ran. Sent by the next local window to start once the install has shown no sign of life for 2 minutes, which can be much later than it stopped */
+	'kepler/install/abandoned': KeplerInstallAbandonedEvent;
 	/** Sent when GitLens finishes installing Kepler */
 	'kepler/install/completed': KeplerInstallCompletedEvent;
 	/** Sent when installing Kepler fails or is cancelled */
@@ -2825,6 +2832,18 @@ interface KeplerInstallEvent {
 	kind: KeplerReleaseFileKind;
 }
 
+interface KeplerInstallStartedEvent extends KeplerInstallEvent {
+	/** Set when an install started from another window was still running; best-effort, since windows learn of each other's installs with a delay */
+	concurrent?: true;
+}
+
+interface KeplerInstallAbandonedEvent extends KeplerInstallEvent {
+	/** The step the install was last known to be in; absent when it had not started downloading */
+	step?: KeplerInstallStep;
+	/** How long the install was known to be running, in milliseconds — from its start to its last sign of life, at most 30 seconds before it stopped */
+	duration: number;
+}
+
 interface KeplerInstallOutcomeEvent extends KeplerInstallEvent {
 	/** The Kepler version; absent when unknown — on Windows it is only known once installed */
 	version?: string;
@@ -2855,8 +2874,8 @@ interface KeplerInstallFailedEvent extends KeplerInstallOutcomeEvent {
 }
 
 interface KeplerInstallSkippedEvent {
-	/** Why nothing was installed. `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed */
-	reason: 'remote' | 'unsupported' | 'channel' | 'already-installed';
+	/** Why nothing was installed. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed */
+	reason: KeplerNotInstallableReason | 'already-installed';
 }
 
 interface KeplerInstallActionEvent {
@@ -2869,6 +2888,8 @@ interface KeplerInstallActionEvent {
 interface KeplerCtaShownEvent {
 	/** Whether the call to action offers Install Kepler; otherwise only Learn More */
 	installable: boolean;
+	/** Why Install Kepler isn't offered; absent when it is, or when the reason isn't known yet. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `installed` = Kepler is already installed (Welcome card only) */
+	reason?: KeplerNotInstallableReason | 'installed';
 }
 
 interface KeplerNotInstalledActionEvent {
@@ -2878,6 +2899,10 @@ interface KeplerNotInstalledActionEvent {
 	wizard: boolean;
 	/** What the user picked. `review` / `review-agent` = continued without Kepler; `back` = went back a wizard step; `dismiss` = closed the prompt */
 	action: 'install' | 'learn-more' | 'review' | 'review-agent' | 'back' | 'dismiss';
+	/** Whether Install Kepler installs it; otherwise it opens the download page */
+	installable: boolean;
+	/** Why Install Kepler opens the download page instead; absent when `installable`. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU */
+	reason?: KeplerNotInstallableReason;
 }
 
 type InspectCommitContextEventData = {

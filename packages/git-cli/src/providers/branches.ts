@@ -27,7 +27,6 @@ import type {
 import type { GitCommandPriority, GitRunOptions } from '@gitlens/git/run.types.js';
 import {
 	formatDetachedHeadName,
-	getLocalBranchByUpstream,
 	isDetachedHead,
 	isRemoteHEAD,
 	parseBranchMetadataGkConfigKey,
@@ -45,13 +44,14 @@ import { ensureArray, filterMap } from '@gitlens/utils/array.js';
 import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { debug, trace } from '@gitlens/utils/decorators/log.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
+import { HoldOffMap } from '@gitlens/utils/holdOffMap.js';
 import { sum } from '@gitlens/utils/iterable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { LruMap } from '@gitlens/utils/lruMap.js';
 import type { PagedResult, PagingOptions } from '@gitlens/utils/paging.js';
-import { emptyPagedResult, PageableResult } from '@gitlens/utils/paging.js';
+import { emptyPagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import { getSettledValue, mapBounded } from '@gitlens/utils/promise.js';
 import type { CacheController } from '@gitlens/utils/promiseCache.js';
@@ -97,8 +97,25 @@ const nonInteractiveNetworkOptions = {
 	timeout: 10_000,
 } as const satisfies GitRunOptions;
 
+/** {@link nonInteractiveNetworkOptions} with the host's quiet-network `SSH_ASKPASS` environment, when it supplies one */
+function quietNetworkOptions(git: Git) {
+	return { ...nonInteractiveNetworkOptions, env: git.quietNetworkEnv(nonInteractiveNetworkOptions.env) };
+}
+
+/**
+ * How long after a failed read of a remote's default branch off the network (an unreachable host, a refused login, a
+ * timeout) the network isn't tried again for that remote
+ */
+const failedDefaultBranchLookupWait = 60 * 1000;
+
+/** The clock a failed default branch lookup's wait is measured on, exported for testing */
+export const defaultBranchLookupClock = { now: (): number => Date.now() };
+
 const branchActivityKeys = ['gk-last-accessed', 'gk-last-modified', 'gk-agent-last-activity'] as const;
 type BranchActivityKey = (typeof branchActivityKeys)[number];
+
+const mergeTreeRefNotFound = /^merge-tree: [^\r\n]+ - not something we can merge\s*$/i;
+const mergeTreeNoMergeBase = /^fatal: refusing to merge unrelated histories\s*$/i;
 
 /**
  * The most commits a base's reflog may reach off its new tip's history for a re-measure: every worktree's count
@@ -108,8 +125,8 @@ type BranchActivityKey = (typeof branchActivityKeys)[number];
 const maxOffHistoryCommits = 64;
 
 /**
- * A base that moved only forward: the commits its reflog reaches off the new tip's history, and the commits
- * `--fork-point` reads from that reflog besides the new tip, the old tip among them
+ * What a ref's reflog reaches: the commits it reaches off the ref's tip's history, and the commits `--fork-point` reads
+ * from that reflog besides the tip; for a base that moved only forward, the old tip among them
  */
 type BaseMovedForward = { readonly offHistory: readonly string[]; readonly logged: ReadonlySet<string> };
 
@@ -145,10 +162,18 @@ const unfinishedPatchCheckTtl = 10 * 60 * 1000;
 export const patchCheckClock = { now: (): number => Date.now() };
 
 /**
- * One line of a ref's reflog file: the value it moved from, the one it moved to, and whether its message shows a move
- * to a descendant (see {@link isForwardReflogMessage})
+ * One line of a ref's reflog file: the value it moved from, the one it moved to, whether its message shows a move to a
+ * descendant (see {@link isForwardReflogMessage}), whether it shows a merge or a rewrite (see
+ * {@link isMergeOrRewriteReflogMessage}), and, when it is one the created-from read matches, the name it gives (see
+ * {@link getCreatedFromReflogName})
  */
-type ReflogLine = { readonly from: string; readonly to: string; readonly forward: boolean };
+type ReflogLine = {
+	readonly from: string;
+	readonly to: string;
+	readonly forward: boolean;
+	readonly mergeOrRewrite: boolean;
+	readonly createdFrom: string | undefined;
+};
 
 /** `<old> <new> <identity> <time> <zone>\t<message>`, oldest first; `undefined` when a line isn't one */
 function parseReflogLines(content: string): ReflogLine[] | undefined {
@@ -162,13 +187,40 @@ function parseReflogLines(content: string): ReflogLine[] | undefined {
 		if (first !== 40 && first !== 64) return undefined;
 		if (second !== first * 2 + 1 || (tab >= 0 && tab < second)) return undefined;
 
+		const message = tab >= 0 ? line.slice(tab + 1) : undefined;
 		lines.push({
 			from: line.slice(0, first),
 			to: line.slice(first + 1, second),
-			forward: tab >= 0 && isForwardReflogMessage(line.slice(tab + 1)),
+			forward: message != null && isForwardReflogMessage(message),
+			mergeOrRewrite: message != null && isMergeOrRewriteReflogMessage(message),
+			createdFrom: message != null ? getCreatedFromReflogName(message) : undefined,
 		});
 	}
 	return lines;
+}
+
+/**
+ * Whether git wrote `message` for a merge commit, an amend or a rebase, none of which leaves the ref on a commit whose
+ * only parent is the value it moved from. Any command can write any message (`GIT_REFLOG_ACTION`), so this only ever
+ * rules such a commit out, never in.
+ */
+function isMergeOrRewriteReflogMessage(message: string): boolean {
+	return (
+		/^commit \((?:amend|merge)\): /.test(message) ||
+		/^rebase\b/.test(message) ||
+		/^(?:merge|pull)\b.*: Merge made by /i.test(message)
+	);
+}
+
+/**
+ * The name `getReflogCreatedFrom` takes from `message` when its grep (`branch: Created from *.`, a basic regular
+ * expression, unanchored) matches it, which a commit's subject can as well as a branch's creation; `undefined` when it
+ * doesn't match
+ */
+function getCreatedFromReflogName(message: string): string | undefined {
+	if (!/branch: Created from *./.test(message)) return undefined;
+
+	return /branch: Created from (.*)$/.exec(message)?.[1] ?? '';
 }
 
 /**
@@ -212,6 +264,21 @@ function isForkPointKeptByReflog(lines: readonly ReflogLine[], forkPoint: string
 		const { from, to, forward } = lines[i];
 		const chained = i === off || from === lines[i - 1].to;
 		if (!chained || (from !== to && !forward)) return false;
+	}
+	return true;
+}
+
+/**
+ * Whether `lines`, a ref's reflog, show every value it took in the history of its newest one: each line, from the value
+ * the line before moved to, moving to a descendant (see {@link isForwardReflogMessage}) or nowhere; the oldest may
+ * create the ref
+ */
+function isReflogOnlyForward(lines: readonly ReflogLine[]): boolean {
+	for (let i = 0; i < lines.length; i++) {
+		const { from, to, forward } = lines[i];
+		if (i === 0 && /^0+$/.test(from)) continue;
+		if (i !== 0 && from !== lines[i - 1].to) return false;
+		if (from !== to && !forward) return false;
 	}
 	return true;
 }
@@ -362,6 +429,27 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		string,
 		{ readonly stamp: string; readonly lines: Promise<readonly ReflogLine[] | undefined> }
 	>(64);
+	/**
+	 * The fork points git found in their base's tip's history, by `<commonPath>\0<forkPoint>\0<tip>`, for a base carried
+	 * past a commit (see `getAheadOfBaseAfterCommit`): every commit on a branch asks again while neither moves
+	 */
+	private readonly forkPointsInTipHistory = new LruMap<string, true>(256);
+	/**
+	 * For the local branch tracking a base, what its reflog reaches at its tip (else `false`), by `<commonPath>\0<ref>`,
+	 * held, as {@link baseMovedForward}'s reads are, for the tip, the reflog and the replace refs it was read under. A
+	 * move of the branch reaches every worktree measured against the base, so they share the read, and the checked-out
+	 * branches holding any commit it reaches off the tip's history (by tip sha), read once for the tips in `heads`
+	 */
+	private readonly trackingReflogReaches = new LruMap<
+		string,
+		{
+			readonly tip: string;
+			readonly reflog: string | BaseMoveReadInputs;
+			readonly replaced: string;
+			readonly read: Promise<BaseMovedForward | false | undefined>;
+			heads?: { readonly tips: ReadonlySet<string>; readonly read: Promise<ReadonlySet<string> | undefined> };
+		}
+	>(64);
 	/** Whether the repository at a common git directory keeps its refs and reflogs in reftables, by `<commonPath>` */
 	private readonly reftableRepositories = new LruMap<string, Promise<boolean>>(64);
 	/**
@@ -370,6 +458,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	 * run again on every full read of the base while the machine is likely still as busy
 	 */
 	private readonly unfinishedPatchChecks = new LruMap<string, number>(256);
+
+	/**
+	 * Failed network reads of a remote's default branch, by common path and remote (see {@link getDefaultBranchName}),
+	 * each with the drop stamp taken before it. A drop of the repository's cached default branch since (a change to its
+	 * remotes or branches, a close or reset) ends it, so a fixed remote is tried again straight away
+	 */
+	private readonly failedDefaultBranchLookups = new HoldOffMap<string, number>(
+		failedDefaultBranchLookupWait,
+		256,
+		defaultBranchLookupClock,
+	);
 	/**
 	 * When each `commonPath\0branch\0key` was last stamped by this process. Bounded: a dropped entry only costs a
 	 * read of the stored stamp, which still holds off a write under 5 minutes old
@@ -417,7 +516,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			this.cache.evictCaches(repoPath, 'branches');
 		}
 
-		if (name != null) return (await this.getBranchFromSharedList(repoPath, name, scope, cancellation)).branch;
+		if (name != null) {
+			return (await this.getBranchFromSharedList(repoPath, b => b.name === name, false, scope, cancellation))
+				.branch;
+		}
 
 		const validation = this.cache.validateBeforeRead(repoPath);
 		if (validation != null) {
@@ -427,7 +529,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return this.cache.branch.getOrCreate(
 			repoPath,
 			async (cacheable, signal) => {
-				const result = await this.getBranchFromSharedList(repoPath, undefined, scope, signal);
+				const result = await this.getBranchFromSharedList(repoPath, undefined, false, scope, signal);
 				const branch = result.branch ?? (await this.getCurrentBranch(repoPath, undefined, undefined, signal));
 				// An answer from a list that wasn't kept comes from `git log -n1`, without the ahead/behind counts and date
 				// a listing gives. An unborn branch with no upstream has no date either, and nothing a listing could add
@@ -444,12 +546,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * What `getBranches(repoPath)` would answer for the named branch, or for the current one when `name` is omitted,
-	 * without keeping that worktree's copy of the whole list, and whether the shared list it read is still kept
+	 * What `getBranches(repoPath)` would answer for the first branch `matches` accepts, or for the current one when
+	 * `matches` is omitted, without keeping that worktree's copy of the whole list, and whether the shared list it read
+	 * is still kept. `matches` sees each entry as the shared list holds it, or as `repoPath` sees it when `mapped`
 	 */
 	private async getBranchFromSharedList(
 		repoPath: string,
-		name: string | undefined,
+		matches: ((branch: GitBranch) => boolean) | undefined,
+		mapped: boolean,
 		scope: ScopedLogger | undefined,
 		cancellation?: AbortSignal,
 	): Promise<{ branch: GitBranch | undefined; kept: boolean }> {
@@ -477,7 +581,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		const isCurrent = (b: GitBranch): boolean => !b.remote && b.name === currentRef?.name && !isDetached;
 
-		if (name == null) {
+		if (matches == null) {
 			const current = values.find(isCurrent);
 			if (current != null) {
 				return {
@@ -507,24 +611,30 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		// That branch replaces the entry with its id, keeping the list's order, otherwise it goes ahead of them all
 		const replaced =
 			special != null ? values.findIndex(b => b.remote === special.remote && b.name === special.name) : -1;
-		if (replaced === -1 && special?.name === name) return { branch: special, kept: kept };
+		if (replaced === -1 && special != null && matches(special)) return { branch: special, kept: kept };
 
-		const index = values.findIndex((b, i) => (i === replaced ? special?.name : b.name) === name);
-		if (index === -1) return { branch: undefined, kept: kept };
-		if (index === replaced) return { branch: special, kept: kept };
-
-		const branch = values[index];
-		return {
-			branch: mapSharedBranch(
-				branch,
+		const mapEntry = (b: GitBranch): GitBranch =>
+			mapSharedBranch(
+				b,
 				repoPath,
 				commonPath,
-				currentRef != null ? isCurrent(branch) : undefined,
+				currentRef != null ? isCurrent(b) : undefined,
 				defaultWorktreePath,
 				false,
-			),
-			kept: kept,
-		};
+			);
+
+		for (let i = 0; i < values.length; i++) {
+			if (i === replaced) {
+				if (special != null && matches(special)) return { branch: special, kept: kept };
+
+				continue;
+			}
+
+			const entry = mapped ? mapEntry(values[i]) : values[i];
+			if (matches(entry)) return { branch: mapped ? entry : mapEntry(entry), kept: kept };
+		}
+
+		return { branch: undefined, kept: kept };
 	}
 
 	/** The current ref of `repoPath` and the default worktree path of `commonPath`, rejecting if the caller aborted mid-read */
@@ -1168,7 +1278,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<GitBranchReference | undefined> {
 		return this.cache.currentBranchReference.getOrCreate(
 			repoPath,
-			async (_cacheable, signal) => {
+			async (cacheable, signal) => {
 				const commitOrdering = ordering;
 
 				// `upstream` is the full ref (`refs/heads/…` or `refs/remotes/…`) so a local upstream
@@ -1228,11 +1338,19 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							if (data == null) {
 								const defaultBranch =
 									(await this.provider.config.getConfig(repoPath, 'init.defaultBranch')) ?? 'main';
-								const configMap = await this.provider.config.getConfigRegex(
-									repoPath,
-									`branch\\.${defaultBranch}\\.+`,
-									{ runGitLocally: true },
-								);
+								let configMap: Map<string, string>;
+								try {
+									configMap = await this.provider.config.getConfigRegex(
+										repoPath,
+										`branch\\.${defaultBranch}\\.+`,
+										{ runGitLocally: true },
+									);
+								} catch {
+									// The branch name below is still a fair guess, but the upstream it would
+									// otherwise take from this config is unknown, so don't keep the answer
+									cacheable.invalidate();
+									configMap = new Map();
+								}
 
 								const remote = configMap.get(`branch.${defaultBranch}.remote`);
 								const merge = configMap.get(`branch.${defaultBranch}.merge`);
@@ -1364,6 +1482,17 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			repoPath,
 			remote,
 			async (commonPath, cacheable, signal) => {
+				const failedKey = `${commonPath}\0${remote}`;
+				let dropStamp = this.cache.getDropStamp('defaultBranchName', commonPath);
+				// Built at each network run rather than up front: the local `symbolic-ref` usually answers, and a read
+				// that never reaches the network mustn't ask the host for its environment, nor fail when that throws
+				const networkOptions = () => ({
+					cwd: commonPath,
+					cancellation: signal ?? cancellation,
+					...priorityOpts,
+					...quietNetworkOptions(this.git),
+				});
+
 				let retried = false;
 				while (true) {
 					try {
@@ -1373,6 +1502,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 							'--short',
 							`refs/remotes/${remote}/HEAD`,
 						);
+						this.failedDefaultBranchLookups.release(failedKey);
 						return result.stdout.trim() || undefined;
 					} catch (ex) {
 						// Only "no HEAD ref configured" is an ANSWER here; every other throw means the lookup
@@ -1380,31 +1510,39 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 						// being the likely one — would pin "no default branch" for the session.
 						let answered = false;
 						if (/is not a symbolic ref/.test(ex.stderr)) {
+							const failedDropStamp = this.failedDefaultBranchLookups.get(failedKey);
+							if (failedDropStamp != null && !retried) {
+								if (!this.cache.isDroppedSince('defaultBranchName', commonPath, failedDropStamp)) {
+									cacheable.invalidate();
+									return undefined;
+								}
+
+								this.failedDefaultBranchLookups.release(failedKey);
+							}
+
 							try {
 								if (!retried) {
 									retried = true;
-									await this.git.run(
-										{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
-										'remote',
-										'set-head',
-										'-a',
-										remote,
-									);
+									await this.git.run(networkOptions(), 'remote', 'set-head', '-a', remote);
+									this.failedDefaultBranchLookups.release(failedKey);
 									// This just created `refs/remotes/<remote>/HEAD`, which the `local` variant
 									// may already have cached a miss for. The watcher would also catch the new
 									// ref, but evict directly so consumers of this package that don't wire up a
 									// watcher aren't stuck with that miss.
 									this.cache.deleteDefaultBranchName(commonPath, `${remote}:local`);
+									// That drop is this lookup's own, so it mustn't void a failure of the read that follows
+									dropStamp = this.cache.getDropStamp('defaultBranchName', commonPath);
 									continue;
 								}
 
 								const result = await this.git.run(
-									{ cwd: commonPath, cancellation: signal ?? cancellation, ...priorityOpts },
+									networkOptions(),
 									'ls-remote',
 									'--symref',
 									remote,
 									'HEAD',
 								);
+								this.failedDefaultBranchLookups.release(failedKey);
 								if (result.stdout) {
 									const match = /ref:\s(\S+)\s+HEAD/m.exec(result.stdout);
 									if (match != null) {
@@ -1415,8 +1553,16 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 								// `ls-remote` ran and the remote advertised no HEAD — a real "none".
 								answered = true;
-							} catch {
-								if (isCancellationError(ex)) throw ex;
+							} catch (networkEx) {
+								// Running out of time is a `CancellationError` too, but it is the network failing
+								// rather than the caller leaving
+								if (isCancellationError(networkEx) && networkEx.reason !== 'timeout') throw networkEx;
+
+								// A change mid-attempt may have fixed what failed, so the failure is not held against it;
+								// nor may its older stamp replace the hold of an attempt that started after the change
+								if (!this.cache.isDroppedSince('defaultBranchName', commonPath, dropStamp)) {
+									this.failedDefaultBranchLookups.hold(failedKey, dropStamp);
+								}
 							}
 						}
 
@@ -1443,7 +1589,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		}
 
 		await this.git.run(
-			{ cwd: repoPath, priority: 'background', ...nonInteractiveNetworkOptions },
+			{ cwd: repoPath, priority: 'background', ...quietNetworkOptions(this.git) },
 			'remote',
 			'set-head',
 			'-a',
@@ -1836,10 +1982,42 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		remoteBranchName: string,
 		cancellation?: AbortSignal,
 	): Promise<GitBranch | undefined> {
-		const branches = new PageableResult<GitBranch>(p =>
-			this.getBranches(repoPath, p != null ? { paging: p } : undefined, cancellation),
+		const scope = getScopedLogger();
+
+		const qualifiedName = remoteBranchName.startsWith('remotes/')
+			? remoteBranchName
+			: `remotes/${remoteBranchName}`;
+		const name = qualifiedName.substring(8);
+
+		return (
+			await this.getBranchFromSharedList(
+				repoPath,
+				b =>
+					!b.remote &&
+					b.upstream?.name != null &&
+					(b.upstream.name === name || b.upstream.name === qualifiedName),
+				false,
+				scope,
+				cancellation,
+			)
+		).branch;
+	}
+
+	/**
+	 * Whether `getBranches(repoPath)` holds a branch `matches` accepts (any when omitted), judged on each as that list
+	 * would hold it, without keeping that worktree's copy of the list
+	 */
+	async hasBranch(
+		repoPath: string,
+		matches: ((branch: GitBranch) => boolean) | undefined,
+		cancellation?: AbortSignal,
+	): Promise<boolean> {
+		const scope = getScopedLogger();
+
+		return (
+			(await this.getBranchFromSharedList(repoPath, matches ?? (() => true), true, scope, cancellation)).branch !=
+			null
 		);
-		return getLocalBranchByUpstream(remoteBranchName, branches);
 	}
 
 	@trace({ quiet: true, exit: true })
@@ -1954,7 +2132,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					if (isCancellationError(ex)) throw ex;
 
 					const msg: string = ex?.toString() ?? '';
-					if (GitErrors.notAValidObjectName.test(msg)) {
+					const stderr = ex instanceof GitError ? (ex.stderr ?? '') : '';
+					if (GitErrors.notAValidObjectName.test(msg) || mergeTreeRefNotFound.test(stderr)) {
 						scope?.error(
 							ex,
 							`'${targetBranch}' or '${branch}' not found - ensure the branches exist and are fully qualified (e.g. 'refs/heads/main')`,
@@ -1963,7 +2142,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 					} else if (GitErrors.badRevision.test(msg)) {
 						scope?.error(ex, `Invalid branch name: ${msg.slice(msg.indexOf("'"))}`);
 						return createConflictDetectionError('refNotFound');
-					} else if (GitErrors.noMergeBase.test(msg)) {
+					} else if (GitErrors.noMergeBase.test(msg) || mergeTreeNoMergeBase.test(stderr)) {
 						scope?.error(
 							ex,
 							`Unable to merge '${branch}' and '${targetBranch}' as they have no common ancestor`,
@@ -2103,13 +2282,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			if (isCancellationError(ex)) throw ex;
 
 			const msg: string = ex?.toString() ?? '';
-			if (GitErrors.notAValidObjectName.test(msg)) {
+			const stderr = ex instanceof GitError ? (ex.stderr ?? '') : '';
+			if (GitErrors.notAValidObjectName.test(msg) || mergeTreeRefNotFound.test(stderr)) {
 				scope?.error(ex, `'${ours}' or '${theirs}' not found - ensure the branches/commits exist`);
 				return { ok: false, reason: 'refNotFound' };
 			} else if (GitErrors.badRevision.test(msg)) {
 				scope?.error(ex, `Invalid revision: ${msg.slice(msg.indexOf("'"))}`);
 				return { ok: false, reason: 'refNotFound' };
-			} else if (GitErrors.noMergeBase.test(msg)) {
+			} else if (GitErrors.noMergeBase.test(msg) || mergeTreeNoMergeBase.test(stderr)) {
 				scope?.error(ex, `Unable to merge '${ours}' and '${theirs}' as they have no common ancestor`);
 				return { ok: false, reason: 'noMergeBase' };
 			} else if (ex instanceof GitError && ex.stdout) {
@@ -2354,7 +2534,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/**
 	 * The start point `ref`'s own reflog says it was created from (`branch: Created from <name>`), as git wrote it:
-	 * a branch, `HEAD`, a sha, a tag or any other revision. `undefined` unless exactly one entry says so. Rejects
+	 * a branch, `HEAD`, a sha, a tag or any other revision. `undefined` unless exactly one entry says so. Read from the
+	 * reflog's file (see {@link readBaseReflog}) for a local branch the cached ref list names, else from git. Rejects
 	 * when the reflog can't be read, including for a ref that doesn't exist.
 	 */
 	private async getReflogCreatedFrom(
@@ -2363,6 +2544,23 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		priority: GitCommandPriority | undefined,
 		cancellation: AbortSignal | undefined,
 	): Promise<string | undefined> {
+		const lines = await this.readListedBranchReflog(repoPath, ref, cancellation);
+		if (lines != null) {
+			let name: string | undefined;
+			let count = 0;
+			for (const line of lines) {
+				if (line.createdFrom == null) continue;
+
+				count++;
+				name = line.createdFrom;
+			}
+			if (count !== 1) return undefined;
+
+			// Git trims a reflog message's trailing whitespace, so an empty name is a match with no space after
+			// `from`, which git's pattern takes and the name's own doesn't
+			return name || undefined;
+		}
+
 		const entries = await this.provider.refs.getReflogEntries(
 			repoPath,
 			ref,
@@ -2641,14 +2839,39 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			branch = undefined;
 		}
 
-		const reads = createBaseReads('HEAD', branch != null ? [`refs/heads/${branch}`] : [], undefined);
+		// Measured from the branch's tip as the cached ref list gives it, the list a caller's own read of HEAD comes
+		// from, so every count, fork point and merge base below is taken at one commit, the one the caller reports:
+		// HEAD as git finds it may be a commit that landed during the read. Only while the host validates its reads
+		// (a list nothing keeps current would make the count as stale as the list, where HEAD is live), and the list
+		// places the branch in this checkout; a branch checked out elsewhere, or a list without placements (git before
+		// 2.23), is measured from HEAD as before
+		let from = 'HEAD';
+		if (branch != null && this.cache.readsAreValidated) {
+			const records = (await tolerateRead(() => this.provider.refs.getRefs(repoPath, cancellation))) ?? [];
+			if (cancellation?.aborted) throw new CancellationError();
+
+			const record = findRefRecord(records, `refs/heads/${branch}`);
+			const tip = record != null ? record.peeledObjectname || record.objectname : undefined;
+			if (
+				tip != null &&
+				isSha(tip) &&
+				record?.worktreePath &&
+				normalizePath(record.worktreePath) === normalizePath(repoPath)
+			) {
+				from = tip;
+			}
+		}
+
+		const reads = createBaseReads(from, branch != null ? [`refs/heads/${branch}`] : [], undefined);
 		const { dependsOn } = reads;
+		const measured = (answer: AheadOfBase): AheadOfBase =>
+			answer.base != null && from !== 'HEAD' ? { ...answer, measuredFrom: from } : answer;
 
 		const resolved = await this.resolveBase(repoPath, branch, branch, false, options, reads, cancellation);
 		if (resolved.kind === 'upstream') {
-			return withDefaultBranch(
-				await this.measureAheadOfSelfUpstream(repoPath, resolved.upstream, reads, cancellation),
-				reads.localDefault,
+			return withBaseReads(
+				measured(await this.measureAheadOfSelfUpstream(repoPath, resolved.upstream, reads, cancellation)),
+				reads,
 			);
 		}
 
@@ -2666,9 +2889,9 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				}
 			}
 
-			return withDefaultBranch(
+			return withBaseReads(
 				{ base: undefined, reason: unborn ? 'unborn' : 'none', dependsOn: [...dependsOn] },
-				reads.localDefault,
+				reads,
 			);
 		}
 
@@ -2680,17 +2903,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			branch != null &&
 			(await this.isSelfAtTip(repoPath, resolved.target.ref, branch, reads, cancellation))
 		) {
-			return withDefaultBranch(
-				{ base: undefined, reason: 'self', dependsOn: [...dependsOn] },
-				reads.localDefault,
-			);
+			return withBaseReads({ base: undefined, reason: 'self', dependsOn: [...dependsOn] }, reads);
 		}
 
 		// Only `getMergeTarget`'s options reach the pull request and the reflog guess
 		const tier = resolved.tier as AheadOfBaseTier;
-		return withDefaultBranch(
-			await this.measureAheadOfBase(repoPath, resolved.target, tier, reads, cancellation),
-			reads.localDefault,
+		return withBaseReads(
+			measured(await this.measureAheadOfBase(repoPath, resolved.target, tier, reads, cancellation)),
+			reads,
 		);
 	}
 
@@ -2703,6 +2923,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			readonly base: NonNullable<AheadOfBase['base']>;
 			readonly dependsOn: readonly string[];
 			readonly defaultBranch?: string | null;
+			readonly measuredFrom?: string;
 		},
 		moved: readonly string[],
 		cancellation?: AbortSignal,
@@ -2718,10 +2939,35 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		try {
 			const records = await this.provider.refs.getRefs(repoPath, cancellation);
 			const record = records.length ? resolveRefRecord(records, base.ref) : undefined;
-			if (record == null || !moved.includes(record.name)) return undefined;
+			if (record == null) return undefined;
+
+			// The local branch tracking the base, which the base was chosen over, may have moved instead of it or with it
+			const tracking = await this.getMovedTrackingBranch(
+				repoPath,
+				branch,
+				previous,
+				moved,
+				records,
+				record.name,
+				cancellation,
+			);
+			if (cancellation?.aborted) throw new CancellationError();
+			if (!moved.includes(record.name) && (tracking == null || moved.some(r => r !== tracking))) return undefined;
 			// A name more than one listed ref answers to may now resolve to another ref than the one measured (a tag
 			// created over a branch's name), and `--fork-point` refuses it outright, falling back to the merge base
 			if (isAmbiguousRefName(records, base.ref)) return undefined;
+
+			if (!moved.includes(record.name)) {
+				return await this.getAheadOfBaseAfterTrackingBranchMove(
+					repoPath,
+					branch,
+					previous,
+					records,
+					record,
+					tracking!,
+					cancellation,
+				);
+			}
 
 			const newTip = record.peeledObjectname || record.objectname;
 			// Back at the old tip, a move in between may still have left the reflog `--fork-point` reads changed
@@ -2732,7 +2978,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 			let remoteHeadMoved = false;
 			for (const ref of moved) {
-				if (ref === record.name) continue;
+				if (ref === record.name || ref === tracking) continue;
 				// A fetch lists a remote's `HEAD` along with the branch it points at; pointing anywhere else, it was
 				// retargeted, which can change the default branch. The listed tip corroborates the cached symref.
 				if (
@@ -2836,8 +3082,29 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 				if (past.length !== base.ahead || (forkPoint != null && past.includes(forkPoint))) return undefined;
 			}
 
+			// The fork point and count shown to stand are the base's in a full read only while the tracking branch,
+			// which moved too, still loses to it; a rewritten base, settled again below, is left to a full read
+			// instead. `getMovedForward` already found the base's reflog at the new tip
+			if (
+				tracking != null &&
+				(rewritten ||
+					!(await this.isTrackingBranchBehindBase(
+						repoPath,
+						records,
+						record.name,
+						tracking,
+						head,
+						newTip,
+						forkPoint,
+						false,
+						cancellation,
+					)))
+			) {
+				return undefined;
+			}
+
 			if (rewritten) {
-				const reads = { priority: undefined, pinnable: true };
+				const reads = { from: 'HEAD', priority: undefined, pinnable: true };
 				const settled = await this.settleForkPointAndCount(
 					repoPath,
 					records,
@@ -2854,12 +3121,545 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			}
 
 			return withDefaultBranch(
-				{ base: { ...base, sha: newTip }, dependsOn: [...previous.dependsOn] },
+				withMeasuredFrom(
+					{ base: { ...base, sha: newTip }, dependsOn: [...previous.dependsOn] },
+					previous.measuredFrom,
+				),
 				previous.defaultBranch,
 			);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
 
+			return undefined;
+		}
+	}
+
+	@debug({ quiet: true, exit: true })
+	async getAheadOfBaseAfterCommit(
+		repoPath: string,
+		branch: string | undefined,
+		previous: {
+			readonly head: string;
+			readonly base: NonNullable<AheadOfBase['base']>;
+			readonly dependsOn: readonly string[];
+			readonly defaultBranch?: string | null;
+			readonly measuredFrom?: string;
+		},
+		head: string,
+		cancellation?: AbortSignal,
+	): Promise<AheadOfBase | undefined> {
+		const { base } = previous;
+		const { forkPoint, sha: tip } = base;
+		if (branch == null || isDetachedHead(branch) || tip == null) return undefined;
+		if (head === previous.head || !isSha(head) || !isSha(previous.head)) return undefined;
+		// A preferred target comes only from an option this doesn't take, and the default branch takes an upstream HEAD
+		// contains as its own fork point, which is left to a full read as for a move of the base. A fork point at the
+		// last HEAD, or nothing counted past one, rests on a read that failed or a base at HEAD's own commit
+		if (
+			forkPoint == null ||
+			forkPoint === previous.head ||
+			base.ahead < 1 ||
+			base.tier === 'preferred' ||
+			(base.tier === 'upstream' && forkPoint === tip)
+		) {
+			return undefined;
+		}
+
+		const branchRef = `refs/heads/${branch}`;
+		try {
+			const records = await this.provider.refs.getRefs(repoPath, cancellation);
+			if (findRefTip(records, branchRef) !== head) return undefined;
+
+			const record = resolveRefRecord(records, base.ref);
+			if (record == null || (record.peeledObjectname || record.objectname) !== tip) return undefined;
+			// As for a move of the base, a name more than one listed ref answers to may now resolve to another ref than
+			// the one measured; and a replace ref changes what the previous read and every walk below count
+			if (isAmbiguousRefName(records, base.ref) || records.some(r => r.name.startsWith('refs/replace/'))) {
+				return undefined;
+			}
+
+			// The branch's reflog, read from its file. Its newest line must move from the last HEAD to `head`, and not
+			// say a merge or a rewrite did, which saves the walk below when it can't be one commit; but nothing in it
+			// proves there is: `GIT_REFLOG_ACTION` lets any command write any message. And a full read takes the branch
+			// it was created from only while exactly one line names one, so any line after the first that reads like
+			// that (a commit's subject can) may change the base
+			const lines = await this.readBaseReflog(repoPath, branchRef);
+			if (lines == null) return undefined;
+
+			const last = lines.at(-1);
+			if (
+				last != null &&
+				(last.from !== previous.head || last.to !== head || last.mergeOrRewrite || last.createdFrom != null)
+			) {
+				return undefined;
+			}
+			if (lines.some((l, i) => i !== 0 && l.createdFrom != null)) return undefined;
+			// Where the created-from and default candidates were compared, a ref the full read would compare once it
+			// exists isn't among the refs it depends on while it doesn't, so one that appeared since moved no tip
+			if (
+				(base.tier === 'created' || base.tier === 'default') &&
+				(await this.hasAppearedCandidate(repoPath, branch, previous.dependsOn, records, lines[0]?.createdFrom))
+			) {
+				return undefined;
+			}
+
+			// The walk below compares against one history, which a shallow fetch cuts and grafts rewrite
+			if ((await this.isShallowRepository(repoPath)) !== false) return undefined;
+			if ((await this.hasGrafts(repoPath)) !== false) return undefined;
+
+			if (previous.defaultBranch !== undefined) {
+				const defaultBranch = await this.getLocalDefaultBranchName(repoPath, new Set(), cancellation);
+				if (cancellation?.aborted) throw new CancellationError();
+				if ((defaultBranch ?? null) !== previous.defaultBranch) return undefined;
+			}
+
+			// The count is HEAD's commits not on the base unless the base was rewritten off the fork point, which leaves
+			// the fork point off its tip's history. One the base's reflog holds is in that history when every move since
+			// it is forward, as the full read trusts too; otherwise git says, from two commits whose answer every
+			// worktree shares
+			if (forkPoint !== tip) {
+				const baseLines = record.name.endsWith('/HEAD')
+					? undefined
+					: await this.readBaseReflog(repoPath, record.name);
+				const held =
+					baseLines != null &&
+					(baseLines[0]?.from === forkPoint || baseLines.some(l => l.to === forkPoint)) &&
+					isForkPointKeptByReflog(baseLines, forkPoint, tip);
+				// Kept past the ref changes that clear cached git results: with no replace refs or grafts, which decline
+				// above, one commit's ancestry of another never changes
+				const key = `${this.cache.getCommonPath(repoPath)}\0${forkPoint}\0${tip}`;
+				if (!held && !this.forkPointsInTipHistory.has(key)) {
+					const reads = { priority: undefined, pinnable: true };
+					const mergeBase = await this.readMergeBase(repoPath, forkPoint, tip, false, reads, cancellation);
+					if (cancellation?.aborted) throw new CancellationError();
+					if (!reads.pinnable || mergeBase !== forkPoint) return undefined;
+
+					this.forkPointsInTipHistory.set(key, true);
+				}
+			}
+
+			// Every commit a full read's `--fork-point` readings and merge bases start from: each other ref's tip and
+			// every value its reflog took, the one before its oldest entry included
+			const refs = previous.dependsOn.filter(r => r !== branchRef);
+			const reflogs = await Promise.allSettled(refs.map(r => this.readBaseReflog(repoPath, r)));
+			const excluded = new Set<string>([previous.head]);
+			for (const [i, ref] of refs.entries()) {
+				const refLines = getSettledValue(reflogs[i]);
+				if (refLines == null) return undefined;
+
+				const refTip = getListedTip(records, ref);
+				if (refTip != null) {
+					excluded.add(refTip);
+				}
+				for (const { from, to } of refLines) {
+					if (!/^0+$/.test(from)) {
+						excluded.add(from);
+					}
+					if (!/^0+$/.test(to)) {
+						excluded.add(to);
+					}
+				}
+			}
+
+			// The proof, from the graph: `head`'s only parent is the last HEAD, and none of those commits reaches it.
+			// Then `head` is in no history but HEAD's, so HEAD shares with each ref's tip and reflog the same commits it
+			// did, and every fork point, merge base and ancestry check that chose the base and settled its fork point
+			// answers as before, as do the base's commits HEAD lacks. HEAD's own commits gain `head` alone, which is the
+			// count a base the fork point is in the history of takes. Beyond the graph, a full read asks of HEAD only
+			// whether it is at the base's tip, which `head`, unreached by it, isn't, and the created-from line above.
+			const result = await this.git.run(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					errors: 'ignore',
+					stdin: `${[head, ...Array.from(excluded, sha => `^${sha}`)].join('\n')}\n`,
+				},
+				'rev-list',
+				'--parents',
+				'--max-count=2',
+				'--stdin',
+			);
+			if (cancellation?.aborted) throw new CancellationError();
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+			if (result.stdout.trim() !== `${head} ${previous.head}`) return undefined;
+
+			// The count carried must be the last HEAD's. An answer measured from it says so; one measured from HEAD as git
+			// found it may have counted a commit that landed after its caller read the branch, which would be counted
+			// here again, so git says
+			if (previous.measuredFrom !== previous.head) {
+				const counted = await this.git.run(
+					{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+					'rev-list',
+					'--count',
+					previous.head,
+					`^${tip}`,
+					'--',
+				);
+				if (cancellation?.aborted) throw new CancellationError();
+				if (counted.completion.status !== 'exited' || counted.exitCode !== 0) return undefined;
+				if (counted.stdout.trim() !== String(base.ahead)) return undefined;
+			}
+
+			return withDefaultBranch(
+				{ base: { ...base, ahead: base.ahead + 1 }, dependsOn: [...previous.dependsOn], measuredFrom: head },
+				previous.defaultBranch,
+			);
+		} catch (ex) {
+			if (isCancellationError(ex)) throw ex;
+
+			return undefined;
+		}
+	}
+
+	/**
+	 * The full name of the local branch tracking the base `baseRef` (a remote-tracking ref), when `moved` names it: the
+	 * default branch the previous read resolved, which the base was compared with as that branch's tracking ref. Only a
+	 * branch that exists is ever named the default, so it existed for that read too. `undefined` when `moved` doesn't
+	 * name it, it is the branch measured, or anything else lets its move reach the answer: a ref of an `upstream`
+	 * remote, whose copy of a candidate contends with it and is skipped at its tip, or another branch that tracks it
+	 * locally, which a read would compare it with as that branch's upstream. Its tracking is read from both the ref list
+	 * and the config, which must agree.
+	 */
+	private async getMovedTrackingBranch(
+		repoPath: string,
+		branch: string | undefined,
+		previous: { readonly dependsOn: readonly string[]; readonly defaultBranch?: string | null },
+		moved: readonly string[],
+		records: readonly RefRecord[],
+		baseRef: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<string | undefined> {
+		const name = previous.defaultBranch;
+		if (!name || name === branch || !baseRef.startsWith('refs/remotes/')) return undefined;
+
+		const ref = `refs/heads/${name}`;
+		if (!moved.includes(ref)) return undefined;
+		if (findRefRecord(records, ref)?.upstream !== baseRef || isAmbiguousRefName(records, name)) return undefined;
+
+		// A contender the previous read found absent isn't among the refs it depends on, so one created since is told
+		// only from the refs now listed
+		const isUpstreamCopy = (r: string) => r.startsWith('refs/remotes/upstream/') && !r.endsWith('/HEAD');
+		if (previous.dependsOn.some(isUpstreamCopy) || records.some(r => isUpstreamCopy(r.name))) return undefined;
+
+		const entries = await this.getAheadOfBaseConfigEntries(repoPath, cancellation);
+		if (entries == null) return undefined;
+
+		const config = new Map<string, string[]>();
+		for (const [key, value] of entries) {
+			if (value == null || !key.startsWith('branch.')) continue;
+
+			const values = config.get(key);
+			if (values == null) {
+				config.set(key, [value]);
+			} else {
+				values.push(value);
+			}
+		}
+
+		// As `<name>@{u}` resolves it through the remote's default fetch refspec; anything else is left to a full read
+		const remotes = config.get(`branch.${name}.remote`);
+		const merges = config.get(`branch.${name}.merge`);
+		if (remotes?.length !== 1 || merges?.length !== 1 || !merges[0].startsWith('refs/heads/')) return undefined;
+		if (`refs/remotes/${remotes[0]}/${merges[0].slice('refs/heads/'.length)}` !== baseRef) return undefined;
+
+		for (const [key, values] of config) {
+			if (!key.endsWith('.remote') || !values.includes('.')) continue;
+
+			const other = key.slice('branch.'.length, -'.remote'.length);
+			if (other === branch) continue;
+
+			const tracked = config.get(`branch.${other}.merge`);
+			if (tracked?.includes(ref) || tracked?.includes(name)) return undefined;
+		}
+		return ref;
+	}
+
+	/**
+	 * {@link getAheadOfBaseAfterBaseMove} after only `tracking`, the local branch tracking the base (see
+	 * {@link getMovedTrackingBranch}), moved: the previous answer, unchanged, while the base, HEAD and the default
+	 * branch are as that answer left them and the branch still loses to the base (see
+	 * {@link isTrackingBranchBehindBase}). `record` is the base's listed ref.
+	 */
+	private async getAheadOfBaseAfterTrackingBranchMove(
+		repoPath: string,
+		branch: string | undefined,
+		previous: {
+			readonly head: string;
+			readonly base: NonNullable<AheadOfBase['base']>;
+			readonly dependsOn: readonly string[];
+			readonly defaultBranch?: string | null;
+			readonly measuredFrom?: string;
+		},
+		records: readonly RefRecord[],
+		record: RefRecord,
+		tracking: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<AheadOfBase | undefined> {
+		const { head, base } = previous;
+		// A pull can reach the summary as two moves, the branch's named before its tracking ref's
+		const tip = record.peeledObjectname || record.objectname;
+		if (!tip || tip !== base.sha) return undefined;
+		if (branch != null && !isDetachedHead(branch) && findRefTip(records, `refs/heads/${branch}`) !== head) {
+			return undefined;
+		}
+
+		const defaultBranch = await this.getLocalDefaultBranchName(repoPath, new Set(), cancellation);
+		if (cancellation?.aborted) throw new CancellationError();
+		if ((defaultBranch ?? null) !== previous.defaultBranch) return undefined;
+
+		// The counts below are compared over one history, as for a move of the base itself
+		if ((await this.isShallowRepository(repoPath)) !== false) return undefined;
+
+		const behind = await this.isTrackingBranchBehindBase(
+			repoPath,
+			records,
+			record.name,
+			tracking,
+			head,
+			tip,
+			base.forkPoint,
+			true,
+			cancellation,
+		);
+		if (!behind) return undefined;
+
+		return withDefaultBranch(
+			withMeasuredFrom({ base: { ...base }, dependsOn: [...previous.dependsOn] }, previous.measuredFrom),
+			previous.defaultBranch,
+		);
+	}
+
+	/**
+	 * Whether `tracking`, the local branch tracking the base `baseRef` at `baseTip` (see {@link getMovedTrackingBranch}),
+	 * still loses to the base for HEAD at `head`, which forked from the base at `forkPoint`.
+	 *
+	 * A full read compares the branch with the base as its tracking ref (see {@link getNearestForkTarget}), and the base
+	 * wins, with its own settled fork point whatever the branch's tip, whenever git reads the branch (`--fork-point`,
+	 * else the merge base: either way a commit HEAD shares with the branch's tip or a value of its reflog) at or below
+	 * where it reads the base. Nothing else in that read depends on the branch (see {@link getMovedTrackingBranch}), so
+	 * the base's answer stands. Git's reading of the base is never below `forkPoint`: settling only moves down from it,
+	 * and the base's tip (when the base is in HEAD's history) and the merge base are at or below it too, as the base's
+	 * reflog holds its tip. So it is enough that HEAD shares nothing past `forkPoint` with the branch's tip and reflog:
+	 * HEAD's commits they don't reach are as many as HEAD's commits past `forkPoint`, which they reach. Those are counted
+	 * past the branch's tip and past `forkPoint` once for every checked-out branch, when nothing the reflog reaches off
+	 * the tip's history is HEAD's; else listed by HEAD's own walk past all of it, `forkPoint` not among them.
+	 *
+	 * At the base's own tip no count is needed: with nothing the branch's reflog reaches off the tip's history in HEAD's,
+	 * HEAD shares with the branch exactly what it shares with the base's tip, which the base's reflog holds. When git
+	 * finds the one best common ancestor of HEAD and the base's reflog, everything the branch shares with HEAD is at or
+	 * below it; when it reads the base's merge base with HEAD instead, the branch reads as that same commit, whether as
+	 * the one best common ancestor of HEAD and the tip both share or as the merge base of the same two commits.
+	 *
+	 * The base's reflog must hold its tip as its newest value, or be empty, when `--fork-point` reads the tip alone
+	 * (`checkBaseReflog` reads it for a caller that hasn't); the branch's must end at its tip.
+	 */
+	private async isTrackingBranchBehindBase(
+		repoPath: string,
+		records: readonly RefRecord[],
+		baseRef: string,
+		tracking: string,
+		head: string,
+		baseTip: string,
+		forkPoint: string | undefined,
+		checkBaseReflog: boolean,
+		cancellation: AbortSignal | undefined,
+	): Promise<boolean> {
+		// With no fork point the base has no reading for the branch to stay below
+		if (forkPoint == null) return false;
+
+		const tip = getListedTip(records, tracking);
+		if (tip == null) return false;
+
+		if (checkBaseReflog) {
+			const reflog = await this.readReflogValues(repoPath, this.cache.getCommonPath(repoPath), baseRef);
+			if (cancellation?.aborted) throw new CancellationError();
+			if (!reflog || (reflog.values.length !== 0 && reflog.values[0] !== baseTip)) return false;
+		}
+
+		const reach = await this.getTrackingReflogReach(repoPath, records, tracking, tip, head);
+		if (cancellation?.aborted) throw new CancellationError();
+		if (reach == null) return false;
+		if (!reach.offHead && (tip === baseTip || tip === forkPoint)) return true;
+
+		const pastForkPoint = await this.getAheadOfMovedBase(repoPath, records, forkPoint, head);
+		if (cancellation?.aborted) throw new CancellationError();
+		if (pastForkPoint == null) return false;
+
+		if (reach.offHead) {
+			const result = await this.git.run(
+				{ cwd: repoPath, cancellation: cancellation, errors: 'ignore' },
+				'rev-list',
+				`--max-count=${pastForkPoint + 1}`,
+				head,
+				'--not',
+				tip,
+				...reach.offHistory,
+				'--',
+			);
+			if (cancellation?.aborted) throw new CancellationError();
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return false;
+
+			// `forkPoint` is HEAD's, so it isn't among them only when the branch reaches it
+			const past = result.stdout.split('\n').filter(sha => sha.length > 0);
+			return past.length === pastForkPoint && !past.includes(forkPoint);
+		}
+
+		if (!reach.logged.has(forkPoint)) {
+			// Two commits answer the same in every worktree, so the worktrees on one fork point share the check
+			const checks = { priority: undefined, pinnable: true };
+			const mergeBase = await this.readMergeBase(repoPath, forkPoint, tip, false, checks, cancellation);
+			if (cancellation?.aborted) throw new CancellationError();
+			if (!checks.pinnable || mergeBase !== forkPoint) return false;
+		}
+
+		const pastTip = await this.getAheadOfMovedBase(repoPath, records, tip, head);
+		if (cancellation?.aborted) throw new CancellationError();
+		return pastTip === pastForkPoint;
+	}
+
+	/**
+	 * What `ref`'s reflog reaches at `tip` (see {@link trackingReflogReaches}), and whether any of it off the tip's
+	 * history is in `head`'s, or that can't be told from the checked-out branches; `undefined` when its reflog is empty
+	 * or doesn't end at `tip`, reaches too much off `tip`'s history to tell, or git couldn't say
+	 */
+	private async getTrackingReflogReach(
+		repoPath: string,
+		records: readonly RefRecord[],
+		ref: string,
+		tip: string,
+		head: string,
+	): Promise<(BaseMovedForward & { readonly offHead: boolean }) | undefined> {
+		const commonPath = this.cache.getCommonPath(repoPath);
+		const key = `${commonPath}\0${ref}`;
+		const inputs = getBaseMoveReadInputs(records);
+		const reflog = (await this.getReflogSource(repoPath, ref))?.stamp ?? inputs;
+		const { checkedOut, checkedOutTips, replaced } = inputs;
+
+		let slot = this.trackingReflogReaches.get(key);
+		if (slot == null || slot.tip !== tip || slot.reflog !== reflog || slot.replaced !== replaced) {
+			slot = {
+				tip: tip,
+				reflog: reflog,
+				replaced: replaced,
+				read: this.readTrackingReflogReach(repoPath, commonPath, ref, tip),
+			};
+			this.trackingReflogReaches.set(key, slot);
+		} else {
+			this.trackingReflogReaches.touch(key);
+		}
+
+		// `undefined`, when git couldn't say, isn't kept
+		const { read } = slot;
+		const reach = await read;
+		if (reach === undefined && this.trackingReflogReaches.get(key)?.read === read) {
+			this.trackingReflogReaches.delete(key);
+		}
+		if (!reach) return undefined;
+		if (!reach.offHistory.length) return { ...reach, offHead: false };
+		if (!checkedOut?.size || !checkedOutTips.has(head)) return { ...reach, offHead: true };
+
+		let { heads } = slot;
+		if (heads == null || !heads.tips.has(head)) {
+			heads = { tips: checkedOutTips, read: this.readHeadsHolding(commonPath, checkedOut, reach.offHistory) };
+			slot.heads = heads;
+		}
+		const holding = await heads.read;
+		if (holding === undefined && slot.heads === heads) {
+			slot.heads = undefined;
+		}
+		return { ...reach, offHead: holding?.has(head) ?? true };
+	}
+
+	/**
+	 * Reads {@link getTrackingReflogReach}'s reach, in `commonPath`, without spawning when the reflog's file shows only
+	 * moves forward. Not bound to one caller's cancellation, since every worktree the move reached rides this one read.
+	 * `false` when the reflog is empty or doesn't end at `tip`, or reaches too much off its history to tell; `undefined`
+	 * when git couldn't say.
+	 */
+	private async readTrackingReflogReach(
+		repoPath: string,
+		commonPath: string,
+		ref: string,
+		tip: string,
+	): Promise<BaseMovedForward | false | undefined> {
+		const lines = await this.readBaseReflog(repoPath, ref);
+		if (lines?.length && lines.at(-1)!.to === tip && isReflogOnlyForward(lines)) {
+			const logged = new Set(lines.map(l => l.to));
+			if (!/^0+$/.test(lines[0].from)) {
+				logged.add(lines[0].from);
+			}
+			logged.delete(tip);
+			return { offHistory: [], logged: logged };
+		}
+
+		const reflog = await this.readReflogValues(repoPath, commonPath, ref);
+		if (!reflog) return reflog;
+
+		// Without a reflog `--fork-point` reads the tip alone, but then nothing shows what the branch held
+		const { values, before } = reflog;
+		if (!values.length || values[0] !== tip) return false;
+
+		const logged = new Set(values);
+		if (before != null) {
+			logged.add(before);
+		}
+		logged.delete(tip);
+		if (!logged.size) return { offHistory: [], logged: logged };
+
+		try {
+			// The commits the reflog reaches that `tip` doesn't; the reflog can be long, so on stdin
+			const result = await this.git.run(
+				{ cwd: commonPath, errors: 'ignore', stdin: `${[...logged, `^${tip}`].join('\n')}\n` },
+				'rev-list',
+				`--max-count=${maxOffHistoryCommits + 1}`,
+				'--stdin',
+			);
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+
+			const off = result.stdout.split('\n').filter(sha => sha.length > 0);
+			if (off.length > maxOffHistoryCommits) return false;
+
+			return { offHistory: off, logged: logged };
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
+	 * The tips of the `checkedOut` branches holding any of `commits`, from one `for-each-ref` in `commonPath`, which holds
+	 * every worktree's branches; `undefined` when git couldn't say
+	 */
+	private async readHeadsHolding(
+		commonPath: string,
+		checkedOut: ReadonlySet<string>,
+		commits: readonly string[],
+	): Promise<ReadonlySet<string> | undefined> {
+		try {
+			// A list too long for the command line is read whole and filtered
+			const patterns = toRefPatterns(checkedOut) ?? ['refs/heads'];
+			// Each `--contains` widens the match, so a branch is listed when it holds any of them
+			const result = await this.git.run(
+				{ cwd: commonPath, errors: 'ignore' },
+				'for-each-ref',
+				'--format=%(refname)%09%(objectname)',
+				...commits.map(sha => `--contains=${sha}`),
+				...patterns,
+			);
+			if (result.completion.status !== 'exited' || result.exitCode !== 0) return undefined;
+
+			const holding = new Set<string>();
+			for (const line of result.stdout.split('\n')) {
+				if (!line) continue;
+
+				const [ref, sha] = line.split('\t');
+				if (!ref || !sha) return undefined;
+
+				if (checkedOut.has(ref)) {
+					holding.add(sha);
+				}
+			}
+			return holding;
+		} catch {
 			return undefined;
 		}
 	}
@@ -2875,6 +3675,57 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		} catch {
 			return undefined;
 		}
+	}
+
+	/**
+	 * Whether the repository has a grafts file, which rewrites the parents every walk sees, by its common git directory's
+	 * `info/grafts`, which spawns nothing; `undefined` when it can't be read
+	 */
+	private async hasGrafts(repoPath: string): Promise<boolean | undefined> {
+		try {
+			const gitDir = await this.provider.config.getGitDir(repoPath);
+			return (await this.context.fs.stat(joinUriPath(gitDir.commonUri ?? gitDir.uri, 'info', 'grafts'))) != null;
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
+	 * Whether `records`, the cached ref list, now lists a ref a base read for `branch` that compared the created-from and
+	 * default candidates would compare too, but which isn't among `dependsOn`, the refs that read depended on, as it
+	 * leaves out one that was absent: the branch `createdFrom` names (as the branch's reflog gives it, see
+	 * {@link getListedBaseName}), unless it is the branch itself or its copy on a remote, or the `upstream` remote's
+	 * copy of a candidate `dependsOn` names (see {@link getUpstreamContender}), matched by its name's end alone
+	 */
+	private async hasAppearedCandidate(
+		repoPath: string,
+		branch: string,
+		dependsOn: readonly string[],
+		records: readonly RefRecord[],
+		createdFrom: string | undefined,
+	): Promise<boolean> {
+		const depended = new Set(dependsOn);
+		if (
+			createdFrom &&
+			createdFrom !== 'HEAD' &&
+			!createdFrom.startsWith('-') &&
+			!(await this.isSelfRef(repoPath, createdFrom, branch, undefined))
+		) {
+			const fullNames =
+				createdFrom.startsWith('refs/heads/') || createdFrom.startsWith('refs/remotes/')
+					? [createdFrom]
+					: [`refs/heads/${createdFrom}`, `refs/remotes/${createdFrom}`];
+			if (fullNames.some(n => findRefRecord(records, n) != null && !depended.has(n))) return true;
+		}
+
+		const own = `refs/heads/${branch}`;
+		for (const { name } of records) {
+			if (!name.startsWith('refs/remotes/upstream/') || name.endsWith('/HEAD') || depended.has(name)) continue;
+
+			const suffix = name.slice('refs/remotes/upstream'.length);
+			if (dependsOn.some(r => r !== own && r.endsWith(suffix))) return true;
+		}
+		return false;
 	}
 
 	/** Whether `ref` is a `refs/remotes/<remote>/HEAD` symref pointing at `target`, from the cached local symref */
@@ -3834,7 +4685,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	): Promise<AheadOfBase> {
 		const { dependsOn } = reads;
 		const [countsResult, refsResult] = await Promise.allSettled([
-			this.countAgainstBase(repoPath, target.ref, cancellation),
+			this.countAgainstBase(repoPath, target.ref, reads.from, cancellation),
 			// The same cached `for-each-ref` the branch list reads, so the tip usually costs nothing
 			this.provider.refs.getRefs(repoPath, cancellation),
 		]);
@@ -3876,14 +4727,14 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		ref: string,
 		settled: SettledFork,
 		ahead: number,
-		reads: Pick<BaseReads, 'priority' | 'pinnable'>,
+		reads: Pick<BaseReads, 'from' | 'priority' | 'pinnable'>,
 		cancellation: AbortSignal | undefined,
 	): Promise<SettledForkPoint> {
 		const { forkPoint } = settled;
 		if (!settled.rewritten || forkPoint == null) return { forkPoint: forkPoint, ahead: ahead, counted: false };
 
 		try {
-			const counts = await this.countAgainstBase(repoPath, forkPoint, cancellation);
+			const counts = await this.countAgainstBase(repoPath, forkPoint, reads.from, cancellation);
 			if (counts != null) return { forkPoint: forkPoint, ahead: counts.right, counted: true };
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
@@ -3891,11 +4742,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 		reads.pinnable = false;
 		const read = { priority: reads.priority, pinnable: true };
-		const mergeBase = await this.readMergeBase(repoPath, 'HEAD', ref, false, read, cancellation);
+		const mergeBase = await this.readMergeBase(repoPath, reads.from, ref, false, read, cancellation);
 		return { forkPoint: read.pinnable ? mergeBase : forkPoint, ahead: ahead, counted: false };
 	}
 
-	/** {@link settleForkPoint} from HEAD, then {@link countPastForkPoint} */
+	/** {@link settleForkPoint} from `reads.from`, then {@link countPastForkPoint} */
 	private async settleForkPointAndCount(
 		repoPath: string,
 		records: readonly RefRecord[],
@@ -3903,10 +4754,10 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		tip: string | undefined,
 		forkPoint: string | undefined,
 		ahead: number,
-		reads: Pick<BaseReads, 'priority' | 'pinnable'>,
+		reads: Pick<BaseReads, 'from' | 'priority' | 'pinnable'>,
 		cancellation: AbortSignal | undefined,
 	): Promise<SettledForkPoint> {
-		const fromHead = { from: 'HEAD', priority: reads.priority, pinnable: true };
+		const fromHead = { from: reads.from, priority: reads.priority, pinnable: true };
 		const settled = await this.settleForkPoint(repoPath, records, ref, tip, forkPoint, fromHead, cancellation);
 		if (!fromHead.pinnable) {
 			reads.pinnable = false;
@@ -4084,6 +4935,25 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		return result;
 	}
 
+	/**
+	 * {@link readBaseReflog} of `ref`, a local branch's full name, in place of git's reading of it; `undefined` when only
+	 * git can say. Git rejects a ref that doesn't exist, even when a reflog file is left for it, so the file is taken
+	 * only for a branch the cached ref list names.
+	 */
+	private async readListedBranchReflog(
+		repoPath: string,
+		ref: string,
+		cancellation: AbortSignal | undefined,
+	): Promise<readonly ReflogLine[] | undefined> {
+		if (!ref.startsWith('refs/heads/')) return undefined;
+
+		const lines = await this.readBaseReflog(repoPath, ref);
+		if (lines == null) return undefined;
+
+		const records = await this.provider.refs.getRefs(repoPath, cancellation);
+		return findRefRecord(records, ref) != null ? lines : undefined;
+	}
+
 	/** Counts the default branch's own commits past its upstream (see {@link getSelfUpstreamTarget}) for {@link getAheadOfBase} */
 	private async measureAheadOfSelfUpstream(
 		repoPath: string,
@@ -4095,7 +4965,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		if (cancellation?.aborted) throw new CancellationError();
 		if (upstream == null) return { base: undefined, reason: 'self', dependsOn: [...dependsOn] };
 
-		const counts = await this.countAgainstBase(repoPath, upstream.ref, cancellation);
+		const counts = await this.countAgainstBase(repoPath, upstream.ref, reads.from, cancellation);
 		if (counts == null) return { base: undefined, reason: 'unborn', dependsOn: [...dependsOn] };
 		// Only the same commit leaves neither side a commit the other lacks
 		if (counts.left === 0 && counts.right === 0) {
@@ -4137,16 +5007,18 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * HEAD's count against `ref` from their merge base: `left` only `ref` has, `right` only HEAD has. `undefined`
-	 * before HEAD's first commit, when there is nothing to count; any other failure rejects with git's error.
+	 * `from`'s count (HEAD, or a commit) against `ref` from their merge base: `left` only `ref` has, `right` only `from`
+	 * has. `undefined` before HEAD's first commit, when there is nothing to count; any other failure rejects with git's
+	 * error.
 	 */
 	private async countAgainstBase(
 		repoPath: string,
 		ref: string,
+		from: string,
 		cancellation: AbortSignal | undefined,
 	): Promise<{ left: number; right: number } | undefined> {
 		// `...` counts from the merge base, so only the branch's own commits count, not what the base moved on with
-		const range = createRevisionRange(ref, 'HEAD', '...');
+		const range = createRevisionRange(ref, from, '...');
 
 		let counts: { left: number; right: number } | undefined;
 		try {
@@ -4162,7 +5034,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 			return await this.getLeftRightCountUncached(repoPath, range, cancellation);
 		} catch (ex) {
 			if (isCancellationError(ex)) throw ex;
-			if (await this.isUnbornHead(repoPath, cancellation)) return undefined;
+			if (from === 'HEAD' && (await this.isUnbornHead(repoPath, cancellation))) return undefined;
 
 			throw ex;
 		}
@@ -4420,7 +5292,8 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 
 	/**
 	 * Whether `ref` names `selfName` itself (see {@link isSelfRef}) and sits at `reads.from`'s commit; tips are read
-	 * only after the name matched. HEAD's commit is asked of git, a branch's read from the cached ref list
+	 * only after the name matched. HEAD's commit is asked of git, a branch's read from the cached ref list, and a commit
+	 * is itself
 	 */
 	private async isSelfAtTip(
 		repoPath: string,
@@ -4442,7 +5315,7 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const records = await this.provider.refs.getRefs(repoPath, cancellation);
 		const [refSha, fromSha] = await Promise.all([
 			this.getRefTip(repoPath, records, ref, cancellation),
-			this.getRefTip(repoPath, records, reads.from, cancellation),
+			isSha(reads.from) ? reads.from : this.getRefTip(repoPath, records, reads.from, cancellation),
 		]);
 		return refSha != null && refSha === fromSha;
 	}
@@ -4740,9 +5613,11 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 	}
 
 	/**
-	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one: a failed lookup isn't
-	 * cached, so asking it of a remote-tracking ref (`origin/main`, the usual default) re-spawns on every read. The
-	 * list's own upstream isn't used: a config-only change (`git branch -u`) doesn't refresh it.
+	 * `<name>@{u}`, without asking git when the cached ref list shows `name` can't have one, as a remote-tracking ref
+	 * (`origin/main`, the usual default) can't. A local branch the list names is asked in the main checkout, so the
+	 * repository's checkouts share one read, unless the config listing the base read took shows config that can differ
+	 * by checkout. The list's own upstream isn't the same answer: it names an upstream that is gone, which this reports
+	 * as none, and can differ for one outside `refs/remotes/` or a short name that is ambiguous.
 	 */
 	private async getUpstreamName(
 		repoPath: string,
@@ -4753,7 +5628,31 @@ export class BranchesGitSubProvider implements GitBranchesSubProvider {
 		const records = await this.provider.refs.getRefs(repoPath, cancellation);
 		if (!mayHaveUpstream(records, name)) return undefined;
 
-		return this.provider.refs.getSymbolicReferenceName(repoPath, `${name}@{u}`, options, cancellation);
+		const path =
+			name !== 'HEAD' &&
+			findRefRecord(records, `refs/heads/${name}`) != null &&
+			(await this.isConfigSharedByCheckouts(repoPath))
+				? this.cache.getCommonPath(repoPath)
+				: repoPath;
+		return this.provider.refs.getSymbolicReferenceName(path, `${name}@{u}`, options, cancellation);
+	}
+
+	/**
+	 * Whether `repoPath`'s config is its repository's main checkout's, as the config listing already read for its base
+	 * shows it (see `mayConfigDifferByCheckout`). Never reads the listing: `false` when there is none to go by.
+	 */
+	private async isConfigSharedByCheckouts(repoPath: string): Promise<boolean> {
+		if (this.cache.getCommonPath(repoPath) === repoPath) return true;
+
+		const listing = this.cache.aheadOfBaseConfigKey.get(repoPath);
+		if (listing == null) return false;
+
+		try {
+			const value = await listing;
+			return value != null && !mayConfigDifferByCheckout(value);
+		} catch {
+			return false;
+		}
 	}
 
 	/**
@@ -5320,9 +6219,23 @@ function mayHaveUpstream(records: readonly RefRecord[], name: string): boolean {
 	return findRefTip(records, name) == null;
 }
 
+/** `answer` with the commit it was measured from, when it is known (see `AheadOfBase.measuredFrom`) */
+function withMeasuredFrom(answer: AheadOfBase, measuredFrom: string | undefined): AheadOfBase {
+	return measuredFrom !== undefined ? { ...answer, measuredFrom: measuredFrom } : answer;
+}
+
 /** `answer` with the default branch its read resolved, when it consulted one (see `AheadOfBase.defaultBranch`) */
 function withDefaultBranch(answer: AheadOfBase, defaultBranch: string | null | undefined): AheadOfBase {
 	return defaultBranch !== undefined ? { ...answer, defaultBranch: defaultBranch } : answer;
+}
+
+/**
+ * `answer`, a full read's, with what `reads` adds to it: the default branch it resolved, and `provisional` when it rests
+ * on a read that failed, the answers `getMergeTarget` doesn't cache
+ */
+function withBaseReads(answer: AheadOfBase, reads: BaseReads): AheadOfBase {
+	const withDefault = withDefaultBranch(answer, reads.localDefault);
+	return reads.pinnable ? withDefault : { ...withDefault, provisional: true };
 }
 
 /**

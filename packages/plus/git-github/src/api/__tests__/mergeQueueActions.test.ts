@@ -172,6 +172,27 @@ suite('GitHubApi merge-queue actions', () => {
 			assert.equal(authFailures(), 0);
 		});
 
+		test('preserves the legacy permission verdict for a nested refusal', async () => {
+			const { config, authFailures } = serve({
+				data: {
+					enqueuePullRequest: { mergeQueueEntry: { state: 'QUEUED', enqueuedAt: '2026-11-06T10:00:00Z' } },
+				},
+				errors: [
+					{
+						type: 'FORBIDDEN',
+						message: 'Queue details are restricted',
+						path: ['enqueuePullRequest', 'mergeQueueEntry', 'position'],
+					},
+				],
+			});
+			assert.deepEqual(await new GitHubApi(config).enqueuePullRequest(provider, token, 'PR_1', 'head-sha'), {
+				status: 'failed',
+				reason: 'permission',
+				message: 'Queue details are restricted',
+			});
+			assert.equal(authFailures(), 0);
+		});
+
 		test('throws a refused credential, as any other request does', async () => {
 			const { config, authFailures } = serve({ status: 401 });
 

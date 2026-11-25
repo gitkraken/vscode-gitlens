@@ -19,8 +19,23 @@ import { configuration } from '../../../system/-webview/configuration.js';
 import type { KeplerRelease } from '../keplerRelease.js';
 import { KeplerService } from '../keplerService.js';
 
+function makeStorage(): Pick<Container['storage'], 'get' | 'store'> {
+	const values = new Map<string, unknown>();
+	return {
+		get: (key: string) => values.get(key),
+		store: (key: string, value: unknown) => {
+			values.set(key, value);
+			return Promise.resolve();
+		},
+	} as unknown as Pick<Container['storage'], 'get' | 'store'>;
+}
+
 function makeContainer(prereleaseOrDebugging: boolean): Container {
-	return { prereleaseOrDebugging: prereleaseOrDebugging } as unknown as Container;
+	return {
+		prereleaseOrDebugging: prereleaseOrDebugging,
+		storage: makeStorage(),
+		telemetry: { sendEvent: () => {} },
+	} as unknown as Container;
 }
 
 /** Lets the notification an install ends with, which nothing awaits, report its outcome */
@@ -171,6 +186,7 @@ suite('KeplerService.installed', () => {
 		const sendEvent = sandbox.spy((..._args: unknown[]) => {});
 		const container = {
 			prereleaseOrDebugging: options.prereleaseOrDebugging,
+			storage: makeStorage(),
 			usage: { isUsed: () => options.alreadyTracked, track: track },
 			telemetry: { sendEvent: sendEvent },
 		} as unknown as Container;
@@ -233,6 +249,8 @@ suite('KeplerService.installed', () => {
 		const { container, sendEvent } = makeUsageContainer({ prereleaseOrDebugging: true, alreadyTracked: false });
 		const service = new KeplerService(container, notInstalled, remote, notLocated);
 
+		assert.strictEqual(service.canInstall, false);
+		assert.strictEqual(service.notInstallableReason, reason);
 		assert.strictEqual(await service.install(), false);
 		assert.strictEqual(openExternal.callCount, 1);
 		assert.deepStrictEqual(
@@ -247,11 +265,41 @@ suite('KeplerService.installed', () => {
 	test('on a non-production channel, Install Kepler opens the download page and reports why', () =>
 		assertCannotInstall('channel', 'staging', false));
 
+	test('where Kepler cannot run at all, Install Kepler reports why and opens nothing', async () => {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const openExternal = sandbox.stub(env, 'openExternal').resolves(true);
+		const { container, sendEvent } = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
+		const service = new KeplerService(container, notInstalled, false, notLocated);
+		sandbox.stub(service, 'available').value(false);
+
+		assert.strictEqual(service.notInstallableReason, 'unavailable');
+		assert.strictEqual(await service.install(), false);
+		assert.strictEqual(openExternal.callCount, 0);
+		assert.deepStrictEqual(
+			sendEvent.getCalls().map(c => c.args),
+			[['kepler/install/skipped', { reason: 'unavailable' }, undefined]],
+		);
+	});
+
+	test('gives no reason where GitLens can install Kepler', function () {
+		if (process.platform !== 'linux' && process.platform !== 'darwin' && process.platform !== 'win32') {
+			this.skip();
+		}
+
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const { container } = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
+		const service = new KeplerService(container, notInstalled, false, notLocated);
+
+		assert.strictEqual(service.notInstallableReason, undefined);
+		assert.strictEqual(service.canInstall, true);
+	});
+
 	test('does not take a half-installed Kepler for installed while an install runs; a second install joins it', () => {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
 		const probe = sandbox.stub().returns(false);
 		const container = {
 			prereleaseOrDebugging: false,
+			storage: makeStorage(),
 			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
 			telemetry: { sendEvent: sandbox.spy() },
 		} as unknown as Container;
@@ -369,6 +417,32 @@ suite('KeplerService.installed', () => {
 		assert.strictEqual(probe.callCount, 0);
 		assert.strictEqual(track.callCount, 0);
 	});
+
+	test("only a local window reports another window's stopped install; a remote one, on another machine's clock, leaves it", async () => {
+		sandbox.stub(configuration, 'getAny').returns(undefined);
+		const clock = sandbox.useFakeTimers({ now: 10 * 60_000, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+		const stopped = { kind: 'windows-setup', startedAt: 0, step: 'install', heartbeatAt: 60_000 } as const;
+
+		const remote = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
+		await remote.container.storage.store('kepler:installs', { 'other-window': stopped });
+		const remoteService = new KeplerService(remote.container, notInstalled, true, notLocated);
+		clock.tick(60_000);
+		remoteService.dispose();
+
+		assert.strictEqual(remote.sendEvent.callCount, 0);
+		assert.deepStrictEqual(remote.container.storage.get('kepler:installs'), { 'other-window': stopped });
+
+		const local = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
+		await local.container.storage.store('kepler:installs', { 'other-window': stopped });
+		const localService = new KeplerService(local.container, notInstalled, false, notLocated);
+		clock.tick(60_000);
+		localService.dispose();
+
+		assert.deepStrictEqual(
+			local.sendEvent.getCalls().map(c => c.args),
+			[['kepler/install/abandoned', { kind: 'windows-setup', step: 'install', duration: 60_000 }]],
+		);
+	});
 });
 
 // A real install end to end, with the Linux AppImage because it installs into `HOME` and needs no admin
@@ -430,6 +504,7 @@ suite('KeplerService.install', () => {
 		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>) => {});
 		const container = {
 			prereleaseOrDebugging: false,
+			storage: makeStorage(),
 			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
 			telemetry: { sendEvent: sendEvent },
 		} as unknown as Container;
@@ -477,10 +552,11 @@ suite('KeplerService.install', () => {
 		assert.strictEqual(sendEvent.lastCall.args[1]?.['cancelled.late'], true);
 	});
 
-	function makeInstallService(sendEvent: sinon.SinonSpy): KeplerService {
+	function makeInstallService(sendEvent: sinon.SinonSpy, storage = makeStorage()): KeplerService {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
 		const container = {
 			prereleaseOrDebugging: false,
+			storage: storage,
 			usage: { isUsed: () => false, track: sandbox.stub().resolves() },
 			telemetry: { sendEvent: sendEvent },
 		} as unknown as Container;
@@ -552,6 +628,23 @@ suite('KeplerService.install', () => {
 		assert.strictEqual(failed['duration.install'], undefined);
 		assert.deepStrictEqual(sendEvent.getCall(2).args[1], { action: 'output', after: 'failed' });
 		assert.strictEqual(showOutputChannel.callCount, 1);
+	});
+
+	test("flags an install started while another window's is running, and leaves no record of its own once it ends", async () => {
+		const sendEvent = sandbox.spy((_event: string, _data?: Record<string, unknown>, _source?: unknown) => {});
+		sandbox.stub(window, 'showErrorMessage').resolves(undefined);
+		const storage = makeStorage();
+		const otherWindow = { kind: 'linux-appimage', startedAt: Date.now(), heartbeatAt: Date.now() } as const;
+		await storage.store('kepler:installs', { 'other-window': otherWindow });
+		const service = makeInstallService(sendEvent, storage);
+		sandbox.stub(service, 'getRelease').resolves({ ...release, sha512: 'not-the-hash' });
+
+		assert.strictEqual(await service.install(), false);
+		service.dispose();
+
+		assert.strictEqual(sendEvent.firstCall.args[0], 'kepler/install/started');
+		assert.strictEqual(sendEvent.firstCall.args[1]?.concurrent, true);
+		assert.deepStrictEqual(storage.get('kepler:installs'), { 'other-window': otherWindow });
 	});
 
 	test('times a download that fails before any of the file arrives', async () => {

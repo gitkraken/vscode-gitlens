@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { parseGitBlame } from '../blameParser.js';
+import { parseGitBlame, parseGitBlameAsync } from '../blameParser.js';
 
 const repoPath = '/repo';
 
@@ -535,5 +535,82 @@ suite('Blame Parser Test Suite', () => {
 
 		assert.ok(result, 'Should return a blame');
 		assert.strictEqual(result.repoPath, '/my/repo', 'Should set repoPath on the result');
+	});
+
+	// Git C-quotes the `filename` and `previous` paths of a name holding a `"`, `\`, tab or newline
+	suite('quoted paths', () => {
+		const sha = 'abc1234abc1234abc1234abc1234abc1234abc123';
+		const previousSha = 'def5678def5678def5678def5678def5678def567';
+
+		function quotedBlock(filename: string, previousPath?: string) {
+			return blameBlock({
+				sha: sha,
+				originalLine: 1,
+				line: 1,
+				lineCount: 1,
+				author: 'Alice',
+				authorEmail: 'alice@example.com',
+				authorTime: 1700000000,
+				committer: 'Alice',
+				committerEmail: 'alice@example.com',
+				committerTime: 1700000000,
+				summary: 'Edit file',
+				filename: filename,
+				previousSha: previousPath != null ? previousSha : undefined,
+				previousPath: previousPath,
+			});
+		}
+
+		const cases: [string, string, string][] = [
+			['a double quote', '"q\\"uote.txt"', 'q"uote.txt'],
+			['a backslash', '"back\\\\slash.txt"', 'back\\slash.txt'],
+			['a tab', '"tab\\there.txt"', 'tab\there.txt'],
+			['a newline', '"new\\nline.txt"', 'new\nline.txt'],
+			['octal-escaped UTF-8', '"caf\\303\\251 \\346\\227\\245.txt"', 'café 日.txt'],
+		];
+
+		for (const [name, quoted, expected] of cases) {
+			test(`unquotes a path holding ${name}`, () => {
+				const result = parseGitBlame(repoPath, quotedBlock(quoted), undefined);
+
+				assert.strictEqual(result?.commits.get(sha)?.file?.path, expected);
+			});
+		}
+
+		test('unquotes the previous path', () => {
+			const result = parseGitBlame(repoPath, quotedBlock('"new \\"name\\".txt"', '"old\\tname.txt"'), undefined);
+
+			const file = result?.commits.get(sha)?.file;
+			assert.strictEqual(file?.path, 'new "name".txt');
+			assert.strictEqual(file.originalPath, 'old\tname.txt');
+		});
+
+		test('leaves a path with spaces that git did not quote as it is', () => {
+			const result = parseGitBlame(
+				repoPath,
+				quotedBlock('Plan b/sp ace.txt', 'Plan a/old sp ace.txt'),
+				undefined,
+			);
+
+			const file = result?.commits.get(sha)?.file;
+			assert.strictEqual(file?.path, 'Plan b/sp ace.txt');
+			assert.strictEqual(file.originalPath, 'Plan a/old sp ace.txt');
+		});
+
+		test('unquotes the paths of a streamed blame', async () => {
+			async function* stream() {
+				await Promise.resolve();
+				yield `${quotedBlock('"new \\"name\\".txt"', '"old\\tname.txt"')}\n`;
+			}
+
+			const entries = [];
+			for await (const entry of parseGitBlameAsync(stream())) {
+				entries.push(entry);
+			}
+
+			assert.strictEqual(entries.length, 1);
+			assert.strictEqual(entries[0].path, 'new "name".txt');
+			assert.strictEqual(entries[0].previousPath, 'old\tname.txt');
+		});
 	});
 });

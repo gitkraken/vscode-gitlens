@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { matchAreaSignals } from './area-signals.mjs';
 import { config } from './config.mts';
 import { fetchChangelogLookup } from './fetch-changelog.mts';
 import { fetchIssues, fetchSingleIssues } from './fetch-issues.mts';
@@ -273,6 +274,8 @@ function enrichIssue(
 		}
 	}
 
+	const areaSignals = matchAreaSignals([raw.title, raw.body, ...raw.comments.map(c => c.body)].join('\n'));
+
 	return {
 		number: raw.number,
 		title: raw.title,
@@ -296,6 +299,7 @@ function enrichIssue(
 		lastActivityAt,
 		duplicateCandidates: [], // Filled in by addDuplicateCandidates
 		supersessionIndicators,
+		areaSignals,
 	};
 }
 

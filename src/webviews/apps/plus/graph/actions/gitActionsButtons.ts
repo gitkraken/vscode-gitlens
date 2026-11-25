@@ -213,7 +213,6 @@ export class GitActionsButtons extends SignalWatcher(LitElement) {
 			}
 			<gl-tooltip placement="bottom">
 				<a class="action-button wip-button" @click=${this.onJumpToWip}>
-					<code-icon class="action-button__icon" icon="gl-wip"></code-icon>
 					<gl-wip-stats
 						.added=${this.wipState?.workDirStats?.added}
 						.modified=${this.wipState?.workDirStats?.modified}
@@ -1483,7 +1482,6 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 	}
 
 	override render() {
-		// While queued, the merge queue owns the branch, so it's not offered a push or force push — Pull stays
 		const queued = isPullRequestQueued(this.branchState?.pr);
 		if (!this.branchState || (!this.isBehind && (!this.isAhead || queued))) {
 			return nothing;
@@ -1494,7 +1492,7 @@ export class PushPullButton extends SignalWatcher(LitElement) {
 		return html`
 			${action === 'pull' ? this.renderPull() : this.renderPush()}
 			${
-				this.isAhead && this.isBehind && !queued
+				this.isAhead && this.isBehind && !queued && !isBranchLanded(this._graphState)
 					? html`
 							<gl-button
 								appearance="toolbar"
@@ -1524,6 +1522,14 @@ function isBranchLandedOrPending(state: AppState | undefined): boolean {
 	if (verdict == null || branch == null || !isCurrentBranchMergeTargetFor(verdict, branch)) return false;
 
 	return verdict.pending === true || verdict.liveUpstream === true || verdict.status?.landed != null;
+}
+
+function isBranchLanded(state: AppState | undefined): boolean {
+	const verdict = state?.currentBranchMergeTarget?.verdict;
+	const branch = state?.branch;
+	if (verdict == null || branch == null || !isCurrentBranchMergeTargetFor(verdict, branch)) return false;
+
+	return verdict.status?.landed != null;
 }
 
 @customElement('gl-publish-button')

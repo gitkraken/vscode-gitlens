@@ -1,5 +1,5 @@
 import type { FrameLocator, Locator } from '@playwright/test';
-import type { SimulationState } from '../../../src/plus/gk/__debug__accountDebug.js';
+import type { AccountStatus, SimulationState } from '../../../src/plus/gk/__debug__accountDebug.js';
 import { MaxTimeout, ShortTimeout } from '../baseTest.js';
 import { VSCodePage } from './vscodePage.js';
 
@@ -50,6 +50,10 @@ export class GitLensPage extends VSCodePage {
 
 	async stopSubscriptionSimulation(): Promise<void> {
 		await this.executeCommand('gitlens.plus.simulate.subscription', { state: null });
+	}
+
+	async getAccountStatus(): Promise<AccountStatus> {
+		return this.executeCommand<AccountStatus>('gitlens.plus.accountStatus');
 	}
 
 	/**
@@ -263,6 +267,10 @@ export class GitLensPage extends VSCodePage {
 		await this.executeCommand('gitlens.showWorktreesView');
 	}
 
+	async startWorktreeCreateWizard(): Promise<void> {
+		await this.executeCommand('gitlens.git.worktree.create');
+	}
+
 	async showContributorsView(): Promise<void> {
 		await this.executeCommand('gitlens.showContributorsView');
 	}
@@ -312,6 +320,11 @@ export class GitLensPage extends VSCodePage {
 
 	async getRebaseWebview(): Promise<FrameLocator | null> {
 		return this.getGitLensWebview('Interactive Rebase', 'customEditor');
+	}
+
+	async showSettingsAccount(timeout = MaxTimeout * 3): Promise<FrameLocator | null> {
+		await this.executeCommand('gitlens.showSettingsPage!account');
+		return this.getGitLensWebview('GitLens Settings', 'webviewPanel', timeout);
 	}
 
 	/**
@@ -368,9 +381,11 @@ export class GitLensPage extends VSCodePage {
 		while (Date.now() - startTime < timeout) {
 			// Find GitLens webview iframes
 			const iframes = this.page.locator(
-				usePurpose && purpose === 'webviewView'
-					? `iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=${purpose}"]`
-					: `iframe.webview[src*="extensionId=eamodio.gitlens"]`,
+				purpose !== 'webviewView'
+					? `iframe.webview[src*="extensionId=eamodio.gitlens"]`
+					: usePurpose
+						? `iframe.webview[src*="extensionId=eamodio.gitlens"][src*="purpose=${purpose}"]`
+						: `iframe.webview[src*="extensionId=eamodio.gitlens"]:not([src*="purpose=webviewPanel"]):not([src*="purpose=customEditor"])`,
 			);
 
 			iterations++;
@@ -401,12 +416,14 @@ export class GitLensPage extends VSCodePage {
 						continue;
 					}
 				}
-			} else if (purpose === 'webviewView') {
-				// There is a VS Code issue where sometimes WebviewViews don't always get their purpose set (seems to happen after hiding and re-showing)
-				// So alternate using purpose filter every other iteration (use it on odd iterations: 1, 3, 5...)
-				usePurpose = iterations % 2 === 1;
-				continue;
 			}
+
+			if (purpose === 'webviewView') {
+				// HACK: a re-shown webview view can lose `purpose=` in its src (VS Code 1.147.0, seen on Patch) — alternate on every miss
+				usePurpose = iterations % 2 === 0;
+				if (count === 0) continue;
+			}
+
 			await this.page.waitForTimeout(ShortTimeout);
 		}
 		return null;

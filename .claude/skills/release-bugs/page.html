@@ -1,0 +1,1611 @@
+<title>Release Bug Ledger</title>
+<meta name="claude:viewport-fit-sides" content="cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+	rel="stylesheet"
+	href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+/>
+<style>
+	:root {
+		--bg: #f6f7f8;
+		--surface: #ffffff;
+		--ink: #121417;
+		--ink-2: #4c525a;
+		--muted: #6f757d;
+		--grid: #e6e8eb;
+		--axis: #c4c9cf;
+		--border: rgba(18, 20, 23, 0.11);
+		--chip: #eef1f4;
+		--wash: rgba(42, 120, 214, 0.08);
+		--link: #1d5fae;
+		--focus: #2a78d6;
+		--series-community: #2a78d6;
+		--series-org: #eb6834;
+		--notice-bg: #fff6e0;
+		--notice-ink: #5c4300;
+		--shadow: 0 6px 20px rgba(18, 20, 23, 0.12);
+
+		--font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+		--font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+		--fs-xs: 0.75rem;
+		--fs-sm: 0.8125rem;
+		--fs-md: 0.9375rem;
+		--fs-lg: 1.125rem;
+		--fs-xl: 1.75rem;
+		--radius: 6px;
+	}
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme='light']) {
+			--bg: #0f1113;
+			--surface: #181b1e;
+			--ink: #eef0f2;
+			--ink-2: #b9bec5;
+			--muted: #8f959d;
+			--grid: #262a2f;
+			--axis: #3b4046;
+			--border: rgba(255, 255, 255, 0.1);
+			--chip: #24282d;
+			--wash: rgba(57, 135, 229, 0.13);
+			--link: #86b6ef;
+			--focus: #6da7ec;
+			--series-community: #3987e5;
+			--series-org: #d95926;
+			--notice-bg: #2e2716;
+			--notice-ink: #f0d79a;
+			--shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+			color-scheme: dark;
+		}
+	}
+	:root[data-theme='dark'] {
+		--bg: #0f1113;
+		--surface: #181b1e;
+		--ink: #eef0f2;
+		--ink-2: #b9bec5;
+		--muted: #8f959d;
+		--grid: #262a2f;
+		--axis: #3b4046;
+		--border: rgba(255, 255, 255, 0.1);
+		--chip: #24282d;
+		--wash: rgba(57, 135, 229, 0.13);
+		--link: #86b6ef;
+		--focus: #6da7ec;
+		--series-community: #3987e5;
+		--series-org: #d95926;
+		--notice-bg: #2e2716;
+		--notice-ink: #f0d79a;
+		--shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+		color-scheme: dark;
+	}
+
+	body {
+		background: var(--bg);
+		color: var(--ink);
+		font-family: var(--font-sans);
+		font-size: var(--fs-md);
+		line-height: 1.5;
+	}
+
+	.page {
+		max-width: 60rem;
+		margin: 0 auto;
+		padding-left: max(16px, env(safe-area-inset-left, 0px));
+		padding-right: max(16px, env(safe-area-inset-right, 0px));
+		padding-block: 2rem 3rem;
+		display: grid;
+		gap: 1.5rem;
+	}
+
+	h1,
+	h2 {
+		margin: 0;
+		text-wrap: balance;
+		font-weight: 600;
+	}
+	h1 {
+		font-size: var(--fs-xl);
+		letter-spacing: -0.01em;
+		line-height: 1.2;
+	}
+	h2 {
+		font-size: var(--fs-lg);
+		line-height: 1.3;
+	}
+	p {
+		margin: 0;
+	}
+
+	.masthead {
+		display: grid;
+		gap: 0.375rem;
+	}
+	.masthead .lede {
+		color: var(--ink-2);
+		max-width: 65ch;
+	}
+	.meta-line {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+		color: var(--muted);
+		font-size: var(--fs-sm);
+	}
+
+	.filters {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: end;
+		gap: 0.75rem 1.25rem;
+		padding-block: 0.75rem;
+		border-block: 1px solid var(--border);
+	}
+	.field {
+		display: grid;
+		gap: 0.25rem;
+	}
+	.field-label {
+		font-size: var(--fs-xs);
+		font-weight: 500;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.presets {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
+	.preset {
+		font: inherit;
+		font-size: var(--fs-sm);
+		color: var(--ink-2);
+		background: transparent;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 0.3rem 0.65rem;
+		cursor: pointer;
+	}
+	.preset:hover {
+		background: var(--chip);
+	}
+	.preset[aria-pressed='true'] {
+		color: var(--ink);
+		background: var(--chip);
+		border-color: var(--axis);
+		font-weight: 600;
+	}
+	.dates {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.375rem;
+	}
+	.dates input {
+		font: inherit;
+		font-size: var(--fs-sm);
+		font-variant-numeric: tabular-nums;
+		color: var(--ink);
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 0.25rem 0.4rem;
+		min-width: 0;
+	}
+	.dates .to {
+		color: var(--muted);
+		font-size: var(--fs-sm);
+	}
+	.toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: var(--fs-sm);
+		color: var(--ink);
+		cursor: pointer;
+		padding-block: 0.3rem;
+	}
+	.toggle input {
+		width: 1rem;
+		height: 1rem;
+		margin: 0;
+		accent-color: var(--series-org);
+	}
+
+	:focus-visible {
+		outline: 2px solid var(--focus);
+		outline-offset: 2px;
+	}
+
+	.notice {
+		background: var(--notice-bg);
+		color: var(--notice-ink);
+		border-radius: var(--radius);
+		padding: 0.625rem 0.875rem;
+		font-size: var(--fs-sm);
+		max-width: 65ch;
+	}
+
+	.summary {
+		display: grid;
+		gap: 0.75rem;
+	}
+	.headline {
+		font-size: var(--fs-lg);
+		max-width: 65ch;
+	}
+	.headline strong {
+		font-weight: 600;
+	}
+	.chart-card {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 1rem;
+		display: grid;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+	.chart-head {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.25rem 1rem;
+	}
+	.chart-sub {
+		color: var(--ink-2);
+		font-size: var(--fs-sm);
+	}
+	.legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1rem;
+		font-size: var(--fs-sm);
+		color: var(--ink-2);
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.legend li {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.swatch {
+		width: 0.75rem;
+		height: 0.75rem;
+		border-radius: 3px;
+		flex: none;
+	}
+	.chart-wrap {
+		position: relative;
+		min-width: 0;
+	}
+	.chart-scroll {
+		overflow-x: auto;
+		min-width: 0;
+	}
+	.chart-scroll svg {
+		display: block;
+	}
+	.chart-scroll[data-stale='true'] svg {
+		opacity: 0.55;
+	}
+	.chart-empty {
+		color: var(--ink-2);
+		font-size: var(--fs-md);
+		max-width: 60ch;
+		padding-block: 2.5rem;
+		display: grid;
+		gap: 0.5rem;
+	}
+	.chart-empty strong {
+		color: var(--ink);
+		font-weight: 600;
+	}
+
+	svg text {
+		font-family: var(--font-sans);
+	}
+	.tick-label {
+		fill: var(--muted);
+		font-size: 11px;
+		font-variant-numeric: tabular-nums;
+	}
+	.x-label {
+		fill: var(--ink-2);
+		font-family: var(--font-mono);
+		font-size: 11px;
+	}
+	.cap-label {
+		fill: var(--ink-2);
+		font-size: 12px;
+		font-weight: 500;
+		font-variant-numeric: tabular-nums;
+	}
+	.gridline {
+		stroke: var(--grid);
+		stroke-width: 1;
+	}
+	.baseline {
+		stroke: var(--axis);
+		stroke-width: 1;
+	}
+	.band-wash {
+		fill: var(--wash);
+		opacity: 0;
+	}
+	.hit {
+		fill: transparent;
+		cursor: default;
+		outline: none;
+	}
+	.band:hover .band-wash,
+	.band:focus-within .band-wash {
+		opacity: 1;
+	}
+	.hit:focus-visible + .focus-ring {
+		opacity: 1;
+	}
+	.focus-ring {
+		fill: none;
+		stroke: var(--focus);
+		stroke-width: 2;
+		opacity: 0;
+		pointer-events: none;
+	}
+	.bar-community {
+		fill: var(--series-community);
+	}
+	.bar-org {
+		fill: var(--series-org);
+	}
+
+	.tooltip {
+		position: absolute;
+		z-index: 2;
+		pointer-events: none;
+		background: var(--surface);
+		color: var(--ink);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		box-shadow: var(--shadow);
+		padding: 0.5rem 0.75rem;
+		font-size: var(--fs-sm);
+		min-width: 10rem;
+		display: grid;
+		gap: 0.25rem;
+	}
+	.tooltip .tt-title {
+		font-family: var(--font-mono);
+		font-weight: 500;
+	}
+	.tooltip .tt-sub {
+		color: var(--muted);
+		font-size: var(--fs-xs);
+	}
+	.tooltip .tt-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-variant-numeric: tabular-nums;
+	}
+	.tooltip .tt-row strong {
+		font-weight: 600;
+		min-width: 1.5rem;
+	}
+	.tooltip .tt-row span {
+		color: var(--ink-2);
+	}
+	.line-key {
+		width: 0.75rem;
+		height: 2px;
+		border-radius: 1px;
+		flex: none;
+	}
+	.tooltip .tt-note {
+		color: var(--ink-2);
+		font-size: var(--fs-xs);
+		border-top: 1px solid var(--border);
+		padding-top: 0.25rem;
+	}
+
+	.ledger {
+		display: grid;
+		gap: 0.75rem;
+	}
+	.ledger-sub {
+		color: var(--ink-2);
+		font-size: var(--fs-sm);
+		max-width: 65ch;
+	}
+	.table-scroll {
+		overflow-x: auto;
+		min-width: 0;
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--fs-sm);
+	}
+	th,
+	td {
+		text-align: left;
+		padding: 0.5rem 0.875rem;
+		vertical-align: baseline;
+	}
+	thead th {
+		font-size: var(--fs-xs);
+		font-weight: 500;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--muted);
+		border-bottom: 1px solid var(--border);
+		white-space: nowrap;
+	}
+	th.num,
+	td.num {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+	tbody.release + tbody.release tr.release-row > * {
+		border-top: 1px solid var(--border);
+	}
+	tr.release-row th {
+		font-family: var(--font-mono);
+		font-weight: 500;
+		color: var(--ink);
+		white-space: nowrap;
+	}
+	tr.release-row td {
+		color: var(--ink);
+	}
+	tr.release-row td.date {
+		color: var(--ink-2);
+		white-space: nowrap;
+		font-variant-numeric: tabular-nums;
+	}
+	td.zero {
+		color: var(--muted);
+	}
+	tr.issues-row td {
+		padding-top: 0;
+		padding-bottom: 0.875rem;
+	}
+	tfoot td,
+	tfoot th {
+		border-top: 1px solid var(--axis);
+		font-weight: 600;
+	}
+	.issue-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.2rem;
+	}
+	.issue-list li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.25rem 0.5rem;
+		min-width: 0;
+	}
+	.issue-list a {
+		color: var(--link);
+		text-decoration: none;
+		overflow-wrap: anywhere;
+	}
+	.issue-list a:hover {
+		text-decoration: underline;
+	}
+	.issue-list .num-ref {
+		font-variant-numeric: tabular-nums;
+	}
+	.issue-list .commit {
+		font-family: var(--font-mono);
+		font-size: var(--fs-xs);
+	}
+	.status-list {
+		display: grid;
+		gap: 0.75rem;
+	}
+	.status-group {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 0.75rem 0.875rem;
+		display: grid;
+		gap: 0.375rem;
+		min-width: 0;
+	}
+	.status-group h3 {
+		margin: 0;
+		font-size: var(--fs-md);
+		font-weight: 600;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.25rem 0.5rem;
+	}
+	.status-group .count {
+		font-variant-numeric: tabular-nums;
+		color: var(--ink-2);
+		font-weight: 500;
+	}
+	.status-group .desc {
+		color: var(--ink-2);
+		font-size: var(--fs-sm);
+		max-width: 65ch;
+	}
+	.status-group .none {
+		color: var(--muted);
+		font-size: var(--fs-sm);
+	}
+	.chip {
+		font-size: var(--fs-xs);
+		line-height: 1.4;
+		color: var(--ink-2);
+		background: var(--chip);
+		border-radius: 4px;
+		padding: 0 0.375rem;
+		white-space: nowrap;
+	}
+	.chip.org {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+	}
+	.chip.org::before {
+		content: '';
+		width: 0.5rem;
+		height: 0.5rem;
+		border-radius: 2px;
+		background: var(--series-org);
+	}
+
+	.empty-state {
+		background: var(--surface);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 1.25rem;
+		display: grid;
+		gap: 0.5rem;
+		max-width: 65ch;
+		color: var(--ink-2);
+	}
+	.empty-state h2 {
+		color: var(--ink);
+	}
+	code {
+		font-family: var(--font-mono);
+		font-size: 0.92em;
+		background: var(--chip);
+		border-radius: 4px;
+		padding: 0 0.3rem;
+		color: var(--ink);
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
+
+	@media (max-width: 480px) {
+		th,
+		td {
+			padding-inline: 0.5rem;
+		}
+		.chart-card {
+			padding: 0.75rem;
+		}
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.band-wash {
+			transition: opacity 120ms ease-out;
+		}
+	}
+	@media (forced-colors: active) {
+		.bar-community,
+		.bar-org {
+			fill: CanvasText;
+		}
+		.bar-org {
+			fill: GrayText;
+		}
+	}
+</style>
+
+<main class="page">
+	<header class="masthead">
+		<h1>Release Bug Ledger</h1>
+		<p class="lede">
+			Bugs attributed to the stable GitLens release that introduced them, traced from each fix back to the commit
+			that first shipped the defect. Bugs that can’t be attributed are listed separately.
+		</p>
+		<p class="meta-line">
+			<span id="refreshed">Waiting for data</span>
+			<span id="window"></span>
+		</p>
+	</header>
+
+	<section class="filters" aria-label="Filters">
+		<div class="field">
+			<span class="field-label" id="range-label">Filed</span>
+			<div class="presets" role="group" aria-labelledby="range-label">
+				<button type="button" class="preset" id="preset-window" data-preset="window" aria-pressed="true">
+					Whole window
+				</button>
+				<button type="button" class="preset" id="preset-30" data-preset="30" aria-pressed="false">
+					Last 30 days
+				</button>
+				<button type="button" class="preset" id="preset-7" data-preset="7" aria-pressed="false">
+					Last 7 days
+				</button>
+			</div>
+		</div>
+		<div class="field">
+			<span class="field-label">Custom range</span>
+			<div class="dates">
+				<label class="sr-only" for="date-from">Filed on or after</label>
+				<input type="date" id="date-from" />
+				<span class="to" aria-hidden="true">to</span>
+				<label class="sr-only" for="date-to">Filed on or before</label>
+				<input type="date" id="date-to" />
+			</div>
+		</div>
+		<label class="toggle" for="include-org">
+			<input type="checkbox" id="include-org" />
+			Include GitKraken org
+		</label>
+	</section>
+
+	<p class="notice" id="notice" role="status" hidden></p>
+
+	<section class="summary" aria-labelledby="chart-title">
+		<p class="headline" id="headline" aria-live="polite">Loading the ledger…</p>
+		<div class="chart-card">
+			<div class="chart-head">
+				<div>
+					<h2 id="chart-title">Bugs per release</h2>
+					<p class="chart-sub" id="chart-sub">Community-reported bugs, releases in ship order</p>
+				</div>
+				<ul class="legend" id="legend" hidden>
+					<li><span class="swatch" style="background: var(--series-community)"></span>Community</li>
+					<li><span class="swatch" style="background: var(--series-org)"></span>GitKraken org</li>
+				</ul>
+			</div>
+			<div class="chart-wrap" id="chart-wrap">
+				<div class="chart-scroll" id="chart-scroll"></div>
+				<div class="tooltip" id="tooltip" hidden></div>
+			</div>
+		</div>
+	</section>
+
+	<section class="ledger" id="ledger" aria-labelledby="ledger-title" hidden>
+		<h2 id="ledger-title">Releases</h2>
+		<p class="ledger-sub">
+			Each release lists the issues behind its count, with the commit that introduced each bug. Older releases
+			appear when a bug filed in the window traces back to them. GitLens 4.x releases have no tags in the repo, so
+			a bug whose defect dates from 4.x appears under v5.0.0.
+		</p>
+		<div class="table-scroll">
+			<table id="ledger-table">
+				<thead>
+					<tr id="ledger-head"></tr>
+				</thead>
+				<tfoot id="ledger-foot"></tfoot>
+			</table>
+		</div>
+	</section>
+
+	<section class="ledger" id="status-groups" aria-labelledby="status-title" hidden>
+		<h2 id="status-title">Not counted under a release</h2>
+		<p class="ledger-sub">
+			These bugs match the filters but can’t be pinned to a release, so no release is charged for them.
+		</p>
+		<div class="status-list" id="status-list"></div>
+	</section>
+</main>
+
+<script>
+	(() => {
+		'use strict';
+
+		const prefsKey = 'release-bug-ledger:prefs:v1';
+		const loadTimeoutMs = 10000;
+		const svgNs = 'http://www.w3.org/2000/svg';
+		const commitBase = 'https://github.com/gitkraken/vscode-gitlens/commit/';
+
+		const store = {
+			available: null,
+			issues: [],
+			releases: new Map(),
+			meta: null,
+			definitive: { issues: false, releases: false, meta: false },
+			received: { issues: false, releases: false, meta: false },
+			error: null,
+			timedOut: false,
+		};
+
+		let prefs = readPrefs();
+		let loadTimer = null;
+
+		const el = {
+			refreshed: document.getElementById('refreshed'),
+			window: document.getElementById('window'),
+			presets: Array.from(document.querySelectorAll('.preset')),
+			from: document.getElementById('date-from'),
+			to: document.getElementById('date-to'),
+			includeOrg: document.getElementById('include-org'),
+			notice: document.getElementById('notice'),
+			headline: document.getElementById('headline'),
+			chartSub: document.getElementById('chart-sub'),
+			legend: document.getElementById('legend'),
+			chartWrap: document.getElementById('chart-wrap'),
+			chartScroll: document.getElementById('chart-scroll'),
+			tooltip: document.getElementById('tooltip'),
+			ledger: document.getElementById('ledger'),
+			statusGroups: document.getElementById('status-groups'),
+			statusList: document.getElementById('status-list'),
+			table: document.getElementById('ledger-table'),
+			head: document.getElementById('ledger-head'),
+			foot: document.getElementById('ledger-foot'),
+		};
+
+		function readPrefs() {
+			const fallback = { preset: 'window', from: '', to: '', includeOrg: false };
+			try {
+				const raw = window.localStorage.getItem(prefsKey);
+				if (!raw) return fallback;
+				const parsed = JSON.parse(raw);
+				return {
+					preset: ['window', '30', '7', 'custom'].includes(parsed.preset) ? parsed.preset : 'window',
+					from: isoDate(parsed.from) ?? '',
+					to: isoDate(parsed.to) ?? '',
+					includeOrg: parsed.includeOrg === true,
+				};
+			} catch {
+				return fallback;
+			}
+		}
+
+		function writePrefs() {
+			try {
+				window.localStorage.setItem(prefsKey, JSON.stringify(prefs));
+			} catch {}
+		}
+
+		function isoDate(value) {
+			return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : null;
+		}
+
+		function todayUtc() {
+			return new Date().toISOString().slice(0, 10);
+		}
+
+		function addDays(date, days) {
+			const [y, m, d] = date.split('-').map(Number);
+			return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+		}
+
+		const dayFormat = new Intl.DateTimeFormat(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+			timeZone: 'UTC',
+		});
+		const stampFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+		function formatDay(date) {
+			return dayFormat.format(new Date(`${date}T00:00:00Z`));
+		}
+
+		function formatRange(from, to) {
+			const a = new Date(`${from}T00:00:00Z`);
+			const b = new Date(`${to}T00:00:00Z`);
+			if (from === to) return `on ${dayFormat.format(a)}`;
+			try {
+				return `${dayFormat.formatRange(a, b)}`;
+			} catch {
+				return `${dayFormat.format(a)} – ${dayFormat.format(b)}`;
+			}
+		}
+
+		function windowStart() {
+			return isoDate(store.meta?.windowStart) ?? '';
+		}
+
+		function maxDate(a, b) {
+			if (!a) return b;
+			if (!b) return a;
+			return a > b ? a : b;
+		}
+
+		function effectiveRange() {
+			const ws = windowStart();
+			const today = todayUtc();
+			let from;
+			let to;
+			if (prefs.preset === 'custom') {
+				from = prefs.from || ws;
+				to = prefs.to || today;
+			} else if (prefs.preset === '30') {
+				from = addDays(today, -29);
+				to = today;
+			} else if (prefs.preset === '7') {
+				from = addDays(today, -6);
+				to = today;
+			} else {
+				from = ws;
+				to = today;
+			}
+			from = maxDate(from, ws);
+			if (to && from && to < from) to = from;
+			return { from: from, to: to };
+		}
+
+		function semver(tag) {
+			const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(tag);
+			return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+		}
+
+		function compareSemver(a, b) {
+			const va = semver(a);
+			const vb = semver(b);
+			if (va && vb) {
+				for (let i = 0; i < 3; i++) {
+					if (va[i] !== vb[i]) return va[i] - vb[i];
+				}
+				return 0;
+			}
+			if (va) return -1;
+			if (vb) return 1;
+			return a.localeCompare(b);
+		}
+
+		function shipTime(tag) {
+			const date = store.releases.get(tag)?.date;
+			const t = typeof date === 'string' ? Date.parse(date) : NaN;
+			return Number.isFinite(t) ? t : null;
+		}
+
+		function orderTags(tags) {
+			const dated = tags.filter(t => shipTime(t) != null);
+			const undated = tags.filter(t => shipTime(t) == null).sort(compareSemver);
+			dated.sort((a, b) => shipTime(a) - shipTime(b) || compareSemver(a, b));
+			const ordered = dated.slice();
+			for (const tag of undated) {
+				let at = 0;
+				for (let i = 0; i < ordered.length; i++) {
+					if (compareSemver(ordered[i], tag) < 0) at = i + 1;
+				}
+				ordered.splice(at, 0, tag);
+			}
+			return ordered;
+		}
+
+		const statusGroupDefs = [
+			{
+				status: 'not-yet-fixed',
+				title: 'Not yet attributable (open)',
+				desc: 'Pending attribution: open bugs have no fix yet, so there is nothing to trace back from.',
+			},
+			{
+				status: 'needs-review',
+				title: 'Needs review',
+				desc: 'Pending attribution: no fix commit was found, or the traces didn’t reach agreement.',
+			},
+			{
+				status: 'external',
+				title: 'External changes',
+				desc: 'Not attributed to a release: GitLens behaviour was unchanged; something outside GitLens changed.',
+			},
+			{
+				status: 'never-shipped',
+				title: 'Fixed before release',
+				desc: 'Not attributed to a release: introduced and fixed between stable releases, so no stable release shipped it.',
+			},
+		];
+
+		function compute() {
+			const range = effectiveRange();
+			const groups = new Map();
+			const others = new Map(statusGroupDefs.map(d => [d.status, []]));
+			for (const row of store.issues) {
+				if (row.kind !== 'bug') continue;
+
+				const filed = isoDate(row.createdAt);
+				if (!filed) continue;
+				if (range.from && filed < range.from) continue;
+				if (range.to && filed > range.to) continue;
+
+				const isOrg = row.isOrg === true;
+				if (isOrg && !prefs.includeOrg) continue;
+
+				if (row.status === 'introduced') {
+					const key = row.introducedIn;
+					if (typeof key !== 'string' || !key) continue;
+
+					let group = groups.get(key);
+					if (!group) {
+						group = { tag: key, community: [], org: [] };
+						groups.set(key, group);
+					}
+					(isOrg ? group.org : group.community).push(row);
+				} else if (typeof row.status === 'string' && others.has(row.status)) {
+					others.get(row.status).push(row);
+				}
+			}
+
+			const list = orderTags(Array.from(groups.keys())).map(t => groups.get(t));
+
+			for (const g of list) g.total = g.community.length + g.org.length;
+
+			const totals = list.reduce(
+				(acc, g) => {
+					acc.community += g.community.length;
+					acc.org += g.org.length;
+					return acc;
+				},
+				{ community: 0, org: 0 },
+			);
+			totals.all = totals.community + totals.org;
+
+			const statusGroups = statusGroupDefs.map(d => ({ ...d, rows: others.get(d.status) }));
+
+			return { range: range, groups: list, totals: totals, statusGroups: statusGroups };
+		}
+
+		function node(tag, attrs, text) {
+			const n = document.createElement(tag);
+			if (attrs) {
+				for (const [k, v] of Object.entries(attrs)) {
+					if (v != null) n.setAttribute(k, v);
+				}
+			}
+			if (text != null) n.textContent = text;
+			return n;
+		}
+
+		function svg(tag, attrs, text) {
+			const n = document.createElementNS(svgNs, tag);
+			if (attrs) {
+				for (const [k, v] of Object.entries(attrs)) {
+					if (v != null) n.setAttribute(k, String(v));
+				}
+			}
+			if (text != null) n.textContent = text;
+			return n;
+		}
+
+		function plural(n, one, many) {
+			return `${n.toLocaleString()} ${n === 1 ? one : many}`;
+		}
+
+		function bugNoun() {
+			return prefs.includeOrg ? ['bug', 'bugs'] : ['community bug', 'community bugs'];
+		}
+
+		function isGitHubUrl(url) {
+			return typeof url === 'string' && url.startsWith('https://github.com/');
+		}
+
+		function releaseName(g) {
+			return g.tag;
+		}
+
+		function shipDate(g) {
+			const date = isoDate(store.releases.get(g.tag)?.date);
+			return date ? formatDay(date) : null;
+		}
+
+		function shipLabel(g) {
+			return shipDate(g) ?? 'Date unknown';
+		}
+
+		function shipPhrase(g) {
+			const date = shipDate(g);
+			return date ? `shipped ${date}` : 'ship date unknown';
+		}
+
+		function renderMeta() {
+			const meta = store.meta;
+			const at = typeof meta?.lastRefreshAt === 'string' ? Date.parse(meta.lastRefreshAt) : NaN;
+			if (Number.isFinite(at)) {
+				const by =
+					typeof meta.lastRefreshBy === 'string' && meta.lastRefreshBy.trim()
+						? ` by ${meta.lastRefreshBy.trim()}`
+						: '';
+				el.refreshed.textContent = `Last refreshed ${stampFormat.format(new Date(at))}${by}`;
+			} else if (store.available === false) {
+				el.refreshed.textContent = '';
+			} else if (store.definitive.meta) {
+				el.refreshed.textContent = 'Not refreshed yet';
+			} else {
+				el.refreshed.textContent = 'Waiting for data';
+			}
+			const ws = windowStart();
+			el.window.textContent = ws ? `Tracking issues filed since ${formatDay(ws)}` : '';
+		}
+
+		function renderControls(range) {
+			for (const b of el.presets) {
+				b.setAttribute('aria-pressed', String(b.dataset.preset === prefs.preset));
+			}
+			const ws = windowStart();
+			const today = todayUtc();
+			el.from.min = ws || '';
+			el.to.min = ws || '';
+			el.from.max = today;
+			el.to.max = today;
+			el.from.value = range.from || '';
+			el.to.value = range.to || '';
+			el.includeOrg.checked = prefs.includeOrg;
+		}
+
+		function renderNotice() {
+			let text = '';
+			const anyData = store.received.issues;
+			if (store.error) {
+				text = store.error;
+			} else if (store.timedOut) {
+				text = anyData
+					? 'The latest data hasn’t arrived yet, so these counts may be out of date. They update on their own once the connection returns.'
+					: 'The release data can’t be reached yet. The ledger fills in on its own once the connection returns.';
+			}
+			el.notice.textContent = text;
+			el.notice.hidden = !text;
+		}
+
+		function niceStep(max) {
+			const rough = max / 4;
+			const steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+			return steps.find(s => s >= rough) ?? Math.ceil(rough / 1000) * 1000;
+		}
+
+		function topRoundedRect(x, y, w, h, r) {
+			const rr = Math.min(r, w / 2, h);
+			return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`;
+		}
+
+		function renderChart(result) {
+			const { groups } = result;
+			el.tooltip.hidden = true;
+			el.chartScroll.replaceChildren();
+			el.legend.hidden = !prefs.includeOrg;
+			el.chartSub.textContent = prefs.includeOrg
+				? 'Community and GitKraken org bugs, releases in ship order'
+				: 'Community-reported bugs, releases in ship order';
+
+			if (groups.length === 0) {
+				el.chartScroll.append(renderChartEmpty(result));
+				return;
+			}
+
+			const margin = { top: 22, right: 8, bottom: 30, left: 34 };
+			const plotH = 220;
+			const minBand = 60;
+			const available = Math.max(280, el.chartScroll.clientWidth || 600);
+			const band = Math.max(minBand, (available - margin.left - margin.right) / groups.length);
+			const width = Math.max(available, margin.left + margin.right + band * groups.length);
+			const height = margin.top + plotH + margin.bottom;
+			const barW = Math.min(24, band * 0.6);
+
+			const maxVal = Math.max(...groups.map(g => g.total));
+			const step = niceStep(maxVal);
+			const yMax = Math.max(step, Math.ceil(maxVal / step) * step);
+			const y = v => margin.top + plotH - (v / yMax) * plotH;
+
+			const root = svg('svg', {
+				width: width,
+				height: height,
+				viewBox: `0 0 ${width} ${height}`,
+				role: 'group',
+				'aria-labelledby': 'chart-title',
+			});
+
+			for (let v = 0; v <= yMax; v += step) {
+				const yy = Math.round(y(v)) + 0.5;
+				if (v > 0) {
+					root.append(
+						svg('line', { class: 'gridline', x1: margin.left, x2: width - margin.right, y1: yy, y2: yy }),
+					);
+				}
+				root.append(
+					svg(
+						'text',
+						{
+							class: 'tick-label',
+							x: margin.left - 8,
+							y: yy,
+							'text-anchor': 'end',
+							'dominant-baseline': 'middle',
+						},
+						v.toLocaleString(),
+					),
+				);
+			}
+
+			groups.forEach((g, i) => {
+				const x0 = margin.left + band * i;
+				const cx = x0 + band / 2;
+				const bx = cx - barW / 2;
+				const layer = svg('g', { class: 'band' });
+
+				layer.append(
+					svg('rect', {
+						class: 'band-wash',
+						x: x0 + 2,
+						y: margin.top - 18,
+						width: band - 4,
+						height: plotH + 18,
+						rx: 4,
+					}),
+				);
+
+				const segments = [{ value: g.community.length, cls: 'bar-community' }];
+				if (prefs.includeOrg) segments.push({ value: g.org.length, cls: 'bar-org' });
+				const drawn = segments.filter(s => s.value > 0);
+				let base = margin.top + plotH;
+				drawn.forEach((s, si) => {
+					const isTop = si === drawn.length - 1;
+					const h = (s.value / yMax) * plotH;
+					const gap = si > 0 ? 2 : 0;
+					const top = base - h;
+					const segH = Math.max(0, h - gap);
+					if (segH > 0) {
+						layer.append(
+							svg('path', {
+								class: s.cls,
+								d: isTop
+									? topRoundedRect(bx, top, barW, segH, 4)
+									: `M${bx},${top}h${barW}v${segH}h${-barW}Z`,
+							}),
+						);
+					}
+					base = top;
+				});
+
+				layer.append(
+					svg(
+						'text',
+						{ class: 'cap-label', x: cx, y: y(g.total) - 6, 'text-anchor': 'middle' },
+						g.total.toLocaleString(),
+					),
+				);
+				layer.append(
+					svg(
+						'text',
+						{
+							class: 'x-label',
+							x: cx,
+							y: margin.top + plotH + 18,
+							'text-anchor': 'middle',
+						},
+						releaseName(g),
+					),
+				);
+
+				const hit = svg('rect', {
+					class: 'hit',
+					x: x0,
+					y: margin.top - 18,
+					width: band,
+					height: plotH + 18 + margin.bottom,
+					tabindex: 0,
+					role: 'img',
+					'aria-label': describeGroup(g),
+				});
+				const ring = svg('rect', {
+					class: 'focus-ring',
+					x: x0 + 2,
+					y: margin.top - 18,
+					width: band - 4,
+					height: plotH + 18 + margin.bottom - 2,
+					rx: 4,
+				});
+				const show = () => showTooltip(g, x0, band, y(g.total));
+				hit.addEventListener('pointerenter', show);
+				hit.addEventListener('focus', show);
+				hit.addEventListener('pointerleave', hideTooltip);
+				hit.addEventListener('blur', hideTooltip);
+				layer.append(hit, ring);
+				root.append(layer);
+			});
+
+			const by = margin.top + plotH + 0.5;
+			root.append(svg('line', { class: 'baseline', x1: margin.left, x2: width - margin.right, y1: by, y2: by }));
+			el.chartScroll.append(root);
+		}
+
+		function describeGroup(g) {
+			const parts = [`${releaseName(g)}, ${shipPhrase(g)}`];
+			if (prefs.includeOrg) {
+				parts.push(
+					plural(g.community.length, 'community bug', 'community bugs'),
+					plural(g.org.length, 'org bug', 'org bugs'),
+				);
+			} else {
+				parts.push(plural(g.community.length, 'community bug', 'community bugs'));
+			}
+			return parts.join(', ');
+		}
+
+		function renderChartEmpty(result) {
+			const box = node('div', { class: 'chart-empty' });
+			if (store.available === false) {
+				box.append(
+					node('strong', null, 'The ledger’s data isn’t available in this view.'),
+					node('p', null, 'Open this page on claude.ai to see the bug counts for each release.'),
+				);
+			} else if (!store.received.issues || (!store.definitive.issues && store.issues.length === 0)) {
+				box.append(node('p', null, store.timedOut ? 'No data has arrived yet.' : 'Loading release data…'));
+			} else if (store.issues.length === 0) {
+				const p = node('p');
+				p.append(
+					'Run ',
+					node('code', null, '/release-bugs'),
+					' in Claude Code from the GitLens repo to fill it.',
+				);
+				box.append(
+					node('strong', null, 'No bug reports recorded yet.'),
+					node('p', null, 'Each stable release will get a bar here, sized by the bugs it introduced,.'),
+					p,
+				);
+			} else {
+				const r = result.range;
+				const when = r.from && r.to ? formatRange(r.from, r.to) : 'in this range';
+				box.append(
+					node(
+						'strong',
+						null,
+						`No ${prefs.includeOrg ? 'bugs' : 'community bugs'} filed ${when} were attributed to a release.`,
+					),
+					node(
+						'p',
+						null,
+						prefs.includeOrg
+							? 'Widen the date range to see more.'
+							: 'Widen the date range, or include GitKraken org bugs.',
+					),
+				);
+			}
+			return box;
+		}
+
+		function showTooltip(g, bandX, bandW, capY) {
+			const tt = el.tooltip;
+			tt.replaceChildren();
+			tt.append(
+				node('div', { class: 'tt-title' }, releaseName(g)),
+				node('div', { class: 'tt-sub' }, shipPhrase(g).replace(/^s/, 'S')),
+			);
+
+			const row = (value, label, color) => {
+				const r = node('div', { class: 'tt-row' });
+				const key = node('span', { class: 'line-key' });
+				key.style.background = color;
+				r.append(key, node('strong', null, value.toLocaleString()), node('span', null, label));
+				return r;
+			};
+			tt.append(row(g.community.length, 'community', 'var(--series-community)'));
+			if (prefs.includeOrg) tt.append(row(g.org.length, 'GitKraken org', 'var(--series-org)'));
+
+			tt.hidden = false;
+			const wrap = el.chartWrap.getBoundingClientRect();
+			const scroller = el.chartScroll.getBoundingClientRect();
+			const tw = tt.offsetWidth;
+			const th = tt.offsetHeight;
+			const bandLeft = scroller.left - wrap.left + bandX - el.chartScroll.scrollLeft;
+			let left = bandLeft + bandW + 4;
+			if (left + tw > wrap.width) left = bandLeft - tw - 4;
+			left = Math.max(0, Math.min(left, wrap.width - tw));
+			const top = Math.max(0, scroller.top - wrap.top + capY - th / 2);
+			tt.style.left = `${left}px`;
+			tt.style.top = `${top}px`;
+		}
+
+		function hideTooltip() {
+			el.tooltip.hidden = true;
+		}
+
+		function renderHeadline(result) {
+			const h = el.headline;
+			h.replaceChildren();
+			if (store.available === false) {
+				h.textContent = 'This page reads from its shared database, which this view can’t open.';
+				return;
+			}
+			if (!store.received.issues || (!store.definitive.issues && store.issues.length === 0)) {
+				h.textContent = store.timedOut ? 'Waiting for the release data.' : 'Loading the ledger…';
+				return;
+			}
+			if (store.issues.length === 0) {
+				h.textContent = 'No bug reports recorded yet.';
+				return;
+			}
+
+			const { totals, groups, range, statusGroups } = result;
+			const [one, many] = bugNoun();
+			const when = range.from && range.to ? formatRange(range.from, range.to) : 'in this range';
+			const unattributed = statusGroups.reduce((n, g) => n + g.rows.length, 0);
+			const below =
+				unattributed > 0
+					? ` ${plural(unattributed, 'other bug is', 'other bugs are')} in the groups below.`
+					: '';
+			if (totals.all === 0) {
+				h.textContent = `No ${many} filed ${when} were attributed to a release.${below}`;
+				return;
+			}
+
+			h.append(
+				node('strong', null, plural(totals.all, one, many)),
+				` filed ${when} ${totals.all === 1 ? 'was' : 'were'} attributed to ${plural(groups.length, 'release', 'releases')}.`,
+			);
+			if (prefs.includeOrg) {
+				h.append(
+					` ${totals.community.toLocaleString()} from the community, ${totals.org.toLocaleString()} from the GitKraken org.`,
+				);
+			}
+			if (below) h.append(below);
+		}
+
+		function issueItem(row) {
+			const li = node('li');
+			const label = `#${row.number} ${typeof row.title === 'string' ? row.title : ''}`.trim();
+			if (isGitHubUrl(row.url)) {
+				li.append(node('a', { href: row.url, target: '_blank', rel: 'noopener noreferrer' }, label));
+			} else {
+				li.append(node('span', { class: 'plain' }, label));
+			}
+			const sha = typeof row.introducingCommit === 'string' ? row.introducingCommit : '';
+			if (/^[0-9a-f]{40}$/i.test(sha)) {
+				li.append(
+					node(
+						'a',
+						{
+							class: 'commit',
+							href: commitBase + sha.toLowerCase(),
+							target: '_blank',
+							rel: 'noopener noreferrer',
+							'aria-label': `Introducing commit ${sha.slice(0, 7)}`,
+						},
+						sha.slice(0, 7),
+					),
+				);
+			}
+			if (prefs.includeOrg && row.isOrg === true) li.append(node('span', { class: 'chip org' }, 'org'));
+			return li;
+		}
+
+		function numCell(value) {
+			return node('td', { class: value === 0 ? 'num zero' : 'num' }, value.toLocaleString());
+		}
+
+		function renderTable(result) {
+			const { groups, totals } = result;
+			el.ledger.hidden = groups.length === 0;
+			for (const tb of Array.from(el.table.tBodies)) tb.remove();
+			if (groups.length === 0) return;
+
+			const cols = ['Release', 'Shipped', 'Community'];
+			if (prefs.includeOrg) cols.push('GitKraken org');
+			el.head.replaceChildren(
+				...cols.map((c, i) => node('th', { scope: 'col', class: i >= 2 ? 'num' : null }, c)),
+			);
+
+			const byNumber = (a, b) => (Number(a.number) || 0) - (Number(b.number) || 0);
+			for (const g of groups) {
+				const tbody = node('tbody', { class: 'release' });
+				const tr = node('tr', { class: 'release-row' });
+				tr.append(
+					node('th', { scope: 'row' }, releaseName(g)),
+					node('td', { class: 'date' }, shipLabel(g)),
+					numCell(g.community.length),
+				);
+				if (prefs.includeOrg) tr.append(numCell(g.org.length));
+				tbody.append(tr);
+
+				const issuesRow = node('tr', { class: 'issues-row' });
+				const cell = node('td', { colspan: String(cols.length) });
+				const list = node('ul', { class: 'issue-list', 'aria-label': `Issues for ${releaseName(g)}` });
+				for (const row of g.community.concat(g.org).sort(byNumber)) list.append(issueItem(row));
+				cell.append(list);
+				issuesRow.append(cell);
+				tbody.append(issuesRow);
+				el.table.insertBefore(tbody, el.foot);
+			}
+
+			const ft = node('tr');
+			ft.append(
+				node('th', { scope: 'row' }, 'Total'),
+				node('td'),
+				node('td', { class: 'num' }, totals.community.toLocaleString()),
+			);
+			if (prefs.includeOrg) ft.append(node('td', { class: 'num' }, totals.org.toLocaleString()));
+			el.foot.replaceChildren(ft);
+		}
+
+		function renderStatusGroups(result) {
+			const show = store.available !== false && store.issues.length > 0;
+			el.statusGroups.hidden = !show;
+			el.statusList.replaceChildren();
+			if (!show) return;
+
+			const byNumber = (a, b) => (Number(a.number) || 0) - (Number(b.number) || 0);
+			for (const g of result.statusGroups) {
+				const box = node('section', { class: 'status-group', 'aria-label': g.title });
+				box.append(node('h3', null, g.title), node('p', { class: 'desc' }, g.desc));
+				box.firstChild.append(node('span', { class: 'count' }, plural(g.rows.length, 'bug', 'bugs')));
+				if (g.rows.length === 0) {
+					box.append(node('p', { class: 'none' }, 'None in this range.'));
+				} else {
+					const list = node('ul', { class: 'issue-list', 'aria-label': `Issues: ${g.title}` });
+					for (const row of g.rows.slice().sort(byNumber)) list.append(issueItem(row));
+					box.append(list);
+				}
+				el.statusList.append(box);
+			}
+		}
+
+		function render() {
+			const result = compute();
+			renderMeta();
+			renderControls(result.range);
+			renderNotice();
+			renderHeadline(result);
+			renderChart(result);
+			renderTable(result);
+			renderStatusGroups(result);
+		}
+
+		let frame = 0;
+		function scheduleRender() {
+			if (frame) return;
+			frame = requestAnimationFrame(() => {
+				frame = 0;
+				render();
+			});
+		}
+
+		for (const b of el.presets) {
+			b.addEventListener('click', () => {
+				prefs = { ...prefs, preset: b.dataset.preset, from: '', to: '' };
+				writePrefs();
+				render();
+			});
+		}
+
+		function onDateChange(changed) {
+			const ws = windowStart();
+			const current = effectiveRange();
+			let from = isoDate(el.from.value) ?? current.from;
+			let to = isoDate(el.to.value) ?? current.to;
+			from = maxDate(from, ws);
+			if (to && from && to < from) {
+				if (changed === 'from') {
+					to = from;
+				} else {
+					from = maxDate(to, ws);
+					if (to < from) to = from;
+				}
+			}
+			prefs = { ...prefs, preset: 'custom', from: from || '', to: to || '' };
+			writePrefs();
+			render();
+		}
+
+		el.from.addEventListener('change', () => onDateChange('from'));
+		el.to.addEventListener('change', () => onDateChange('to'));
+		el.includeOrg.addEventListener('change', () => {
+			prefs = { ...prefs, includeOrg: el.includeOrg.checked };
+			writePrefs();
+			render();
+		});
+
+		if (typeof ResizeObserver === 'function') {
+			let lastWidth = 0;
+			new ResizeObserver(entries => {
+				const w = Math.round(entries[0].contentRect.width);
+				if (w === lastWidth) return;
+				lastWidth = w;
+				scheduleRender();
+			}).observe(el.chartScroll);
+		}
+
+		function settleLoad() {
+			if (store.definitive.issues && store.definitive.releases && store.definitive.meta && loadTimer) {
+				clearTimeout(loadTimer);
+				loadTimer = null;
+				store.timedOut = false;
+			}
+		}
+
+		function onError(e) {
+			if (loadTimer) {
+				clearTimeout(loadTimer);
+				loadTimer = null;
+			}
+			store.timedOut = false;
+			const code = e && typeof e.code === 'string' ? e.code : 'unavailable';
+			store.error =
+				code === 'revoked' ||
+				code === 'not_granted' ||
+				code === 'capability_disabled' ||
+				code === 'capability_removed'
+					? 'The release data is no longer available in this view.'
+					: 'The release data stopped updating. Reload the page to reconnect.';
+			scheduleRender();
+		}
+
+		async function connect() {
+			let db = null;
+			try {
+				const api = window.claude;
+				db = api && typeof api.use === 'function' ? await api.use('db') : null;
+			} catch {
+				db = null;
+			}
+
+			if (!db) {
+				store.available = false;
+				scheduleRender();
+				return;
+			}
+			store.available = true;
+
+			loadTimer = setTimeout(() => {
+				loadTimer = null;
+				store.timedOut = true;
+				scheduleRender();
+			}, loadTimeoutMs);
+
+			db.collection('issues').onSnapshot(snap => {
+				store.issues = snap.docs.map(d => d.data()).filter(Boolean);
+				store.received.issues = true;
+				if (!snap.metadata.fromCache) store.definitive.issues = true;
+				settleLoad();
+				scheduleRender();
+			}, onError);
+
+			db.collection('releases').onSnapshot(snap => {
+				const map = new Map();
+				for (const d of snap.docs) {
+					const data = d.data();
+					if (!data) continue;
+					const tag = typeof data.tag === 'string' && data.tag ? data.tag : d.id;
+					map.set(tag, data);
+				}
+				store.releases = map;
+				store.received.releases = true;
+				if (!snap.metadata.fromCache) store.definitive.releases = true;
+				settleLoad();
+				scheduleRender();
+			}, onError);
+
+			db.doc('meta/state').onSnapshot(snap => {
+				store.meta = snap.exists ? (snap.data() ?? null) : null;
+				store.received.meta = true;
+				if (!snap.metadata.fromCache) store.definitive.meta = true;
+				settleLoad();
+				scheduleRender();
+			}, onError);
+		}
+
+		render();
+		connect();
+	})();
+</script>

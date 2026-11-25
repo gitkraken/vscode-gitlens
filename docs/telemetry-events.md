@@ -5815,7 +5815,24 @@ or
 ```typescript
 {
   // Whether the call to action offers Install Kepler; otherwise only Learn More
-  'installable': boolean
+  'installable': boolean,
+  // Why Install Kepler isn't offered; absent when it is, or when the reason isn't known yet. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `installed` = Kepler is already installed (Welcome card only)
+  'reason': 'channel' | 'installed' | 'remote' | 'unavailable' | 'unsupported'
+}
+```
+
+### kepler/install/abandoned
+
+> Sent when an install of Kepler that never reported an outcome has stopped — its window was closed or reloaded, or VS Code quit, while it ran. Sent by the next local window to start once the install has shown no sign of life for 2 minutes, which can be much later than it stopped
+
+```typescript
+{
+  // How long the install was known to be running, in milliseconds — from its start to its last sign of life, at most 30 seconds before it stopped
+  'duration': number,
+  // The kind of installer file used, which follows the platform
+  'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup',
+  // The step the install was last known to be in; absent when it had not started downloading
+  'step': 'download' | 'install' | 'register' | 'verify'
 }
 ```
 
@@ -5894,8 +5911,8 @@ or
 
 ```typescript
 {
-  // Why nothing was installed. `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed
-  'reason': 'already-installed' | 'channel' | 'remote' | 'unsupported'
+  // Why nothing was installed. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed
+  'reason': 'already-installed' | 'channel' | 'remote' | 'unavailable' | 'unsupported'
 }
 ```
 
@@ -5905,6 +5922,8 @@ or
 
 ```typescript
 {
+  // Set when an install started from another window was still running; best-effort, since windows learn of each other's installs with a delay
+  'concurrent': true,
   // The kind of installer file used, which follows the platform
   'kind': 'linux-appimage' | 'mac-zip' | 'windows-setup'
 }
@@ -5918,8 +5937,12 @@ or
 {
   // What the user picked. `review` / `review-agent` = continued without Kepler; `back` = went back a wizard step; `dismiss` = closed the prompt
   'action': 'back' | 'dismiss' | 'install' | 'learn-more' | 'review' | 'review-agent',
+  // Whether Install Kepler installs it; otherwise it opens the download page
+  'installable': boolean,
   // What the user was doing when Kepler turned out not to be installed. `open-session` = opening an agent session in Kepler
   'intent': 'new-task' | 'open-session' | 'start-review' | 'start-work',
+  // Why Install Kepler opens the download page instead; absent when `installable`. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU
+  'reason': 'channel' | 'remote' | 'unavailable' | 'unsupported',
   // Whether the prompt was a step of the Start Work or Start Review wizard
   'wizard': boolean
 }

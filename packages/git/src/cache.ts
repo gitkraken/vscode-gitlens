@@ -5,6 +5,7 @@ import { invalidateMemoized } from '@gitlens/utils/decorators/memoize.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { getBranchId } from '@gitlens/utils/gitRefs.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { normalizePath } from '@gitlens/utils/path.js';
 import type { PromiseOrValue } from '@gitlens/utils/promise.js';
@@ -36,6 +37,7 @@ import type { GitResult } from './run.types.js';
 import { parseBranchMetadataGkConfigKey, setBranchMetadataValue } from './utils/branch.utils.js';
 import { createReference } from './utils/reference.utils.js';
 import { getCommonRepositoryPath, getRepositoryOrWorktreePath, getWorktreeAdminId } from './utils/repository.utils.js';
+import { nextChangeOrdinal } from './watching/changeOrdinal.js';
 import type { GitIgnoreFilter } from './watching/gitIgnoreFilter.js';
 
 type RepoPath = string;
@@ -66,6 +68,25 @@ export type CachedGitTypes =
 	| 'worktrees'
 	/** Only the worktree list: unlike `'worktrees'`, no worktree's git results or merge targets */
 	| 'worktreeList';
+
+/**
+ * The cache types whose change leaves `gitResults` valid. Its runs read refs, objects and config, never the index or a
+ * working tree, so an index or file change (`blame`, `diff`, `fileLog`, `tracking`) keeps them; it is shared by every
+ * worktree of a repository, so clearing it on those would drop every worktree's results on each `git add`.
+ * A fetch that moves a ref reports that ref's change; `lastFetched` alone means only `FETCH_HEAD` was written, and a
+ * run that names `FETCH_HEAD` is never cached.
+ */
+const typesKeepingGitResults: ReadonlySet<CachedGitTypes> = new Set<CachedGitTypes>([
+	'blame',
+	'diff',
+	'fileLog',
+	'gitignore',
+	'gkConfig',
+	'lastFetched',
+	'providers',
+	'tracking',
+	'worktreeList',
+]);
 
 /** Whether a reset of these types makes in-flight git runs stale (none or empty meaning every type) */
 export function resetDropsPendingRuns(types: readonly CachedGitTypes[] | undefined): boolean {
@@ -120,12 +141,26 @@ const maxCachedBlameLines = 5000;
 /** Per drop-stamped cache, paths whose last drop is tracked; the oldest beyond this folds into the all-paths floor */
 const dropsTracked = 128;
 
+/** Repositories whose shared evictions are tracked (see {@link sharedCacheSources}); the oldest beyond this are forgotten */
+const sharedEvictionsTracked = 128;
+
 /**
- * Per-path caches whose drops are stamped, so a read can tell its entry was dropped mid-flight
- * (see {@link Cache.isDroppedSince})
+ * How long a read waits for the host to register its checkout (see {@link Cache.setRepoPathRegistrar}) before going
+ * ahead unregistered, so a registrar that never settles delays each checkout's first reads once rather than holding
+ * them for good
  */
-export type DropStampedCacheKey = 'currentBranchReference' | 'currentUser';
-const dropStampedCacheKeys = exhaustiveArray<DropStampedCacheKey>()(['currentBranchReference', 'currentUser']);
+const registrationWaitMs = 10 * 1000; // 10 seconds
+
+/**
+ * Caches whose drops are stamped, so a read can tell its entry was dropped mid-flight (see {@link Cache.isDroppedSince}).
+ * A shared cache's drops are stamped by common path, whichever of its checkouts' paths is asked about
+ */
+export type DropStampedCacheKey = 'currentBranchReference' | 'currentUser' | 'defaultBranchName';
+const dropStampedCacheKeys = exhaustiveArray<DropStampedCacheKey>()([
+	'currentBranchReference',
+	'currentUser',
+	'defaultBranchName',
+]);
 
 export async function shouldEvictBlameCacheEntry(progressive: ProgressiveGitBlame | undefined): Promise<boolean> {
 	if (progressive == null) return false;
@@ -315,6 +350,51 @@ const sharedCacheKeys: ReadonlySet<keyof AllCaches> = new Set(
 	]),
 );
 
+function isSharedCacheKey(key: keyof AllCaches): key is keyof SharedCaches {
+	return sharedCacheKeys.has(key);
+}
+
+/**
+ * What each shared cache's entries are read from, which decides whether a watcher's report of a change may skip evicting
+ * it once an eviction after the change already did (see {@link Cache.applyRepositoryChanges}): `[]` for git alone, the
+ * caches an entry is built from, or `undefined` where that isn't known. A cache built from a checkout's own cache (one
+ * no shared eviction drops whole), from one not known, or from such a cache in turn, is evicted by every report.
+ */
+const sharedCacheSources: Record<keyof SharedCaches, readonly (keyof AllCaches)[] | undefined> = {
+	aheadOfBaseConfigListing: undefined,
+	baseBranchName: undefined,
+	branchMergedStatus: undefined,
+	branchMetadataMap: ['gkConfigMap'],
+	branchOverviews: undefined,
+	// Each checkout's list marks the branch current there, from its own current branch
+	branches: ['sharedBranches', 'currentBranchReference', 'branchMetadataMap'],
+	configKeys: undefined,
+	configPatterns: undefined,
+	contributors: undefined,
+	contributorsLite: undefined,
+	contributorsStats: undefined,
+	defaultBranchName: [],
+	emptyTreeSha: undefined,
+	gitResults: [],
+	gkConfigMap: undefined,
+	ignoreConfigListing: undefined,
+	initialCommitSha: undefined,
+	lastFetched: undefined,
+	logShas: undefined,
+	mergeTargets: undefined,
+	refs: [],
+	refTips: ['refs'],
+	remotes: undefined,
+	// The remotes split an upstream's name where git can't name its remote
+	sharedBranches: ['refs', 'branchMetadataMap', 'remotes'],
+	stashes: ['currentUser'],
+	tags: ['refs'],
+	worktrees: ['branches'],
+};
+
+/** The shared caches that say which branch is checked out in which worktree (see `Cache.evictBranchPlacement`) */
+const placementCacheKeys = ['refs', 'sharedBranches', 'branches'] as const satisfies readonly (keyof SharedCaches)[];
+
 function createEmptyCaches(): AllCaches {
 	return {
 		aheadOfBaseConfigKey: undefined,
@@ -387,6 +467,8 @@ export class Cache implements Disposable {
 	private _mergeTargetCheckoutGeneration = 0;
 	/** Each merge target answer's entry as `mergeTargets` stored it, so dropping a stale answer can't drop its successor */
 	private _mergeTargetStored = new WeakMap<CachedMergeTarget, Promise<CachedMergeTarget>>();
+	/** Each worktree's mapped entry of a shared read, to the shared entry it was mapped from */
+	private _mappedFrom = new WeakMap<Promise<unknown>, Promise<unknown>>();
 	/** Advanced each time a drop-stamped cache's entries are dropped (see {@link getDropStamp}) */
 	private _drops = 0;
 	/**
@@ -396,6 +478,7 @@ export class Cache implements Disposable {
 	private readonly _droppedAt: Record<DropStampedCacheKey, { byPath: Map<RepoPath, number>; all: number }> = {
 		currentBranchReference: { byPath: new Map(), all: 0 },
 		currentUser: { byPath: new Map(), all: 0 },
+		defaultBranchName: { byPath: new Map(), all: 0 },
 	};
 	/**
 	 * Each ref listing's records checked out in a worktree, with the value of {@link _drops} when the listing started
@@ -414,6 +497,20 @@ export class Cache implements Disposable {
 	 * `'worktreeHead'` report says moved (see {@link applyRepositoryChanges})
 	 */
 	private _worktreeAdminIds = new Map<RepoPath, string>();
+	/**
+	 * Per common path, oldest first, the change ordinal (see `nextChangeOrdinal`) taken when each shared cache was last
+	 * evicted whole for the repository with nothing read before left to serve or join (see {@link sharedCacheSources}),
+	 * and when the ref listing, the shared branch list and every checkout's branch list were last so evicted together
+	 * (`'branchPlacement'`, see {@link evictBranchPlacement})
+	 */
+	private _sharedEvictions = new Map<string, Map<keyof SharedCaches | 'branchPlacement', number>>();
+	/**
+	 * Linked worktrees whose HEAD a report moved without clearing the repository's base branch names, with the branch
+	 * the ref listing cached then placed there (`undefined` when none was). The next listing that places another branch
+	 * there drops that branch's cached base, which its first checkout may have just given it (see
+	 * {@link dropBasesOwedOnCheckout})
+	 */
+	private _basesOwedOnCheckout = new Map<RepoPath, string | undefined>();
 
 	/**
 	 * Per-commonPath snapshot of the subset of `.git/gk/config` that derived caches depend on — merge-relevant keys
@@ -456,6 +553,17 @@ export class Cache implements Disposable {
 	/** What the read validator reports among {@link getResourceUsage}'s */
 	private _readValidatorUsage: (() => ResourceUsage) | undefined;
 
+	/** Asked to register a checkout before its first read (see {@link setRepoPathRegistrar}) */
+	private _repoPathRegistrar: ((repoPath: string) => Promise<void> | undefined) | undefined;
+	/**
+	 * Registrations still in flight, by checkout. `wait` is what a read waits on, `undefined` while the registrar runs
+	 * synchronously (so its own reads go ahead) and once the wait timed out
+	 */
+	private _registrations = new Map<
+		RepoPath,
+		{ wait: Promise<void> | undefined; release: () => void; timer: ReturnType<typeof setTimeout> | undefined }
+	>();
+
 	[Symbol.dispose](): void {
 		this.dispose();
 	}
@@ -464,6 +572,7 @@ export class Cache implements Disposable {
 		this.reset();
 		this._readValidator = undefined;
 		this._readValidatorUsage = undefined;
+		this._repoPathRegistrar = undefined;
 		this._onDidChangeMergeTargets.dispose();
 	}
 
@@ -485,6 +594,97 @@ export class Cache implements Disposable {
 	): void {
 		this._readValidator = validator;
 		this._readValidatorUsage = validator != null ? getResourceUsage : undefined;
+	}
+
+	/** Whether a read validator is set (see {@link setReadValidator}), so the host keeps the caches it covers current */
+	get readsAreValidated(): boolean {
+		return this._readValidator != null;
+	}
+
+	/**
+	 * Registers what registers a checkout (see {@link registerRepoPath}) before its first read through the service's
+	 * per-repository sub-providers, since a checkout read before it is registered keeps its own copy of what its
+	 * repository's checkouts share, which its registration then throws away. Asked by {@link ensureRegistered}, one ask
+	 * at a time per checkout, until the checkout is registered. It registers the checkout itself, then answers a
+	 * promise that settles once it did; it answers `undefined`, cheaply and synchronously, for a path it declines (one
+	 * it doesn't know or trust), and is asked again at that path's next read. Its own reads of the checkout's git dir
+	 * (`config.getGitDir`, `getRepositoryInfo`) go ahead without waiting on it, as does every read it makes before its
+	 * first `await`; any other read it makes of that checkout through the service waits on it. `undefined` removes it.
+	 * Kept across {@link reset}: it is host wiring, not cached state.
+	 */
+	setRepoPathRegistrar(registrar: ((repoPath: string) => Promise<void> | undefined) | undefined): void {
+		this._repoPathRegistrar = registrar;
+	}
+
+	/**
+	 * Asks the registrar (see {@link setRepoPathRegistrar}) to register `repoPath` unless it is registered: `undefined`
+	 * when there is nothing to wait for (no registrar, a path already registered or declined), or a promise, never
+	 * rejecting, to read after. Concurrent calls for one path share one ask. A registrar that fails is logged and the
+	 * read goes ahead unregistered; one that is slow is waited on for a while, after which reads go ahead and the path
+	 * isn't asked again until it settles.
+	 */
+	ensureRegistered(repoPath: string): Promise<void> | undefined {
+		const registrar = this._repoPathRegistrar;
+		if (registrar == null || this._commonPathRegistry.has(repoPath)) return undefined;
+
+		const inFlight = this._registrations.get(repoPath);
+		if (inFlight != null) return inFlight.wait;
+
+		const registration: {
+			wait: Promise<void> | undefined;
+			release: () => void;
+			timer: ReturnType<typeof setTimeout> | undefined;
+		} = {
+			wait: undefined,
+			release: () => {},
+			timer: undefined,
+		};
+		// Before asking, so the registrar's own reads of the path find it in flight rather than asking again
+		this._registrations.set(repoPath, registration);
+		const forget = () => {
+			if (this._registrations.get(repoPath) === registration) {
+				this._registrations.delete(repoPath);
+			}
+		};
+
+		let pending: Promise<void> | undefined;
+		try {
+			pending = registrar(repoPath);
+		} catch (ex) {
+			Logger.warn(`Cache: registering '${repoPath}' failed: ${String(ex)}`);
+		}
+		if (pending == null) {
+			forget();
+			return undefined;
+		}
+
+		registration.wait = new Promise<void>(resolve => {
+			registration.release = resolve;
+		});
+		const timer = setTimeout(() => {
+			registration.timer = undefined;
+			registration.wait = undefined;
+			registration.release();
+		}, registrationWaitMs);
+		// A slow registration alone must not keep a (Node) process alive; in the browser timers are numbers
+		if (typeof timer !== 'number') {
+			timer.unref();
+		}
+		registration.timer = timer;
+
+		const settle = () => {
+			if (registration.timer != null) {
+				clearTimeout(registration.timer);
+				registration.timer = undefined;
+			}
+			registration.release();
+			forget();
+		};
+		Promise.resolve(pending).then(settle, (ex: unknown) => {
+			Logger.warn(`Cache: registering '${repoPath}' failed: ${String(ex)}`);
+			settle();
+		});
+		return registration.wait;
 	}
 
 	/**
@@ -525,7 +725,10 @@ export class Cache implements Disposable {
 		usage['cache.mergeTargetsEvictedOnCheckout.entries.count'] = this._mergeTargetsEvictedOnCheckout.size;
 		usage['cache.currentBranchDroppedAt.entries.count'] = this._droppedAt.currentBranchReference.byPath.size;
 		usage['cache.currentUserDroppedAt.entries.count'] = this._droppedAt.currentUser.byPath.size;
+		usage['cache.defaultBranchNameDroppedAt.entries.count'] = this._droppedAt.defaultBranchName.byPath.size;
 		usage['cache.seededWorktrees.entries.count'] = this._seededWorktrees.size;
+		usage['cache.sharedEvictions.entries.count'] = this._sharedEvictions.size;
+		usage['cache.basesOwedOnCheckout.entries.count'] = this._basesOwedOnCheckout.size;
 		if (this._readValidatorUsage != null) {
 			Object.assign(usage, this._readValidatorUsage());
 		}
@@ -692,6 +895,7 @@ export class Cache implements Disposable {
 
 			this.untrackSeededWorktree(path);
 			this.dropCurrentBranch(path);
+			this._basesOwedOnCheckout.delete(path);
 		}
 		for (const path of reported) {
 			this.trackSeededWorktree(path, commonPath);
@@ -718,6 +922,7 @@ export class Cache implements Disposable {
 		paths.delete(commonPath);
 
 		for (const path of paths) {
+			this.oweBaseOnCheckout(path, commonPath);
 			this.dropCurrentBranch(path);
 		}
 	}
@@ -736,17 +941,118 @@ export class Cache implements Disposable {
 			found.add(id);
 			if (path === repoPath) continue;
 
-			// Its own entries and status clock; the shared ones are for `repoPath`'s `'worktreeHead'` to clear
-			this.applyRepositoryChanges(path, ['head'], inFlight, { worktreeOnly: true });
-			// Its entries in shared caches, which `worktreeOnly` leaves: its mapped list marks the branch it left current,
-			// and its git results may have read the HEAD it left
-			this._caches.branches?.delete(path);
-			this._caches.gitResults?.delete(path);
+			// The shared entries are for `repoPath`'s `'worktreeHead'` to clear
+			this.applyLinkedWorktreeChanges(path, ['head'], inFlight);
 		}
 
 		if (found.size < ids.size) {
 			this.dropLinkedCurrentBranches(repoPath, true);
 		}
+	}
+
+	/**
+	 * Clears what `changes` can have made stale in the linked worktree at `repoPath`'s own entries and status clock,
+	 * leaving the shared (commonPath-keyed) ones alone, for a change that can't have moved what they hold. `inFlight` is
+	 * as {@link applyRepositoryChanges}
+	 */
+	applyLinkedWorktreeChanges(
+		repoPath: string,
+		changes: Iterable<RepositoryChange>,
+		inFlight: 'share' | 'evict',
+	): void {
+		const changesSet = new Set(changes);
+		if (changesSet.has('head')) {
+			// `worktreeOnly` leaves the repository's base branch names
+			this.oweBaseOnCheckout(repoPath, this.getCommonPath(repoPath));
+		}
+		this.applyRepositoryChanges(repoPath, changesSet, inFlight, { worktreeOnly: true });
+		if (!changesSet.has('head')) return;
+
+		// Its entries in shared caches, which `worktreeOnly` leaves: its mapped list marks the branch it left current, and
+		// its git results may have read the HEAD it left
+		this._caches.branches?.delete(repoPath);
+		this._caches.gitResults?.delete(repoPath);
+	}
+
+	/**
+	 * Notes that `worktreePath`'s HEAD moved, with the branch the cached ref listing of `commonPath` placed there, unless
+	 * a move not yet seen by a listing was noted already (see {@link _basesOwedOnCheckout})
+	 */
+	private oweBaseOnCheckout(worktreePath: string, commonPath: string): void {
+		if (this._basesOwedOnCheckout.has(worktreePath)) return;
+
+		let branch: string | undefined;
+		for (const record of this._caches.refs?.getSettled(commonPath)?.value ?? []) {
+			if (record.worktreePath && record.name.startsWith('refs/heads/')) {
+				if (normalizePath(record.worktreePath) === worktreePath) {
+					branch = record.name.substring(11);
+					break;
+				}
+			}
+		}
+		this._basesOwedOnCheckout.set(worktreePath, branch);
+	}
+
+	/**
+	 * Drops the cached base of each branch that `records`, a listing of `commonPath` started at drop stamp `at` (see
+	 * {@link getDropStamp}), places in a worktree owing one, when it isn't the branch placed there before its HEAD moved.
+	 * Only one branch per moved worktree is read again, where clearing every base would read one per worktree
+	 */
+	private dropBasesOwedOnCheckout(commonPath: string, records: readonly RefRecord[], at: number): void {
+		if (!this._basesOwedOnCheckout.size) return;
+
+		for (const record of records) {
+			if (!record.worktreePath || !record.name.startsWith('refs/heads/')) continue;
+
+			const path = normalizePath(record.worktreePath);
+			if (!this._basesOwedOnCheckout.has(path)) continue;
+			// A listing started before the move was seen may place the branch it left
+			if (this.isDroppedSince('currentBranchReference', path, at)) continue;
+
+			const branch = record.name.substring(11);
+			if (this._basesOwedOnCheckout.get(path) !== branch) {
+				this.deleteBaseBranchName(commonPath, branch);
+			}
+			this._basesOwedOnCheckout.delete(path);
+		}
+	}
+
+	/**
+	 * Whether `movedWorktrees` names no linked worktree but `repoPath`, whose own `'head'` reports its HEAD moving. An
+	 * empty set names none known, which may be any
+	 */
+	private movedOnlyItself(repoPath: string, movedWorktrees: ReadonlySet<string> | undefined): boolean {
+		if (!movedWorktrees?.size) return false;
+
+		const id = this._worktreeAdminIds.get(repoPath);
+		return [...movedWorktrees].every(m => m === id);
+	}
+
+	/**
+	 * Drops what says which branch is checked out in which worktree, for every worktree of `repoPath`'s repository: the
+	 * ref listing, the shared branch list built from it, and each worktree's list mapped from that. Hard-deleted even
+	 * when reads in flight would otherwise be shared, as one that listed the refs before the HEAD moved must not answer
+	 * a read issued after it.
+	 *
+	 * A report stamped `observedAt` (see {@link applyRepositoryChanges}) skips it once all three were dropped together
+	 * after that, with nothing read before left to serve or join: each holder rebuilt since was built from a ref listing
+	 * started after the change was observed, so it already places the branches as the change left them.
+	 */
+	private evictBranchPlacement(repoPath: string, observedAt: number | undefined): void {
+		if (observedAt != null) {
+			const evictedAt = this._sharedEvictions.get(this.getCommonPath(repoPath))?.get('branchPlacement');
+			if (evictedAt != null && evictedAt > observedAt) return;
+		}
+
+		const cleared = new Set<keyof SharedCaches>();
+		for (const key of placementCacheKeys) {
+			if (this._caches[key] == null) {
+				cleared.add(key);
+			} else {
+				this.evictShared(key, repoPath, 'evict', cleared);
+			}
+		}
+		this.recordSharedEvictions(repoPath, cleared);
 	}
 
 	/** Drops what a `'branch'` eviction of `worktreePath` drops of its current branch, and nothing shared */
@@ -766,13 +1072,18 @@ export class Cache implements Disposable {
 		if (key == null || repoPath == null) return this._drops;
 
 		const droppedAt = this._droppedAt[key];
-		return Math.max(droppedAt.all, droppedAt.byPath.get(repoPath) ?? 0);
+		return Math.max(droppedAt.all, droppedAt.byPath.get(this.getDropStampedPath(key, repoPath)) ?? 0);
 	}
 
 	/** Whether `key`'s entry for `repoPath` was dropped after `stamp` was taken by {@link getDropStamp} */
 	isDroppedSince(key: DropStampedCacheKey, repoPath: string, stamp: number): boolean {
 		const droppedAt = this._droppedAt[key];
-		return stamp < droppedAt.all || stamp < (droppedAt.byPath.get(repoPath) ?? 0);
+		return stamp < droppedAt.all || stamp < (droppedAt.byPath.get(this.getDropStampedPath(key, repoPath)) ?? 0);
+	}
+
+	/** The path `key`'s drops for `repoPath` are stamped by: its common path for a shared cache */
+	private getDropStampedPath(key: DropStampedCacheKey, repoPath: string): string {
+		return isSharedCacheKey(key) ? this.getCommonPath(repoPath) : repoPath;
 	}
 
 	/** Stamps a drop of `keys`' entries for `repoPath`, or for every path when `undefined` */
@@ -789,8 +1100,9 @@ export class Cache implements Disposable {
 			}
 
 			// Re-inserted so the map stays ordered oldest drop first
-			droppedAt.byPath.delete(repoPath);
-			droppedAt.byPath.set(repoPath, this._drops);
+			const path = this.getDropStampedPath(key, repoPath);
+			droppedAt.byPath.delete(path);
+			droppedAt.byPath.set(path, this._drops);
 			if (droppedAt.byPath.size > dropsTracked) {
 				const [oldestPath, oldestAt] = droppedAt.byPath.entries().next().value!;
 				droppedAt.byPath.delete(oldestPath);
@@ -1023,12 +1335,16 @@ export class Cache implements Disposable {
 		this.clearCachesCore('evict', repoPath, types);
 	}
 
-	/** `worktreeOnly` leaves the shared (commonPath-keyed) entries alone (see {@link applyRepositoryChanges}) */
+	/**
+	 * `worktreeOnly` leaves the shared (commonPath-keyed) entries alone, and `observedAt` skips those an eviction after
+	 * it already dropped (see {@link applyRepositoryChanges})
+	 */
 	private clearCachesCore(
 		inFlight: 'share' | 'evict',
 		repoPath: string | undefined,
 		types: readonly CachedGitTypes[],
 		worktreeOnly: boolean = false,
+		observedAt?: number,
 	): void {
 		const keysToClear = new Set<keyof AllCaches>();
 
@@ -1210,39 +1526,53 @@ export class Cache implements Disposable {
 				keysToClear.add('worktrees');
 			}
 
-			// Git results: cleared for any meaningful type change
-			if (types.some(t => t !== 'gitignore' && t !== 'gkConfig' && t !== 'providers' && t !== 'worktreeList')) {
+			if (types.some(t => !typesKeepingGitResults.has(t))) {
 				keysToClear.add('gitResults');
 			}
 		}
 
 		this.onDropped(
 			repoPath,
-			dropStampedCacheKeys.filter(k => keysToClear.has(k)),
+			// `worktreeOnly` leaves the shared entries in place
+			dropStampedCacheKeys.filter(k => keysToClear.has(k) && !(worktreeOnly && isSharedCacheKey(k))),
 		);
 
+		if (repoPath == null) {
+			this._sharedEvictions.clear();
+		}
+
+		const cleared = new Set<keyof SharedCaches>();
 		for (const key of keysToClear) {
 			const cache = this._caches[key];
-			if (cache == null) continue;
+			if (cache == null) {
+				// Nothing read to serve or join
+				if (repoPath != null && !worktreeOnly && isSharedCacheKey(key)) {
+					cleared.add(key);
+				}
+				continue;
+			}
 
 			if (repoPath == null || key === 'superprojects') {
 				cache.clear();
 			} else if (key === 'aheadOfBaseConfigKey' && !worktreeOnly && (!types.length || types.includes('config'))) {
 				// Config reports don't distinguish a common config write from a checkout-specific one.
 				this.evictShared(key, repoPath, 'evict');
-			} else if (sharedCacheKeys.has(key)) {
-				if (!worktreeOnly) {
+			} else if (isSharedCacheKey(key)) {
+				if (!worktreeOnly && (observedAt == null || !this.isSharedEvictedSince(key, repoPath, observedAt))) {
 					// A fresh config fingerprint must never be paired with a pre-change base command, nor taken from a
 					// listing read before the change
 					const hardEvict =
 						key === 'aheadOfBaseConfigListing' ||
 						key === 'ignoreConfigListing' ||
 						(key === 'gitResults' && (types.includes('config') || types.includes('branch')));
-					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight);
+					this.evictShared(key, repoPath, hardEvict ? 'evict' : inFlight, cleared);
 				}
 			} else {
 				cache.delete(repoPath);
 			}
+		}
+		if (repoPath != null && cleared.size) {
+			this.recordSharedEvictions(repoPath, cleared);
 		}
 
 		// The checkout's own mapped list marks its old branch current. Not through `keysToClear`: `branches` is shared,
@@ -1269,29 +1599,109 @@ export class Cache implements Disposable {
 	 *
 	 * When `inFlight` is `'evict'`, always hard-deletes regardless of `invalidate` support — a new caller
 	 * must never join a read that started before this eviction (see {@link evictCaches}).
+	 *
+	 * A shared `key` left with nothing read before to serve or join is added to `cleared`, for the caller to record
+	 * with the rest of its eviction; without `cleared`, it is recorded alone (see {@link recordSharedEvictions}).
 	 */
-	private evictShared(key: keyof AllCaches, repoPath: string, inFlight: 'share' | 'evict' = 'share'): void {
+	private evictShared(
+		key: keyof AllCaches,
+		repoPath: string,
+		inFlight: 'share' | 'evict' = 'share',
+		cleared?: Set<keyof SharedCaches>,
+	): void {
 		const cache = this._caches[key];
 		if (cache == null) return;
 
 		const commonPath = this.getCommonPath(repoPath);
+		const paths = [commonPath, ...this.getWorktreePaths(commonPath).filter(p => p !== commonPath)];
 		const invalidate =
 			inFlight === 'share' ? (cache as { invalidate?: (k: string) => void }).invalidate : undefined;
 		if (typeof invalidate === 'function') {
-			invalidate.call(cache, commonPath);
-			for (const worktreePath of this.getWorktreePaths(commonPath)) {
-				if (worktreePath === commonPath) continue;
-
-				invalidate.call(cache, worktreePath);
+			for (const path of paths) {
+				invalidate.call(cache, path);
 			}
 		} else {
-			cache.delete(commonPath);
-			for (const worktreePath of this.getWorktreePaths(commonPath)) {
-				if (worktreePath === commonPath) continue;
-
-				cache.delete(worktreePath);
+			for (const path of paths) {
+				cache.delete(path);
 			}
 		}
+
+		if (!isSharedCacheKey(key)) return;
+
+		// A soft invalidate leaves only a read in flight, which a new caller still joins
+		if (typeof invalidate === 'function') {
+			const has = (cache as { has?: (k: string) => boolean }).has;
+			if (typeof has !== 'function' || paths.some(p => has.call(cache, p))) return;
+		}
+
+		if (cleared != null) {
+			cleared.add(key);
+		} else {
+			this.recordSharedEvictions(repoPath, new Set([key]));
+		}
+	}
+
+	/**
+	 * Records that the shared caches in `cleared` were just evicted whole for `repoPath`'s repository, leaving nothing
+	 * read before to serve or join: each read from git alone, and each built from others only when all of them are
+	 * recorded here too (see {@link sharedCacheSources}). With every one of {@link placementCacheKeys} among them, also
+	 * records where each branch is checked out as evicted (see {@link evictBranchPlacement})
+	 */
+	private recordSharedEvictions(repoPath: string, cleared: ReadonlySet<keyof SharedCaches>): void {
+		const recorded = new Set<keyof AllCaches>();
+		let added = true;
+		while (added) {
+			added = false;
+			for (const key of cleared) {
+				if (recorded.has(key)) continue;
+
+				const sources = sharedCacheSources[key];
+				if (sources == null || !sources.every(s => recorded.has(s))) continue;
+
+				recorded.add(key);
+				added = true;
+			}
+		}
+		const placement = placementCacheKeys.every(k => cleared.has(k));
+		if (!recorded.size && !placement) return;
+
+		const commonPath = this.getCommonPath(repoPath);
+		const evictions =
+			this._sharedEvictions.get(commonPath) ?? new Map<keyof SharedCaches | 'branchPlacement', number>();
+		// Re-inserted so the map stays ordered oldest first
+		this._sharedEvictions.delete(commonPath);
+		this._sharedEvictions.set(commonPath, evictions);
+		if (this._sharedEvictions.size > sharedEvictionsTracked) {
+			this._sharedEvictions.delete(this._sharedEvictions.keys().next().value!);
+		}
+
+		const at = nextChangeOrdinal();
+		for (const key of recorded) {
+			if (isSharedCacheKey(key)) {
+				evictions.set(key, at);
+			}
+		}
+		if (placement) {
+			evictions.set('branchPlacement', at);
+		}
+	}
+
+	/**
+	 * Whether `key`, and every cache it is built from, was evicted whole for `repoPath`'s repository after `observedAt`,
+	 * with nothing read before left to serve or join: all they hold since was read after a change observed then
+	 */
+	private isSharedEvictedSince(key: keyof AllCaches, repoPath: string, observedAt: number): boolean {
+		const evictions = this._sharedEvictions.get(this.getCommonPath(repoPath));
+		if (evictions == null) return false;
+
+		const isEvictedSince = (k: keyof AllCaches): boolean => {
+			if (!isSharedCacheKey(k)) return false;
+
+			const sources = sharedCacheSources[k];
+			const at = evictions.get(k);
+			return sources != null && at != null && at > observedAt && sources.every(isEvictedSince);
+		};
+		return isEvictedSince(key);
 	}
 
 	/**
@@ -1400,6 +1810,9 @@ export class Cache implements Disposable {
 			this.unregisterRepoPath(normalizedPath);
 		}
 		if (previousCommonPath !== commonPath) {
+			// What was evicted whole didn't include this checkout's own entries
+			this._sharedEvictions.delete(commonPath);
+			this._sharedEvictions.delete(normalizedPath);
 			this._caches.aheadOfBaseConfigKey?.delete(normalizedPath);
 			if (normalizedPath === commonPath) {
 				this._caches.aheadOfBaseConfigListing?.delete(commonPath);
@@ -1483,12 +1896,18 @@ export class Cache implements Disposable {
 		// Advance the close clock so an async step that captured it before its read (see `getCloseGeneration`)
 		// can tell its target went away mid-flight.
 		this._closeGenerations.set(repoPath, (this._closeGenerations.get(repoPath) ?? 0) + 1);
-		this.onDropped(repoPath);
 
 		const commonPath = this._commonPathRegistry.get(repoPath) ?? repoPath;
+		this._sharedEvictions.delete(commonPath);
+		this._sharedEvictions.delete(repoPath);
 		const worktrees = this._worktreesByCommonPath.get(commonPath);
 		// After removing repoPath, would the commonPath have any worktrees left?
 		const isLastWorktree = worktrees == null || worktrees.size <= 1;
+		// A shared entry is dropped below only with the last worktree
+		this.onDropped(
+			repoPath,
+			dropStampedCacheKeys.filter(k => isLastWorktree || !isSharedCacheKey(k)),
+		);
 
 		// Targeted per-repoPath cleanup: for per-worktree caches, clear this repoPath's
 		// entries. For shared caches, clear this repoPath's mapper entry (if it's a worktree
@@ -1545,10 +1964,12 @@ export class Cache implements Disposable {
 			for (const path of [...(this._seededWorktreesByCommonPath.get(commonPath) ?? [])]) {
 				this.untrackSeededWorktree(path);
 				this.dropCurrentBranch(path);
+				this._basesOwedOnCheckout.delete(path);
 			}
 		}
 		this.untrackSeededWorktree(repoPath);
 		this._worktreeAdminIds.delete(repoPath);
+		this._basesOwedOnCheckout.delete(repoPath);
 
 		this._commonPathRegistry.delete(repoPath);
 
@@ -1575,20 +1996,32 @@ export class Cache implements Disposable {
 		this._seededWorktrees.clear();
 		this._seededWorktreesByCommonPath.clear();
 		this._worktreeAdminIds.clear();
+		this._sharedEvictions.clear();
+		this._basesOwedOnCheckout.clear();
 		this._gkConfigReconciler = undefined;
+		// Reads waiting on a registration go ahead; one settling after this finds nothing of its own to drop
+		for (const registration of this._registrations.values()) {
+			if (registration.timer != null) {
+				clearTimeout(registration.timer);
+				registration.timer = undefined;
+			}
+			registration.wait = undefined;
+			registration.release();
+		}
+		this._registrations.clear();
 		this._caches = createEmptyCaches();
 		this.onDropped(undefined);
 	}
 
 	/**
 	 * Applies a watcher-observed change, sharing reads still in flight (see {@link applyRepositoryChanges}).
-	 * `options.movedWorktrees` is the event's `movedWorktrees`.
+	 * `options.movedWorktrees` and `options.observedAt` are the event's `movedWorktrees` and `observedAt`.
 	 */
 	@debug({ onlyExit: true })
 	onRepositoryChanged(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
-		options?: { movedWorktrees?: ReadonlySet<string> },
+		options?: { movedWorktrees?: ReadonlySet<string>; observedAt?: number },
 	): void {
 		const changesSet = new Set(changes);
 		if (changesSet.has('unknown') || changesSet.has('closed')) {
@@ -1596,7 +2029,10 @@ export class Cache implements Disposable {
 			return;
 		}
 
-		this.applyRepositoryChanges(repoPath, changesSet, 'share', { movedWorktrees: options?.movedWorktrees });
+		this.applyRepositoryChanges(repoPath, changesSet, 'share', {
+			movedWorktrees: options?.movedWorktrees,
+			observedAt: options?.observedAt,
+		});
 	}
 
 	/**
@@ -1615,15 +2051,29 @@ export class Cache implements Disposable {
 	 *
 	 * `options.movedWorktrees` names, by admin id (the `<id>` of `.git/worktrees/<id>`), the linked worktrees whose HEAD
 	 * moved, which are all that a `'worktreeHead'` among `changes` reports: each registered one is cleared as for its
-	 * own `'head'` change, and no other registered worktree with an admin id of its own is touched. Without it, any
-	 * linked worktree's HEAD may have moved, so each one but `repoPath` loses its current branch.
+	 * own `'head'` change, and no other registered worktree with an admin id of its own is touched. Without it, or empty
+	 * (no worktree known), any linked worktree's HEAD may have moved, so each one but `repoPath` loses its current branch.
+	 *
+	 * Unless `options.worktreeOnly`, a `'worktreeHead'`, announced or not, also drops which branch is checked out in which
+	 * worktree for every worktree of the repository, unless `options.movedWorktrees` names no worktree but `repoPath`, or
+	 * `options.observedAt` finds it already dropped since (see {@link evictBranchPlacement}).
+	 *
+	 * `options.observedAt` is the change ordinal (see `nextChangeOrdinal`) taken when the watcher observed the newest of
+	 * `changes`. Each checkout of a repository reports a change to what they share, so the shared entries that an eviction
+	 * after it already dropped whole, leaving nothing read before to serve or join, are kept: what they hold since was
+	 * read after the change. Only those shared entries are kept; everything else is cleared as without it.
 	 */
 	@debug({ onlyExit: true })
 	applyRepositoryChanges(
 		repoPath: string,
 		changes: Iterable<RepositoryChange>,
 		inFlight: 'share' | 'evict',
-		options?: { announced?: boolean; worktreeOnly?: boolean; movedWorktrees?: ReadonlySet<string> },
+		options?: {
+			announced?: boolean;
+			worktreeOnly?: boolean;
+			movedWorktrees?: ReadonlySet<string>;
+			observedAt?: number;
+		},
 	): CachedGitTypes[] {
 		const worktreeOnly = options?.worktreeOnly ?? false;
 		const changesSet = new Set(changes);
@@ -1713,11 +2163,16 @@ export class Cache implements Disposable {
 		// added, removed, locked, unlocked or moved changes only the list
 		if (hasAny('worktreeHead')) {
 			types.add('worktrees');
-			if (!worktreeOnly && !options?.announced) {
-				if (options?.movedWorktrees != null) {
-					this.applyLinkedHeadsMoved(repoPath, options.movedWorktrees, inFlight);
-				} else {
-					this.dropLinkedCurrentBranches(repoPath);
+			if (!worktreeOnly) {
+				if (!options?.announced) {
+					if (options?.movedWorktrees?.size) {
+						this.applyLinkedHeadsMoved(repoPath, options.movedWorktrees, inFlight);
+					} else {
+						this.dropLinkedCurrentBranches(repoPath);
+					}
+				}
+				if (!this.movedOnlyItself(repoPath, options?.movedWorktrees)) {
+					this.evictBranchPlacement(repoPath, options?.observedAt);
 				}
 			}
 		} else if (hasAny('worktrees')) {
@@ -1725,7 +2180,7 @@ export class Cache implements Disposable {
 		}
 
 		if (types.size) {
-			this.clearCachesCore(inFlight, repoPath, [...types], worktreeOnly);
+			this.clearCachesCore(inFlight, repoPath, [...types], worktreeOnly, options?.observedAt);
 		}
 		return [...types];
 	}
@@ -2700,13 +3155,21 @@ export class Cache implements Disposable {
 	/** Clears the cached default branch for one `remote` key (the networked lookup or its `:local` variant). */
 	deleteDefaultBranchName(repoPath: string, remote: string): void {
 		this._caches.defaultBranchName?.delete(this.getCommonPath(repoPath), remote);
+		this.onDropped(repoPath, ['defaultBranchName']);
 	}
 
 	getInitialCommitSha(
 		repoPath: string,
-		factory: (commonPath: string) => PromiseOrValue<string | undefined>,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<string | undefined>,
+		cancellation?: AbortSignal,
 	): Promise<string | undefined> {
-		return this.readValidated(repoPath, () => this.getSharedSimple(this.initialCommitSha, repoPath, factory));
+		return this.readValidated(repoPath, () =>
+			this.getSharedSimple(this.initialCommitSha, repoPath, factory, cancellation),
+		);
 	}
 
 	/** A rejected factory is never cached (`PromiseMap` evicts on rejection) — a failed read retries next time. */
@@ -2771,6 +3234,7 @@ export class Cache implements Disposable {
 					this.getCloseGeneration(commonPath) === closeGeneration
 				) {
 					this.replaceSeededWorktrees(commonPath, unregistered);
+					this.dropBasesOwedOnCheckout(commonPath, records, read.at);
 				}
 				return records;
 			},
@@ -2867,6 +3331,23 @@ export class Cache implements Disposable {
 		);
 	}
 
+	/**
+	 * The tag list shared by `repoPath`'s worktrees, as the common path holds it, without keeping a copy for
+	 * `repoPath`. A caller maps the tags it needs with {@link GitTag.withRepoPath}; {@link getTags} keeps a mapped copy
+	 * per worktree.
+	 */
+	getSharedTags(
+		repoPath: string,
+		factory: (
+			commonPath: string,
+			cacheable: CacheController,
+			cancellation?: AbortSignal,
+		) => PromiseOrValue<PagedResult<GitTag>>,
+		cancellation?: AbortSignal,
+	): Promise<PagedResult<GitTag>> {
+		return this.readValidated(repoPath, () => this.getSharedEntry(this.tags, repoPath, factory, cancellation));
+	}
+
 	async getWorktrees(
 		repoPath: string,
 		factory: (
@@ -2896,20 +3377,22 @@ export class Cache implements Disposable {
 		});
 	}
 
-	private async getSharedOrCreate<T>(
+	/**
+	 * The entry shared by `repoPath`'s worktrees, as the common path holds it. A caller maps what it needs for
+	 * `repoPath`; {@link getSharedOrCreate} keeps a mapped copy per worktree.
+	 */
+	private getSharedEntry<T>(
 		cache: PromiseMap<string, T>,
 		repoPath: string,
 		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
-		mapper: (data: T, repoPath: string) => T,
 		cancellation?: AbortSignal,
 	): Promise<T> {
 		const commonPath = this.getCommonPath(repoPath);
 
 		// Always register this caller with the shared factory's aggregate so same-`repoPath` and
 		// worktree-distinct concurrent callers both contribute — invariant 3 (factory aborts iff
-		// every waiter aborts) holds uniformly. The wrapped return is our caller-facing promise
-		// for the commonPath-keyed branch; the per-worktree branch uses `raceWithSignal` below.
-		const sharedPromise = cache.getOrCreate(
+		// every waiter aborts) holds uniformly.
+		return cache.getOrCreate(
 			commonPath,
 			(cacheable, signal) => {
 				const p = Promise.resolve(factory(commonPath, cacheable, signal));
@@ -2933,22 +3416,41 @@ export class Cache implements Disposable {
 			},
 			cancellation,
 		);
+	}
+
+	private async getSharedOrCreate<T>(
+		cache: PromiseMap<string, T>,
+		repoPath: string,
+		factory: (commonPath: string, cacheable: CacheController, cancellation?: AbortSignal) => PromiseOrValue<T>,
+		mapper: (data: T, repoPath: string) => T,
+		cancellation?: AbortSignal,
+	): Promise<T> {
+		const commonPath = this.getCommonPath(repoPath);
+
+		// The wrapped return is our caller-facing promise for the commonPath-keyed branch; the
+		// per-worktree branch uses `raceWithSignal` below.
+		const sharedPromise = this.getSharedEntry(cache, repoPath, factory, cancellation);
 		// Swallow any rejection on the registration wrapper so it isn't surfaced as an unhandled
 		// rejection when we discard it below (existing-mapper path). The real caller-facing
 		// promise is the returned value.
 		void sharedPromise.catch(() => {});
 
 		if (commonPath !== repoPath) {
-			// Reuse the cached mapped entry for this worktree if present; otherwise derive it off
-			// the raw inner shared promise so subsequent cache hits don't inherit the first
-			// caller's signal wrap.
+			// Already rejected without a read, so it must not replace this worktree's entry
+			if (cancellation?.aborted) return sharedPromise;
+
+			// Reuse this worktree's mapped entry only while it maps the shared entry current now: once every caller
+			// of a shared read has cancelled, `getSharedEntry` above starts another, and a copy mapped from the
+			// abandoned one would reject too. A new copy maps the raw inner shared promise so later cache hits
+			// don't inherit this caller's signal wrap.
+			const rawShared = cache.get(commonPath) ?? sharedPromise;
 			const existing = cache.get(repoPath);
-			if (existing != null) {
+			if (existing != null && this._mappedFrom.get(existing) === rawShared) {
 				return cancellation != null ? raceWithSignal(existing, cancellation) : existing;
 			}
 
-			const rawShared = cache.get(commonPath) ?? sharedPromise;
 			const mappedPromise = Promise.resolve(rawShared).then(data => mapper(data, repoPath));
+			this._mappedFrom.set(mappedPromise, rawShared);
 			cache.set(repoPath, mappedPromise);
 			return cancellation != null ? raceWithSignal(mappedPromise, cancellation) : mappedPromise;
 		}
@@ -2999,13 +3501,17 @@ export class Cache implements Disposable {
 		void sharedPromise.catch(() => {});
 
 		if (commonPath !== repoPath) {
+			// The early return and the reuse rule are those of `getSharedOrCreate`
+			if (cancellation?.aborted) return sharedPromise;
+
+			const rawShared = cache.get(commonPath, cacheKey) ?? sharedPromise;
 			const existing = cache.get(repoPath, cacheKey);
-			if (existing != null) {
+			if (existing != null && this._mappedFrom.get(existing) === rawShared) {
 				return cancellation != null ? raceWithSignal(existing, cancellation) : existing;
 			}
 
-			const rawShared = cache.get(commonPath, cacheKey) ?? sharedPromise;
 			const mappedPromise = Promise.resolve(rawShared).then(data => mapper(data, repoPath));
+			this._mappedFrom.set(mappedPromise, rawShared);
 			cache.set(repoPath, cacheKey, mappedPromise, options);
 			return cancellation != null ? raceWithSignal(mappedPromise, cancellation) : mappedPromise;
 		}

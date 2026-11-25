@@ -723,15 +723,6 @@ export class GlGraphOverviewCard extends LitElement {
 	}
 
 	private renderInlineActions() {
-		// Inline actions surface only the most-relevant single action per state. The full set
-		// (and PR-specific actions) live in the rich hover. Per #5170:
-		// - Opened (current/active) branches: state-aware sync (Pull/Push/Fetch). One action,
-		//   no alt-toggle — Pull/Fetch stay distinct so the click is unambiguous. NEVER Switch
-		//   or Open Worktree — the user is already on this branch. A landed branch has nothing left
-		//   to sync or publish, so it offers its cleanup instead.
-		// - Non-opened worktree branches: Open Worktree (new window default; alt-toggle to
-		//   open in current window).
-		// - Non-opened main-repo branches: Switch to Branch.
 		const actions: TemplateResult[] = [];
 		const opened = this.branch.opened;
 		const upstream = this.branch.upstream;
@@ -802,13 +793,18 @@ export class GlGraphOverviewCard extends LitElement {
 				></action-item>`,
 			);
 		} else {
-			actions.push(
-				html`<action-item
-					label=${l10n.t('Switch to Branch...')}
-					icon="gl-switch"
-					href=${this.createCommandLink('gitlens.switchToBranch:')}
-				></action-item>`,
-			);
+			const landed = this.landed;
+			if (landed != null) {
+				actions.push(this.renderDeleteAction(landed));
+			} else {
+				actions.push(
+					html`<action-item
+						label=${l10n.t('Switch to Branch...')}
+						icon="gl-switch"
+						href=${this.createCommandLink('gitlens.switchToBranch:')}
+					></action-item>`,
+				);
+			}
 		}
 
 		if (actions.length === 0) return nothing;

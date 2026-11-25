@@ -197,11 +197,10 @@ export class CopyFileDeepLinkCommand extends ActiveEditorCommand {
 			if (isCommandContextEditorLine(context) && context.line != null) {
 				lines = [context.line + 1];
 			} else if (context.editor?.selection != null && !context.editor.selection.isEmpty) {
-				if (context.editor.selection.isSingleLine) {
-					lines = [context.editor.selection.start.line + 1];
-				} else {
-					lines = [context.editor.selection.start.line + 1, context.editor.selection.end.line + 1];
-				}
+				const { start, end } = context.editor.selection;
+				const startLine = start.line + 1;
+				const endLine = end.character === 0 ? end.line : end.line + 1;
+				lines = startLine === endLine ? [startLine] : [startLine, endLine];
 			}
 
 			args.lines = lines;

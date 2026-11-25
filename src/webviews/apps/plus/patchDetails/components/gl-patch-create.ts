@@ -601,7 +601,7 @@ export class GlPatchCreate extends GlTreeBase {
 		return this.fileLayout === 'tree';
 	}
 
-	private createPatch() {
+	private createPatch(): boolean {
 		if (!this.canSubmit) {
 			// TODO: show error
 			if (this.titleInput.value.length === 0) {
@@ -617,7 +617,7 @@ export class GlPatchCreate extends GlTreeBase {
 			} else {
 				this.validityMessage = undefined;
 			}
-			return;
+			return false;
 		}
 
 		this.validityMessage = undefined;
@@ -636,6 +636,7 @@ export class GlPatchCreate extends GlTreeBase {
 			userSelections: this.create.userSelections,
 		};
 		this.emit('gl-patch-create-patch', patch);
+		return true;
 	}
 
 	private onCreateAll(_e: Event) {
@@ -644,8 +645,7 @@ export class GlPatchCreate extends GlTreeBase {
 		// 	return;
 		// }
 		// this.createPatch([change]);
-		this.createPatch();
-		if (!this.state?.create) {
+		if (!this.createPatch() || !this.state?.create) {
 			return;
 		}
 

@@ -635,7 +635,8 @@ describe('RepositoryWatchService', () => {
 				watchers.find(w => w.basePath === basePath && (pattern == null || w.pattern === pattern))?.options
 					?.excludes;
 			assert.ok(excludes('/repo/.git', dotGitGlobCombined)?.includes('sync-tools-worktrees'));
-			assert.ok(excludes('/repo/.git', dotGitGlobCommon)?.includes('sync-tools-worktrees'));
+			// Beside the main checkout, linked worktrees hear the common files through its root watcher
+			assert.strictEqual(excludes('/repo/.git', dotGitGlobCommon), undefined);
 			assert.ok(!excludes('/repo/.git/worktrees/A')?.includes('sync-tools-worktrees'));
 			assert.ok(watchers.every(w => !w.options?.excludes?.includes('worktrees')));
 			assert.deepStrictEqual(asked, ['/repo']);
@@ -741,6 +742,76 @@ describe('RepositoryWatchService', () => {
 			service.dispose();
 		});
 
+		it('gates a nested .gitignore change on whether its directory is ignored, not the file', async () => {
+			const files = new Map<string, string>([
+				['/repo/.gitignore', 'dist/\n'],
+				// Matches its own `*`, so the loaded rules call the file itself ignored
+				['/repo/cache/.gitignore', '*\n'],
+				['/repo/pkg/.gitignore', '*.gen.ts\n'],
+				// Inside an ignored directory — git never reads it
+				['/repo/dist/.gitignore', '!*\n'],
+			]);
+			const filter = new GitIgnoreFilter({
+				repoPath: '/repo',
+				gitDirPath: '/repo/.git',
+				fs: {
+					readFile: async uri => {
+						const content = files.get(uri.path);
+						if (content == null) throw new Error(`ENOENT: ${uri.path}`);
+						return new TextEncoder().encode(content);
+					},
+					stat: async () => undefined,
+					readDirectory: async () => [],
+				},
+				getGitIgnorePaths: async () => Array.from(files.keys(), p => p.slice('/repo/'.length)),
+			});
+			await filter.ready();
+			assert.ok(filter.isIgnored('cache/.gitignore'), 'fixture: the loaded rules ignore the file itself');
+			assert.ok(!filter.isIgnored('cache/'), "fixture: a directory's own rules don't ignore the directory");
+
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 20,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			let gitIgnoreChanges = 0;
+			const handle = service.watch('/repo', standardGitDir('/repo/.git'), {
+				onGitIgnoreChanged: () => gitIgnoreChanges++,
+			});
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			await filter.ready();
+			const wtWatcher = watchers.find(w => w.basePath === '/repo')!;
+
+			files.set('/repo/cache/.gitignore', '*.bin\n');
+			wtWatcher.fire({ path: '/repo/cache/.gitignore', reason: 'change' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 1, 'an edit of a .gitignore that ignores itself is an ignore change');
+			await filter.ready();
+			assert.ok(!filter.isIgnored('cache/a.txt'), 'the edit was read');
+
+			files.delete('/repo/cache/.gitignore');
+			wtWatcher.fire({ path: '/repo/cache/.gitignore', reason: 'delete' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 2, 'so is its deletion');
+			await filter.ready();
+			assert.ok(!filter.isIgnored('cache/a.bin'), 'the deleted rules no longer apply');
+
+			wtWatcher.fire({ path: '/repo/dist/.gitignore', reason: 'change' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 2, 'a .gitignore in an ignored directory is not an ignore change');
+
+			wtWatcher.fire({ path: '/repo/pkg/.gitignore', reason: 'change' });
+			await delay(40);
+			assert.strictEqual(gitIgnoreChanges, 3, 'an ordinary nested .gitignore is an ignore change');
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+
 		it('routes a .gitignore change through the repo channel as an `ignores` change (fences closed worktrees)', async () => {
 			const { factory, watchers } = createMockFactory();
 			const service = new RepositoryWatchService({
@@ -798,6 +869,119 @@ describe('RepositoryWatchService', () => {
 			assert.deepStrictEqual(order, ['global:/repo', 'hook:/repo']);
 
 			sub.dispose();
+			handle.dispose();
+			service.dispose();
+		});
+	});
+
+	describe('working-tree noise filter', () => {
+		/** Delivers one working-tree event per path and returns the paths the service reported */
+		async function deliveredFor(repoPath: string, eventPaths: string[]): Promise<string[]> {
+			const { factory, watchers } = createMockFactory();
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultRepoDelayMs: 30,
+				defaultWorkingTreeDelayMs: 30,
+			});
+
+			const handle = service.watch(repoPath, standardGitDir(`${repoPath}/.git`));
+			assertHandle(handle);
+
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 30 });
+			const received: string[] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push(...e.paths));
+
+			const wtWatcher = watchers.find(w => w.basePath === repoPath);
+			assert.ok(wtWatcher, 'working-tree watcher should exist');
+
+			for (const path of eventPaths) {
+				wtWatcher.fire({ path: path, reason: 'change' });
+			}
+			await delay(60);
+
+			wtSub.dispose();
+			handle.dispose();
+			service.dispose();
+			return received.sort();
+		}
+
+		it('delivers changes in a worktree whose ancestor folder ends in .git', async () => {
+			const root = '/home/u/src/app.git/feature';
+			assert.deepStrictEqual(await deliveredFor(root, [`${root}/src/a.ts`]), [`${root}/src/a.ts`]);
+		});
+
+		it('delivers changes in a repository under a node_modules ancestor', async () => {
+			const root = '/x/node_modules/pkg/repo';
+			assert.deepStrictEqual(await deliveredFor(root, [`${root}/src/a.ts`]), [`${root}/src/a.ts`]);
+		});
+
+		it('still drops node_modules, nested .git and watchman cookies inside the tree', async () => {
+			const root = '/home/u/src/app.git/feature';
+			assert.deepStrictEqual(
+				await deliveredFor(root, [
+					`${root}/node_modules/x/index.js`,
+					`${root}/packages/a/node_modules/x/index.js`,
+					`${root}/vendor/lib/.git/HEAD`,
+					`${root}/vendor/lib/.git/index.lock`,
+					`${root}/.watchman-cookie-host-1-2`,
+					`${root}/src/a.ts`,
+				]),
+				[`${root}/src/a.ts`],
+			);
+		});
+
+		it('delivers a tracked folder inside the tree whose name merely ends in .git', async () => {
+			const root = '/repo';
+			assert.deepStrictEqual(
+				await deliveredFor(root, [`${root}/fixtures/repo.git/HEAD`, `${root}/my.github.io/x`]),
+				[`${root}/fixtures/repo.git/HEAD`, `${root}/my.github.io/x`],
+			);
+		});
+
+		it('keeps judging a path outside the root as a whole, and delivers it unfiltered otherwise', async () => {
+			const root = '/repo';
+			assert.deepStrictEqual(await deliveredFor(root, ['/elsewhere/node_modules/a', '/elsewhere/b.ts']), [
+				'/elsewhere/b.ts',
+			]);
+		});
+
+		it('buffers and replays with the same answer while the gitignore filter loads', async () => {
+			const root = '/home/u/src/app.git/feature';
+			const { factory, watchers } = createMockFactory();
+			let load!: () => void;
+			const filter = {
+				ready: () =>
+					new Promise<void>(resolve => {
+						load = resolve;
+					}),
+				isIgnored: () => false,
+				refresh: () => Promise.resolve(),
+				revalidate: () => Promise.resolve(false),
+			} as unknown as GitIgnoreFilter;
+			const service = new RepositoryWatchService({
+				watchingProvider: factory,
+				defaultWorkingTreeDelayMs: 20,
+				getIgnoreFilter: () => filter,
+			});
+			const handle = service.watch(root, standardGitDir(`${root}/.git`));
+			assertHandle(handle);
+			const wtSub = handle.session.subscribeToWorkingTree({ delayMs: 20 });
+			const received: string[][] = [];
+			wtSub.onDidChangeWorkingTree(e => received.push([...e.paths].sort()));
+
+			const wtWatcher = watchers.find(w => w.basePath === root);
+			assert.ok(wtWatcher, 'working-tree watcher should exist');
+			for (const path of [`${root}/src/a.ts`, `${root}/node_modules/x/i.js`, `${root}/vendor/.git/HEAD`]) {
+				wtWatcher.fire({ path: path, reason: 'change' });
+			}
+			await delay(60);
+			assert.deepStrictEqual(received, [], 'held back until the filter settles');
+
+			load();
+			await delay(60);
+			assert.deepStrictEqual(received, [[`${root}/src/a.ts`]]);
+
+			wtSub.dispose();
 			handle.dispose();
 			service.dispose();
 		});

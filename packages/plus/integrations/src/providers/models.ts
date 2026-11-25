@@ -29,6 +29,7 @@ import type {
 	GitPullRequestState as GitPullRequestStateType,
 	GitRepository,
 	GitRepositoryRemoteInfo,
+	IssueTeam,
 	Jira,
 	JiraProject,
 	JiraResource,
@@ -37,7 +38,6 @@ import type {
 	Linear,
 	LinearOrganization,
 	LinearProject,
-	LinearTeam,
 	NumberedPageInput,
 	Organization,
 	Issue as ProviderApiIssue,
@@ -47,6 +47,7 @@ import type {
 	SetPullRequestInput,
 	Trello,
 } from '@gitkraken/provider-apis';
+import { copyReadProvenance } from '@gitkraken/provider-apis/read-provenance';
 import type { Account as UserAccount } from '@gitlens/git/models/author.js';
 import type {
 	IssueBodyField,
@@ -201,7 +202,7 @@ export type ProviderJiraResource = JiraResource;
 // Jira Server's project shape is its own: `/rest/api/2/project` returns only an id and a name, with no `key`
 // and no enclosing resource (the instance itself is the resource).
 export type ProviderJiraServerProject = JiraServerProject;
-export type ProviderLinearTeam = LinearTeam;
+export type ProviderLinearTeam = IssueTeam;
 export type ProviderLinearOrganization = LinearOrganization;
 // Linear's own `Project` entity, which can span several teams; not the teams core lists as a tracker's projects.
 export type ProviderLinearProject = LinearProject;
@@ -619,19 +620,12 @@ export type GetCurrentUserForResourceFn = (
 
 export type GetJiraResourcesForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: JiraResource[] }>;
 export type GetLinearOrganizationFn = (options?: EnterpriseOptions) => Promise<{ data: LinearOrganization }>;
-export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: LinearTeam[] }>;
+export type GetLinearTeamsForCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: IssueTeam[] }>;
 // Derived from the client method, like the Jira reads below, so a filter the SDK adds (`assignees`, `states`)
 // reaches the type system instead of being smuggled through `getPagedResult`'s `any`.
 export type GetLinearIssuesFn = Linear['getIssues'];
 export type GetLinearProjectsFn = Linear['getProjects'];
-/**
- * Linear's current-user (viewer) query. Its raw `@linear/sdk` User isn't a `ProviderAccount` (no
- * username/avatar/url), so it's typed with the minimal fields the viewer query actually returns rather than
- * importing `@linear/sdk` (which is bundled in the SDK dist and not a resolvable top-level dependency).
- */
-export type GetLinearCurrentUserFn = (
-	options?: EnterpriseOptions,
-) => Promise<{ data: { id: string; name?: string | null; email?: string | null; displayName?: string | null } }>;
+export type GetLinearCurrentUserFn = (options?: EnterpriseOptions) => Promise<{ data: ProviderAccount }>;
 export type GetJiraProjectsForResourcesFn = (
 	input: { resourceIds: string[] },
 	options?: EnterpriseOptions,
@@ -822,7 +816,7 @@ function toIssueIdentifier(value: string | number): string {
 	return String(value);
 }
 
-function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState | undefined {
+export function toIssueProviderState(state: ProviderIssue['state']): IssueProviderState | undefined {
 	return state == null
 		? undefined
 		: {
@@ -864,7 +858,7 @@ export function toIssueShape(
 
 	const state = getProviderIssueState(issue, provider.id);
 
-	return {
+	const result: IssueShape = {
 		type: 'issue',
 		provider: provider,
 		// `id` is the provider's display number/key (GitHub number, Jira/Linear key, Trello idShort), NOT a
@@ -928,6 +922,7 @@ export function toIssueShape(
 		// "none", and a row from any other provider keeps exactly the keys it always had.
 		...(issue.milestone !== undefined ? { milestone: toIssueMilestone(issue.milestone) } : {}),
 	};
+	return copyReadProvenance(result, issue);
 }
 
 /**
@@ -1200,7 +1195,7 @@ function toProviderRemoteInfo(ref: PullRequestRef | undefined): GitRepositoryRem
 
 export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 	const prReviews = [...(pr.reviewRequests ?? []), ...(pr.latestReviews ?? [])];
-	return {
+	const result: ProviderPullRequest = {
 		id: pr.id,
 		graphQLId: pr.nodeId,
 		number: pr.number ?? Number.parseInt(pr.id, 10),
@@ -1309,6 +1304,7 @@ export function toProviderPullRequest(pr: PullRequest): ProviderPullRequest {
 					},
 		mergeableState: pr.mergeableState ? toProviderPullRequestMergeableState[pr.mergeableState] : undefined,
 	};
+	return copyReadProvenance(result, pr);
 }
 
 /**
@@ -1331,7 +1327,7 @@ export function fromProviderPullRequest(
 	const headRepository = pr.headRepository;
 	const headRepositoryRemoteInfo = headRepository?.remoteInfo;
 
-	return new PullRequest(
+	const result = new PullRequest(
 		provider,
 		fromProviderAccount(pr.author),
 		pr.id,
@@ -1406,6 +1402,7 @@ export function fromProviderPullRequest(
 		// Only GitHub and GitLab report it; `undefined` stays "not read" rather than "none".
 		pr.milestone !== undefined ? toIssueMilestone(pr.milestone) : undefined,
 	);
+	return copyReadProvenance(result, pr);
 }
 
 /**
@@ -1521,7 +1518,7 @@ export function fromProviderIssue(
 	const identifier = toIssueIdentifier(issue.number);
 	const state = getProviderIssueState(issue, integration.id);
 	const viewer = toIssueViewer(issue, options?.viewer);
-	return new Issue(
+	const result = new Issue(
 		integration,
 		identifier,
 		issue.graphQLId ?? issue.id,
@@ -1567,4 +1564,5 @@ export function fromProviderIssue(
 		// As in `toIssueShape`.
 		issue.milestone !== undefined ? toIssueMilestone(issue.milestone) : undefined,
 	);
+	return copyReadProvenance(result, issue);
 }

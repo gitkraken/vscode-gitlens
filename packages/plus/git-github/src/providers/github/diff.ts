@@ -13,6 +13,7 @@ import type {
 import type { DiffRange, RevisionUri } from '@gitlens/git/providers/types.js';
 import type { GitErrorHandling } from '@gitlens/git/run.types.js';
 import { getChangedFilesCount } from '@gitlens/git/utils/commit.utils.js';
+import { toLiteralPathspecMatcher } from '@gitlens/git/utils/fileStatus.utils.js';
 import {
 	createRevisionRange,
 	getRevisionRangeParts,
@@ -91,12 +92,14 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			filters?: GitDiffFilter[];
 			includeUntracked?: boolean;
 			path?: string;
+			paths?: string[];
 			renameLimit?: number;
 			similarityThreshold?: number;
 			errors?: GitErrorHandling;
 		},
 	): Promise<GitFile[] | undefined> {
 		if (repoPath == null) return undefined;
+		if (options?.paths?.length === 0) return undefined;
 
 		const scope = getScopedLogger();
 
@@ -148,13 +151,19 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				files = result?.files;
 			}
 
-			return files?.map(f => ({
+			const mapped = files?.map((f): GitFile => ({
 				path: f.filename ?? '',
 				originalPath: f.previous_filename,
 				status: fromCommitFileStatus(f.status) ?? GitFileIndexStatus.Modified,
 				repoPath: repoPath,
 				stats: { additions: f.additions, deletions: f.deletions, changes: f.changes },
 			}));
+			if (mapped == null || options?.paths == null) return mapped;
+
+			// Either side counts because renames are detected before any path limit, so a rename into or out of the
+			// paths is kept whole, where git would split it into an add or a delete
+			const matches = toLiteralPathspecMatcher(options.paths);
+			return mapped.filter(f => matches(f.path) || (f.originalPath != null && matches(f.originalPath)));
 		} catch (ex) {
 			scope?.error(ex);
 			debugger;

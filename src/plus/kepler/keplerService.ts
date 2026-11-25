@@ -18,11 +18,13 @@ import { toAbortSignal } from '../../system/-webview/cancellation.js';
 import { configuration } from '../../system/-webview/configuration.js';
 import { setContext } from '../../system/-webview/context.js';
 import { openUrl } from '../../system/-webview/vscode/uris.js';
+import { KeplerInstallMonitor } from './keplerInstallMonitor.js';
 import type {
 	KeplerInstallFailureReason,
 	KeplerInstallProgress,
 	KeplerInstallResult,
 	KeplerInstallStep,
+	KeplerNotInstallableReason,
 	KeplerRelease,
 } from './keplerRelease.js';
 import { getKeplerInstallFailureCode, KeplerInstallError, toMegabytes } from './keplerRelease.js';
@@ -79,6 +81,7 @@ export class KeplerService implements Disposable {
 	private _releasePromise: Promise<KeplerRelease | undefined> | undefined;
 	private _releaseError: unknown;
 	private readonly remote: boolean;
+	private readonly installMonitor: KeplerInstallMonitor;
 
 	/**
 	 * `probe`, `remote` and `locate` are seams for tests; production always uses the env-abstracted
@@ -94,6 +97,11 @@ export class KeplerService implements Disposable {
 		const debugging = this.debugging;
 		this._installed = debugging ? true : remote ? undefined : probe(this.channel);
 		this.remote = remote;
+		this.installMonitor = new KeplerInstallMonitor(container);
+		// KEEP: local only — a remote host's clock can be off from the local windows' that share these records
+		if (!remote) {
+			this.installMonitor.watchForAbandoned();
+		}
 		void setContext('gitlens:kepler:installed', this._installed === true);
 
 		// Track once, never clear (design doc §11.6): an uninstall leaves the walkthrough step
@@ -121,6 +129,7 @@ export class KeplerService implements Disposable {
 	}
 
 	dispose(): void {
+		this.installMonitor.dispose();
 		this._onDidChange.dispose();
 	}
 
@@ -130,13 +139,16 @@ export class KeplerService implements Disposable {
 	 * download page instead (remote windows — Kepler must be installed on the local machine).
 	 */
 	get canInstall(): boolean {
-		return (
-			this.available &&
-			!this.remote &&
-			!this.debugging &&
-			this.channel === 'production' &&
-			getKeplerReleaseTargetForHost() != null
-		);
+		return this.notInstallableReason == null;
+	}
+
+	get notInstallableReason(): KeplerNotInstallableReason | undefined {
+		if (!this.available) return 'unavailable';
+		if (this.remote) return 'remote';
+		if (this.channel !== 'production') return 'channel';
+		if (getKeplerReleaseTargetForHost() == null) return 'unsupported';
+
+		return undefined;
 	}
 
 	/**
@@ -164,7 +176,12 @@ export class KeplerService implements Disposable {
 	 * and `false` when the user cancelled — even if the cancel came too late to stop the install itself.
 	 */
 	install(source?: Source): Promise<boolean> {
-		if (!this.available) return Promise.resolve(false);
+		const reason = this.notInstallableReason;
+		if (reason === 'unavailable') {
+			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: reason }, source);
+			return Promise.resolve(false);
+		}
+
 		if (this.installed === true) {
 			// The installed context key can lag an install made by hand, leaving Install Kepler on
 			// offer; say so rather than appear to do nothing
@@ -173,12 +190,8 @@ export class KeplerService implements Disposable {
 			return Promise.resolve(true);
 		}
 
-		if (!this.canInstall) {
-			this.container.telemetry.sendEvent(
-				'kepler/install/skipped',
-				{ reason: this.remote ? 'remote' : this.channel !== 'production' ? 'channel' : 'unsupported' },
-				source,
-			);
+		if (reason != null) {
+			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: reason }, source);
 			void openUrl(urls.keplerDownload);
 			return Promise.resolve(false);
 		}
@@ -186,6 +199,7 @@ export class KeplerService implements Disposable {
 		if (this._installPromise != null) return this._installPromise;
 
 		this._installPromise = this.installCore(source).finally(() => {
+			this.installMonitor.stop();
 			this._installPromise = undefined;
 			void setContext('gitlens:kepler:installing', false);
 			this._onDidChange.fire();
@@ -197,7 +211,12 @@ export class KeplerService implements Disposable {
 
 	private async installCore(source: Source | undefined): Promise<boolean> {
 		const data = { kind: getKeplerReleaseTargetForHost()!.kind };
-		this.container.telemetry.sendEvent('kepler/install/started', data, source);
+		const { concurrent } = this.installMonitor.start(data.kind);
+		this.container.telemetry.sendEvent(
+			'kepler/install/started',
+			{ ...data, concurrent: concurrent || undefined },
+			source,
+		);
 
 		const timings = createInstallTimings();
 		let release: KeplerRelease | undefined;
@@ -223,6 +242,7 @@ export class KeplerService implements Disposable {
 					const installed = await installKepler(resolved, {
 						signal: toAbortSignal(token),
 						onProgress: value => {
+							this.installMonitor.setStep(value.step);
 							timings.onProgress(value);
 							report(value);
 						},

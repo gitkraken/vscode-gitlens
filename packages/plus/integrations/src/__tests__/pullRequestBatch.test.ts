@@ -1577,6 +1577,116 @@ suite('IntegrationManager.getPullRequestsBatch', () => {
 			manager.dispose();
 		});
 
+		for (const [label, deniedRepo] of [
+			['the same repository', 'r'],
+			['another repository', 's'],
+		] as const) {
+			test(`GitHub: a 401 after a target in ${label} answered`, async () => {
+				const { manager, gh } = await connectedGitHub(createFakeRuntime());
+				stubCurrentAccount(gh, 'me');
+				const github = await apiClient(gh, 'github');
+				github.getPullRequestsBatch = (provider: ProviderReference, _t: unknown, coordinates: Coordinate[]) =>
+					Promise.resolve(
+						coordinates.map(c =>
+							c.number === 2
+								? apiFailed(
+										new AuthenticationError(
+											{
+												providerId: GitCloudHostIntegrationId.GitHub,
+												microHash: undefined,
+												cloud: true,
+												type: 'oauth',
+												scopes: [],
+											},
+											AuthenticationErrorReason.Unauthorized,
+										),
+									)
+								: apiFound(pullRequest(provider, c.number)),
+						),
+					);
+				(gh as unknown as { requestExceptionCount: number }).requestExceptionCount = 2;
+				const sameRepository = deniedRepo === 'r';
+
+				const result = await manager.getPullRequestsBatch({
+					providerId: GitCloudHostIntegrationId.GitHub,
+					targets: [
+						{ key: 'answered', owner: 'o', repo: 'r', number: 1 },
+						{ key: 'refused', owner: 'o', repo: deniedRepo, number: 2 },
+					],
+				});
+
+				assert.deepEqual(
+					result.items.map(i => i.key),
+					['answered'],
+				);
+				assert.equal(result.fetchFailed, true);
+				assert.deepEqual(authWarnings(result), [
+					{ scope: sameRepository ? undefined : { repositoryId: 'o/s' }, cause: undefined },
+				]);
+				assert.deepEqual(
+					result.warnings.filter(w => w.kind === 'auth').map(w => w.targetKeys),
+					[['refused']],
+				);
+				assert.equal(gh.connectionExpired === true, sameRepository, 'only the credential runs its recovery');
+				assert.equal(
+					getRequestExceptionCount(gh),
+					sameRepository ? 2 : 0,
+					'the budget is reset only by a scoped refusal',
+				);
+
+				manager.dispose();
+			});
+		}
+
+		test('GitHub: once a 401 shows the credential died, a 401 from a repository that never answered is the credential too', async () => {
+			const { manager, gh } = await connectedGitHub(createFakeRuntime());
+			stubCurrentAccount(gh, 'me');
+			const github = await apiClient(gh, 'github');
+			github.getPullRequestsBatch = (provider: ProviderReference, _t: unknown, coordinates: Coordinate[]) =>
+				Promise.resolve(
+					coordinates.map(c =>
+						c.repo === 'a' && c.number === 1
+							? apiFound(pullRequest(provider, c.number))
+							: apiFailed(
+									new AuthenticationError(
+										{
+											providerId: GitCloudHostIntegrationId.GitHub,
+											microHash: undefined,
+											cloud: true,
+											type: 'oauth',
+											scopes: [],
+										},
+										AuthenticationErrorReason.Unauthorized,
+									),
+								),
+					),
+				);
+			(gh as unknown as { requestExceptionCount: number }).requestExceptionCount = 2;
+
+			const result = await manager.getPullRequestsBatch({
+				providerId: GitCloudHostIntegrationId.GitHub,
+				targets: [
+					{ key: 'A1', owner: 'o', repo: 'a', number: 1 },
+					{ key: 'A2', owner: 'o', repo: 'a', number: 2 },
+					{ key: 'B1', owner: 'o', repo: 'b', number: 1 },
+				],
+			});
+
+			assert.deepEqual(
+				result.items.map(i => i.key),
+				['A1'],
+			);
+			assert.deepEqual(authWarnings(result), [{ scope: undefined, cause: undefined }]);
+			assert.deepEqual(
+				result.warnings.filter(w => w.kind === 'auth').map(w => w.targetKeys?.toSorted()),
+				[['A2', 'B1']],
+			);
+			assert.equal(gh.connectionExpired, true);
+			assert.equal(getRequestExceptionCount(gh), 2, 'the recovery runs once');
+
+			manager.dispose();
+		});
+
 		test('Azure: a confirmed credential is remembered, so a second refused batch probes nothing', async () => {
 			const { manager, checks } = await azureRefusing(
 				() => oauthAppNotAllowed(),
@@ -2083,7 +2193,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 			etagIncludes: ['checks'],
 		});
 
-		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'], mergeQueue: false }]);
+		assert.deepEqual(cheap.options, [{ etagIncludes: ['checks'], mergeQueue: false, checkRuns: false }]);
 		assert.deepEqual(full, [[1]]);
 		assert.equal(result.items[0].etag, heldEtag(1, 0, ['checks']));
 		assert.match(result.items[0].etag ?? '', /^pr1\+checks:/);
@@ -2134,7 +2244,7 @@ suite('IntegrationManager.getPullRequestsBatch etags', () => {
 		assert.deepEqual(full, []);
 		assert.deepEqual(
 			cheap.options,
-			[{ etagIncludes: ['mergeable', 'checks'], mergeQueue: false }],
+			[{ etagIncludes: ['mergeable', 'checks'], mergeQueue: false, checkRuns: false }],
 			'the hook gets the normalized set',
 		);
 		assert.deepEqual(result.items, [{ key: 'a', unchanged: true, etag: heldEtag(1, 0, ['mergeable', 'checks']) }]);

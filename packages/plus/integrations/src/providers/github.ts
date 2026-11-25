@@ -1,12 +1,32 @@
+import { aliasedQueryChunkSize } from '@gitlens/git-github/api/aliasedQuery.js';
+import type { GitHubApi } from '@gitlens/git-github/api/github.js';
+import type { GitHubIssueMutation, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import { issueWriteFailure, isValidGitHubIssueMutation } from '@gitlens/git-github/api/issueWrites.js';
+import type { GitHubPullRequestActivityTarget } from '@gitlens/git-github/api/pullRequestActivity.js';
+import { decodePullRequestActivityCursor } from '@gitlens/git-github/api/pullRequestActivity.js';
 import { gitHubPullRequestRelationshipQualifiers } from '@gitlens/git-github/api/pullRequestSearchQuery.js';
-import type { GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
+import type {
+	GitHubPullRequestCreateTarget,
+	GitHubPullRequestWrite,
+	GitHubPullRequestWriteTarget,
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteFailure,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
+import { pullRequestWriteFailure } from '@gitlens/git-github/api/pullRequestWrites.js';
+import type { GitHubTokenInfo } from '@gitlens/git-github/api/token.js';
+import type { GitHubCheckRunRef, GitHubIssueEtagNode, GitHubPullRequestEtagNode } from '@gitlens/git-github/models.js';
 import {
+	decodeGitHubCheckRunId,
+	fromGitHubCheckContextState,
 	fromGitHubIssueOrPullRequestState,
 	fromGitHubMergeQueueEntryState,
 	fromGitHubMergeQueueRemoval,
 	fromGitHubPullRequestMergeableState,
 	fromGitHubPullRequestReviewDecision,
 	fromGitHubPullRequestStatusCheckRollupState,
+	toGitHubCheckRunId,
 } from '@gitlens/git-github/models.js';
 import type { Account, UnidentifiedAuthor } from '@gitlens/git/models/author.js';
 import type { DefaultBranch } from '@gitlens/git/models/defaultBranch.js';
@@ -14,6 +34,7 @@ import type { Issue, IssueSearchCriteria, IssueShape } from '@gitlens/git/models
 import type { IssueOrPullRequest } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckLog,
 	PullRequestMergeMethod,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
@@ -25,23 +46,26 @@ import type {
 	PullRequestState,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestActivityPage } from '@gitlens/git/models/pullRequestActivity.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { RepositoryDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { batch, mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { toTokenWithInfo } from '../authentication/models.js';
+import { getSessionIdentity, toTokenWithInfo } from '../authentication/models.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { AuthenticationError, IntegrationReadUnavailableError, RequestNotFoundError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { PullRequestActivityCoordinate, PullRequestCheckLogCoordinate } from '../models/gitHostIntegration.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type {
 	ProviderIssueSearchPage,
@@ -49,14 +73,21 @@ import type {
 	ProviderPullRequestSearchPage,
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
-import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
+import type {
+	IntegrationCacheDescriptor,
+	SearchMyPullRequestsOptions,
+	SearchPullRequestsOptions,
+} from '../models/publicIntegration.js';
 import type {
 	IssueEtagFields,
 	IssueEtagInclude,
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../reads/etag.js';
+import { pullRequestCheckRunsEtag } from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
+import { areDomainsOnSameHostname, isWebRemoteScheme } from '../utils/domain.utils.js';
+import { getGitHubEnterprisePullRequestWriteOrigin } from '../utils/integration.utils.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
 import { providersMetadata } from './metadata.js';
@@ -219,6 +250,16 @@ function toPullRequestEtagFields(
 		);
 	}
 
+	if (node.checkRuns != null) {
+		fields.checkRuns = pullRequestCheckRunsEtag(
+			node.checkRuns.contexts.flatMap(context => {
+				const state = fromGitHubCheckContextState(context);
+				return state != null && context != null ? [{ ...state, id: toGitHubCheckRunId(context) }] : [];
+			}),
+			node.checkRuns.truncated,
+		);
+	}
+
 	return fields;
 }
 
@@ -246,6 +287,222 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	 * the sole value that selects the cloud endpoints (see the cloud subclass).
 	 */
 	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string | undefined;
+
+	async mutateIssue(
+		connectionId: string,
+		input: GitHubIssueMutation,
+		{ expectedLogin, installationOrigin }: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<IssueWriteResult> {
+		if (!isValidGitHubIssueMutation(input)) return { ok: false, reason: 'invalid-input' };
+
+		let beforeMutation = true;
+		try {
+			const api = await this.authenticationService.apis.github;
+
+			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+			if (api == null) return { ok: false, reason: 'unsupported' };
+
+			const token = toTokenWithInfo(this.id, session);
+			const baseUrl = this.apiBaseUrlFor(session);
+			if (baseUrl != null && new URL(baseUrl).origin !== installationOrigin) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			const isSessionCurrent =
+				baseUrl == null ? undefined : this.authenticationService.trackStoredSession(this.id, session);
+
+			let unauthorized = false;
+			const onUnauthorized = () => {
+				unauthorized = true;
+			};
+			let result: IssueWriteResult;
+			try {
+				if (expectedLogin !== undefined) {
+					const login = await api.getWriteViewer(this, token, baseUrl, onUnauthorized);
+					if (login?.toLowerCase() !== expectedLogin.toLowerCase()) {
+						return { ok: false, reason: 'no-connection' };
+					}
+				}
+
+				beforeMutation = false;
+				result = await api.mutateIssue(this, token, input, {
+					baseUrl: baseUrl,
+					isSessionCurrent: isSessionCurrent,
+					onUnauthorized: onUnauthorized,
+				});
+			} catch (ex) {
+				const failure = issueWriteFailure(ex);
+				result =
+					beforeMutation && baseUrl != null && failure.reason === 'unknown'
+						? { ...failure, mutationDispatched: false }
+						: failure;
+			}
+
+			if (result.ok || unauthorized) {
+				if (isSessionCurrent == null || (await isSessionCurrent())) {
+					if (result.ok) {
+						this.resetRequestExceptionCount('mutateIssue', connectionId);
+					} else {
+						this.handleConnectionAuthenticationRejection(
+							connectionId,
+							true,
+							baseUrl == null ? undefined : session.accessToken,
+						);
+					}
+				} else if (result.ok && input.action === 'resolve') {
+					return { ok: false, reason: 'no-connection' };
+				}
+			}
+
+			return result;
+		} catch (ex) {
+			const failure = issueWriteFailure(ex);
+			return beforeMutation &&
+				this.id === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise &&
+				failure.reason === 'unknown'
+				? { ...failure, mutationDispatched: false }
+				: failure;
+		}
+	}
+
+	async resolvePullRequestWriteTarget(
+		connectionId: string,
+		input: GitHubPullRequestWriteTarget,
+		scope: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<PullRequestWriteTargetResult> {
+		return this.withPullRequestWriteSession(connectionId, 'read', scope, (api, token, options) =>
+			api.resolvePullRequestWriteTarget(this, token, input, options.onUnauthorized, options.baseUrl),
+		);
+	}
+
+	async writePullRequest(
+		connectionId: string,
+		input: GitHubPullRequestWrite,
+		scope: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<PullRequestWriteResult> {
+		const result = await this.withPullRequestWriteSession(connectionId, 'write', scope, (api, token, options) =>
+			api.writePullRequest(this, token, input, options.isSessionCurrent, options.onUnauthorized, options.baseUrl),
+		);
+		if (
+			result.ok ||
+			result.reason === 'outcome-unknown' ||
+			(scope.installationOrigin == null && (input.action === 'merge' || input.action === 'enqueue'))
+		) {
+			const domain = scope.installationOrigin;
+			this.ctx.cache.deletePullRequests(domain == null ? undefined : { id: this.id, domain: domain });
+		}
+
+		return result;
+	}
+
+	async getPullRequestCreateCapability(
+		connectionId: string,
+		input: GitHubPullRequestCreateTarget,
+		scope: { expectedLogin?: string; installationOrigin?: string },
+	): Promise<PullRequestCreateCapabilityResult> {
+		return this.withPullRequestWriteSession(connectionId, 'read', scope, (api, token, options) =>
+			api.getPullRequestCreateCapability(this, token, input, options.onUnauthorized, options.baseUrl),
+		);
+	}
+
+	private async withPullRequestWriteSession<T extends { ok: true } | PullRequestWriteFailure>(
+		connectionId: string,
+		operation: 'read' | 'write',
+		{ expectedLogin, installationOrigin }: { expectedLogin?: string; installationOrigin?: string },
+		run: (
+			api: GitHubApi,
+			token: GitHubTokenInfo,
+			options: {
+				baseUrl?: string;
+				onUnauthorized: () => void;
+				isSessionCurrent: () => Promise<boolean>;
+			},
+		) => Promise<T>,
+	): Promise<T | PullRequestWriteFailure> {
+		try {
+			const session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (session?.id !== connectionId || !session.accessToken) return { ok: false, reason: 'no-connection' };
+
+			if (
+				installationOrigin != null &&
+				getGitHubEnterprisePullRequestWriteOrigin(
+					session.baseUrl ?? (session.domain || this.domain),
+					session.protocol,
+				) !== installationOrigin
+			) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			const api = await this.authenticationService.apis.github;
+			if (api == null) return { ok: false, reason: 'unsupported' };
+
+			const baseUrl = this.apiBaseUrlFor(session);
+			if (baseUrl !== (installationOrigin == null ? undefined : `${installationOrigin}/api/v3`)) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			const isSessionCurrent =
+				baseUrl != null
+					? this.authenticationService.trackStoredSession(this.id, session)
+					: async () => {
+							const current = await this.resolveReadSessionOrThrow(connectionId, undefined);
+							return (
+								current != null &&
+								getSessionIdentity(current) === getSessionIdentity(session) &&
+								current.account?.id === session.account?.id
+							);
+						};
+			const token = toTokenWithInfo(this.id, session);
+			let unauthorized = false;
+			const onUnauthorized = () => {
+				unauthorized = true;
+			};
+
+			let result: T | PullRequestWriteFailure;
+			try {
+				if (expectedLogin !== undefined) {
+					if (!(await isSessionCurrent())) return { ok: false, reason: 'no-connection' };
+
+					const login = await api.getWriteViewer(this, token, baseUrl, onUnauthorized);
+					if (login?.toLowerCase() !== expectedLogin.toLowerCase() || !(await isSessionCurrent())) {
+						return { ok: false, reason: 'no-connection' };
+					}
+				}
+
+				result = await run(api, token, {
+					baseUrl: baseUrl,
+					onUnauthorized: onUnauthorized,
+					isSessionCurrent: isSessionCurrent,
+				});
+			} catch (ex) {
+				result = pullRequestWriteFailure(ex);
+			}
+
+			if (unauthorized) {
+				if (await isSessionCurrent().catch(() => false)) {
+					this.handleConnectionAuthenticationRejection(connectionId, true, session.accessToken);
+				}
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			if (result.ok) {
+				const current =
+					operation === 'read' ? await isSessionCurrent() : await isSessionCurrent().catch(() => false);
+				if (current) {
+					this.resetRequestExceptionCount('writePullRequest', connectionId);
+				} else if (operation === 'read') {
+					return { ok: false, reason: 'no-connection' };
+				} else if (baseUrl != null) {
+					return { ...result, credentialChanged: true };
+				}
+			}
+
+			return result;
+		} catch (ex) {
+			return pullRequestWriteFailure(ex);
+		}
+	}
 
 	protected override async getProviderAccountForCommit(
 		session: ProviderAuthenticationSession,
@@ -440,16 +697,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		repo: GitHubRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.github)?.getPullRequestForCommit(
-			this,
-			toTokenWithInfo(this.id, session),
-			repo.owner,
-			repo.name,
-			rev,
-			{
-				baseUrl: this.apiBaseUrlFor(session),
-			},
-		);
+		const github = await this.authenticationService.apis.github;
+		if (github == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
+		}
+
+		return github.getPullRequestForCommit(this, toTokenWithInfo(this.id, session), repo.owner, repo.name, rev, {
+			baseUrl: this.apiBaseUrlFor(session),
+		});
 	}
 
 	protected override async getProviderRepositoryMetadata(
@@ -941,7 +1196,14 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsBatch(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
+		options:
+			| {
+					currentAccount?: { id: string; username?: string };
+					mergeQueue?: boolean;
+					checkRuns?: boolean;
+					checkRunsRequired?: boolean;
+			  }
+			| undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -949,6 +1211,8 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 		const currentAccount = options?.currentAccount;
 		const mergeQueue = options?.mergeQueue;
+		const checkRuns = options?.checkRuns;
+		const checkRunsRequired = options?.checkRunsRequired;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -957,13 +1221,50 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session), mergeQueue: mergeQueue },
+					{
+						baseUrl: this.apiBaseUrlFor(session),
+						mergeQueue: mergeQueue,
+						checkRuns: checkRuns,
+						checkRunsRequired: checkRunsRequired,
+					},
 					cancellation,
 				),
 			(pr): PullRequestShape | undefined =>
 				pr != null
 					? stampNativePullRequest(pr, { currentAccount: currentAccount, projection: 'batch' })
 					: undefined,
+		);
+	}
+
+	protected override async getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: { owner: string; repo: string; project?: string },
+		shas: readonly string[],
+		options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of commits');
+		}
+
+		const send = this.commitFanOutGate(cancellation);
+		return readChunked(
+			shas,
+			pullRequestsBatchChunkSize,
+			chunkShas =>
+				send(() =>
+					github.getPullRequestsForCommits(
+						this,
+						toTokenWithInfo(this.id, session),
+						repo.owner,
+						repo.repo,
+						chunkShas,
+						{ baseUrl: this.apiBaseUrlFor(session), mergeQueue: options.mergeQueue },
+						cancellation,
+					),
+				),
+			(pr): PullRequestShape | undefined => pr,
 		);
 	}
 
@@ -997,6 +1298,70 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 		);
 	}
 
+	protected override async getProviderPullRequestCheckLogs(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestCheckLogCoordinate[],
+		options: { tailLines: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestCheckLog>[] | undefined> {
+		const decoded: { owner: string; repo: string; ref: GitHubCheckRunRef }[] = [];
+		for (const target of targets) {
+			const ref = decodeGitHubCheckRunId(target.checkRunId);
+			if (ref == null) {
+				throw new IntegrationReadUnavailableError(
+					this.name,
+					`check run id '${target.checkRunId}' is not one a pull request read returned.`,
+				);
+			}
+
+			decoded.push({ owner: target.owner, repo: target.repo, ref: ref });
+		}
+
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		const read = { baseUrl: this.apiBaseUrlFor(session), tailLines: options.tailLines };
+		return readChunked(
+			decoded,
+			aliasedQueryChunkSize,
+			chunkTargets => github.getCheckRunLogs(this, token, chunkTargets, read, cancellation),
+			log => log,
+		);
+	}
+
+	protected override async getProviderPullRequestActivity(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestActivityCoordinate[],
+		options: { limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestActivityPage | undefined>[] | undefined> {
+		const decoded: GitHubPullRequestActivityTarget[] = [];
+		for (const target of targets) {
+			const cursor = target.cursor != null ? decodePullRequestActivityCursor(target.cursor) : undefined;
+			if (target.cursor != null && cursor == null) {
+				throw new IntegrationReadUnavailableError(
+					this.name,
+					`cursor '${target.cursor}' is not one a pull request activity read returned.`,
+				);
+			}
+
+			decoded.push({ owner: target.owner, repo: target.repo, number: target.number, cursor: cursor });
+		}
+
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return undefined;
+
+		const token = toTokenWithInfo(this.id, session);
+		const read = { baseUrl: this.apiBaseUrlFor(session), limit: options.limit };
+		return readChunked(
+			decoded,
+			aliasedQueryChunkSize,
+			chunkTargets => github.getPullRequestActivity(this, token, chunkTargets, read, cancellation),
+			page => page,
+		);
+	}
+
 	/**
 	 * The cheap check behind the batch pull request read's etags: {@link getProviderPullRequestsBatch}'s chunks and
 	 * failure isolation over {@link GitHubApi.getPullRequestsEtagFieldsBatch}, which selects only a pull request's
@@ -1005,7 +1370,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsEtagFields(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -1013,6 +1378,7 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 
 		const etagIncludes = options.etagIncludes ?? [];
 		const mergeQueue = options.mergeQueue;
+		const checkRuns = options.checkRuns === true;
 		return readChunked(
 			coordinates,
 			pullRequestsBatchChunkSize,
@@ -1021,7 +1387,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 					this,
 					toTokenWithInfo(this.id, session),
 					chunkCoordinates.map(c => ({ owner: c.owner, repo: c.repo, number: c.number })),
-					{ baseUrl: this.apiBaseUrlFor(session), etagIncludes: etagIncludes, mergeQueue: mergeQueue },
+					{
+						baseUrl: this.apiBaseUrlFor(session),
+						etagIncludes: etagIncludes,
+						mergeQueue: mergeQueue,
+						checkRuns: checkRuns,
+					},
 					cancellation,
 				),
 			(node): PullRequestEtagFields | undefined =>
@@ -1049,7 +1420,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	protected override async getProviderPullRequestsForBranches(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
+		options: {
+			currentAccount?: { id: string; username?: string };
+			limit: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined> {
 		const github = await this.authenticationService.apis.github;
@@ -1086,7 +1462,12 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 						branch: g.branch,
 						headOwners: g.indices.map(i => targets[i].headOwner),
 					})),
-					{ baseUrl: baseUrl, limit: options.limit, mergeQueue: options.mergeQueue },
+					{
+						baseUrl: baseUrl,
+						limit: options.limit,
+						mergeQueue: options.mergeQueue,
+						checkRuns: options.checkRuns,
+					},
 					cancellation,
 				),
 			(found): { pullRequests: PullRequestShape[][]; truncated: boolean } => ({
@@ -1138,7 +1519,13 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 				this.getProviderPullRequestsBatch(
 					session,
 					coordinates,
-					{ currentAccount: currentAccount, mergeQueue: options.mergeQueue },
+					{
+						currentAccount: currentAccount,
+						mergeQueue: options.mergeQueue,
+						checkRuns: options.checkRuns,
+						// KEEP: the by-name query can't read `isRequired`; reading it here would split one target's rows.
+						checkRunsRequired: false,
+					},
 					cancellation,
 				),
 		);
@@ -1525,8 +1912,67 @@ export class GitHubEnterpriseIntegration extends GitHubIntegrationBase<GitSelfMa
 		return this._domain;
 	}
 
+	private readonly _removedSessions = new WeakSet<ProviderAuthenticationSession>();
+
+	getCachedPullRequestScope(remoteUrl: string): IntegrationCacheDescriptor | undefined {
+		const session = this._session;
+		if (
+			!session?.accessToken ||
+			this.connectionExpired === true ||
+			this._removedSessions.has(session) ||
+			session.id !==
+				this.authenticationService.getPrimaryConnectionId(this.authProvider.id, this.authProviderDescriptor)
+		) {
+			return undefined;
+		}
+
+		const descriptor = this.getPullRequestCacheDescriptor(session);
+		const { installationOrigin } = descriptor;
+		if (installationOrigin == null) return undefined;
+
+		const [scheme, domain, path] = parseGitRemoteUrl(remoteUrl);
+		if (!domain || !path) return undefined;
+
+		if (isWebRemoteScheme(scheme)) {
+			return URL.parse(remoteUrl)?.origin === installationOrigin ? descriptor : undefined;
+		}
+		if (scheme != null && scheme !== 'ssh://') return undefined;
+
+		const hostname = scheme === 'ssh://' ? URL.parse(remoteUrl)?.hostname : domain;
+		return areDomainsOnSameHostname(hostname, installationOrigin) ? descriptor : undefined;
+	}
+
+	override onSessionsRemoving(connectionId?: string, cloud?: boolean): void {
+		const session = this._session;
+		if (
+			session != null &&
+			(connectionId == null || connectionId === session.id) &&
+			(cloud == null || cloud === session.cloud)
+		) {
+			this._removedSessions.add(session);
+		}
+
+		super.onSessionsRemoving(connectionId, cloud);
+	}
+
 	protected override apiBaseUrlFor(session: ProviderAuthenticationSession): string {
 		return this.getSelfManagedApiBaseUrl(session);
+	}
+
+	protected override getPullRequestCacheDescriptor(
+		session: ProviderAuthenticationSession,
+	): IntegrationCacheDescriptor {
+		try {
+			return {
+				id: this.id,
+				domain: this.domain,
+				maybeConnected: true,
+				installationOrigin: new URL(this.apiBaseUrlFor(session)).origin,
+				sessionFingerprint: this.getSessionFingerprint(session),
+			};
+		} catch {
+			return this;
+		}
 	}
 
 	constructor(

@@ -1,4 +1,13 @@
 import type { GitHubApi } from '@gitlens/git-github/api/github.js';
+import type { GitHubIssueDelete, GitHubIssueWrite, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import type {
+	GitHubPullRequestCreateTarget,
+	GitHubPullRequestWrite,
+	GitHubPullRequestWriteTarget,
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
 import type {
@@ -19,6 +28,17 @@ import type {
 	IssuesSelfManagedHostIntegrationId,
 	SupportedCloudIntegrationIds,
 } from './constants.js';
+import type {
+	IssueTrackerCreateOptions,
+	IssueTrackerCreateOptionsResult,
+	IssueTrackerDeleteOptions,
+	IssueTrackerIssueWriteOptions,
+	IssueTrackerIssueWriteOptionsResult,
+	IssueTrackerWriteOptions,
+	IssueTrackerWriteResult,
+	IssueTrackerWriteTargetOptions,
+	IssueTrackerWriteTargetResult,
+} from './models/issueTrackerWrites.js';
 import type {
 	GitHostIntegration,
 	IntegrationById,
@@ -42,15 +62,52 @@ import type {
 	ProviderRepositoryShape,
 	ProviderResult,
 	ProviderSweepResult,
+	PullRequestActivityResult,
+	PullRequestActivityTarget,
 	PullRequestBatchResult,
 	PullRequestBatchTarget,
 	PullRequestBranchResult,
 	PullRequestBranchTarget,
+	PullRequestCheckLogResult,
+	PullRequestCheckLogTarget,
 	PullRequestCountResult,
 	PullRequestCountScope,
+	PullRequestForCommitResult,
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
+
+type WriteConnection = { providerId: IntegrationIds; connectionId: string };
+
+type IssueWriteConnection = WriteConnection & {
+	/** Required for GitHub Enterprise Server. Must match the configured connection's host and port. */
+	domain?: string;
+	/** When provided, the exact credential for this operation must authenticate as this GitHub login. */
+	expectedLogin?: string;
+};
+
+export type IssueWriteOptions = IssueWriteConnection & GitHubIssueWrite;
+/**
+ * `intent: 'delete'` also requires that the connection may delete the issue, so a host can refuse before asking
+ * the user to confirm a deletion GitHub would reject.
+ */
+export type IssueWriteTargetOptions = IssueWriteConnection & GitHubIssueDelete & { intent?: 'delete' };
+export type IssueDeleteOptions = IssueWriteConnection & GitHubIssueDelete;
+/** The canonical node ID, and the issue as GitHub reports it now: where it lives, its URL, title and state. */
+export type IssueWriteTargetResult =
+	| { ok: true; nodeId: string; issue: Extract<IssueWriteResult, { ok: true }>['issue'] }
+	| Extract<IssueWriteResult, { ok: false }>;
+
+type PullRequestWriteConnection = WriteConnection & {
+	/** Required for GitHub Enterprise Server. The HTTP(S) origin of the configured installation. */
+	domain?: string;
+	/** Required for GitHub Enterprise Server. The login the selected credential must authenticate as. */
+	expectedLogin?: string;
+};
+
+export type PullRequestWriteOptions = PullRequestWriteConnection & GitHubPullRequestWrite;
+export type PullRequestWriteTargetOptions = PullRequestWriteConnection & GitHubPullRequestWriteTarget;
+export type PullRequestCreateCapabilityOptions = PullRequestWriteConnection & GitHubPullRequestCreateTarget;
 
 /** Neutral repository input accepted by repo-scoped provider reads. */
 export interface ProviderRepositoryInput {
@@ -905,6 +962,15 @@ export interface IntegrationManager {
 		 * rate-limit request per row, in the cheap check as well as the full read.
 		 */
 		mergeQueue?: boolean;
+		/**
+		 * GitHub and GitHub Enterprise: `true` reads each row's head check results (`checkRuns`, `checkRunsTruncated`),
+		 * in the cheap check and the full read alike. Off by default; every other provider ignores it. Each check's
+		 * id, kind, name, status and conclusion become etag inputs, hashed into one fixed-length term, and a read that
+		 * selects them adds a marker to every etag it computes, so changing this reads each held target in full once.
+		 * `required` is read on GitHub.com only. A head with more than 100 checks costs both reads a request per
+		 * further 100, up to 500.
+		 */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>>;
 	/**
 	 * Finds, for each branch, every pull request whose head is that branch — in any state (open, closed or merged),
@@ -957,7 +1023,147 @@ export interface IntegrationManager {
 		 * Selecting it costs a rate-limit request per row (a 25-branch chunk 13 points instead of 10 without).
 		 */
 		mergeQueue?: boolean;
+		/**
+		 * GitHub and GitHub Enterprise: `true` reads each row's head check results (`checkRuns`, `checkRunsTruncated`).
+		 * Off by default; every other provider ignores it. This read never sets `required`, since the by-name query
+		 * can't ask for it. A head with more than 100 checks costs a request per further 100, up to 500.
+		 */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>>;
+	/**
+	 * The tail of each check's log, by the opaque `PullRequestCheckRun.id` a batch pull request read returned
+	 * (`checkRuns: true`). GitHub and GitHub Enterprise only; every other provider refuses (`unsupported` warning +
+	 * `fetchFailed`).
+	 *
+	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
+	 * - `{ key, log }` — the log's last `tailLines` lines. `source` says whether it is an Actions job's log or another
+	 *   check run's output (its title, summary and text). Raw and untrusted: an Actions log keeps its timestamps and
+	 *   `##[group]` markers.
+	 * - `{ key, unavailable }` — the check has no log to read: `'no-log'` (a commit status, a check run without
+	 *   output, a job that never ran), `'log-not-ready'` (the job is still running), `'log-expired'` (the job finished
+	 *   and its log is gone) or `'log-too-large'` (the host would only serve the whole log, and it is over 20 MiB).
+	 * - No item for a key, with `fetchFailed` and a warning naming it in `targetKeys` — the read could not check (auth,
+	 *   rate limit, network, an unmappable response).
+	 *
+	 * A duplicate key, an id no pull request read returned, an empty owner or repo, or a `tailLines` outside 1..2000
+	 * refuses the whole call. Targets are read in chunks of 25, up to 6 at once. Request cost: a commit status costs
+	 * nothing; a chunk's other check runs cost one GraphQL request; an Actions job costs one REST request plus two
+	 * unauthenticated storage requests downloading at most 256 KiB (a web host streams the whole log instead), at most
+	 * 4 at a time in a chunk.
+	 */
+	getPullRequestCheckLogs(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestCheckLogTarget[];
+		/** How many lines to keep from the end of each log: an integer from 1 to 2000. Defaults to 200. */
+		tailLines?: number;
+	}): Promise<ProviderResult<PullRequestCheckLogResult>>;
+	/**
+	 * New reviews, inline review comments and conversation comments on each pull request after the target's
+	 * `cursor`, in GitHub's timeline order. GitHub and GitHub Enterprise only; every other provider refuses
+	 * (`unsupported` warning + `fetchFailed`).
+	 *
+	 * Same result contract as {@link getPullRequestsBatch}, echoed under the caller's own `key`:
+	 * - `{ key, items, cursor, hasMore }` — the activity published after the cursor; with no cursor, the newest
+	 *   `limit` items as a baseline (`hasMore` false). Each review is followed by its inline comments. `cursor` is
+	 *   always set; send it back on the next read. `hasMore` means more items already follow; read again with
+	 *   `cursor`.
+	 * - `{ key, notFound: true, items: [], cursor }` — the pull request or its repository does not exist or is not
+	 *   visible to this connection; `cursor` is the one sent, or `''`.
+	 * - No item for a key, with `fetchFailed` and a warning naming it in `targetKeys` — the read could not check.
+	 *
+	 * Edits are not seen: an item is returned once, when it is published. Pending reviews (the viewer's own drafts)
+	 * are skipped. A duplicate key, an empty owner or repo, a non-positive `number`, a cursor no read returned, or a
+	 * `limit` outside 1..100 refuses the whole call. Request cost: one GraphQL request per 25 targets, up to 6 at once,
+	 * estimated at about 1 point per pull request at the defaults.
+	 */
+	getPullRequestActivity(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+		/** Each `key` must be unique — a duplicate refuses the whole call, since keys identify results. */
+		targets: readonly PullRequestActivityTarget[];
+		/** Timeline items (reviews and conversation comments) per target: an integer from 1 to 100. Defaults to 30. */
+		limit?: number;
+	}): Promise<ProviderResult<PullRequestActivityResult>>;
+	/**
+	 * Finds the pull request each of several commits of ONE repository belongs to, in a few requests rather than one
+	 * per commit, for a whole history window. The batch form of the single-commit lookup, answered without the user's
+	 * relationship to the pull request.
+	 *
+	 * Results are echoed under the commit's own `sha`, so no positional matching is needed. Repeats in `shas`
+	 * (ignoring case) are resolved once and answered once. Per-SHA isolation is the rule, as in
+	 * {@link getPullRequestsBatch}:
+	 * - `{ sha, pullRequest }` — the commit belongs to that pull request, in any state. When it belongs to several, the
+	 *   one the single-commit lookup returns, which each host picks its own way:
+	 *   - GitHub/GHE: of the two most recently updated pull requests GitHub associates with the commit, one from a fork
+	 *     only when the fork is `owner`'s; of those, `owner`'s own (ignoring case), then a merged one, then the most
+	 *     recently updated. A third one is never considered.
+	 *   - GitLab: of the first page GitLab lists, an open one, then the most recently updated.
+	 *   - Bitbucket Cloud and Bitbucket Data Center: of the first page the host lists, the most recently updated.
+	 *   - Azure DevOps: the first the pull request query lists.
+	 * - `{ sha }` with no `pullRequest` — RESOLVED NONE: the host answered and the commit has no pull request (also a
+	 *   commit or repository the host doesn't have or this connection can't see, and the working tree's all-zero SHA,
+	 *   which is never sent). Safe to cache. Bitbucket Cloud answers `404` alike for a commit it doesn't have and for a
+	 *   repository it doesn't have, so its `404` is none only once another commit of the repository answered, in this
+	 *   call or an earlier one with the same token; until then it fails. So on Bitbucket Cloud don't pass
+	 *   commits the remote doesn't have (unpushed ones): a window made only of those can't resolve. A repository whose
+	 *   pull request links aren't indexed yet (an answer without a list, or `repo_indexed: false`) fails every SHA.
+	 * - No item for a `sha`, with `fetchFailed` and a warning naming it in `targetKeys` — the read could not check
+	 *   (auth, rate limit, network, missing session, an unmappable response). Never treat that as none.
+	 *
+	 * Every entry of `shas` must be a full 40-character commit SHA, in either letter case (surrounding whitespace is
+	 * trimmed): anything else, a branch name or a short SHA included, refuses the whole call with a warning and
+	 * `fetchFailed`, since a ref the host can't resolve as a commit would otherwise read as a cacheable none.
+	 *
+	 * UNCACHED, and deliberately not routed through the integration's cached single-commit lookup: that cache's key
+	 * carries no connection, and the lookup answers a failure as `undefined`, which a caller can't tell from a commit
+	 * without a pull request. The caller owns caching, per SHA.
+	 *
+	 * Request cost, for N commits: GitHub/GHE one aliased GraphQL request per 25; Azure DevOps one pull request query per 100, then one read per distinct pull request
+	 * found; GitLab one project lookup, kept per token, then one request per commit; Bitbucket Cloud and Bitbucket
+	 * Data Center one request per commit. Every fan-out runs with bounded concurrency, through a strict form of the
+	 * single-commit lookup's read, so its row is that lookup's row. After the first rate limit or refused credential
+	 * (and on Bitbucket Cloud, the first commit refused because the pull request commit links app isn't installed, or
+	 * the first answer that its links aren't indexed yet), or a `403` before any SHA answered, the requests not yet
+	 * sent aren't: their SHAs fail with that reason under one warning. There is no cap on
+	 * `shas`, so a caller sizes its window to the cost it accepts.
+	 *
+	 * Rows are the single-commit lookup's: the lite pull request shape, without `authoredByMe` or `viewer`.
+	 */
+	getPullRequestsForCommits(options: {
+		providerId: IntegrationIds;
+		/**
+		 * GitHub owner, GitLab namespace path (may be nested), Bitbucket workspace, Bitbucket Data Center project key, or
+		 * Azure DevOps organization.
+		 */
+		owner: string;
+		/** Repository name or slug. */
+		repo: string;
+		/** Azure DevOps project. Required there, ignored elsewhere. */
+		project?: string;
+		/** The commits, as full 40-character SHAs; see above. */
+		shas: readonly string[];
+		connectionId?: string;
+		/** Self-managed host domain fallback; see {@link ProviderSweepTarget.domain}. */
+		domain?: string;
+		/**
+		 * Selects merge-queue data (`mergeQueue`, `mergeQueueRequired`, `mergeQueueRemoval`) on GitHub.com for this
+		 * read: `true` selects it, `false` doesn't, omitted follows the host's
+		 * `ConfigProvider.getPullRequestReadOptions`, resolved once per call. Every other provider ignores it.
+		 * Selecting it costs a rate-limit request per row.
+		 */
+		mergeQueue?: boolean;
+		/**
+		 * Aborts the read: the requests in flight, and every request it has yet to send. The read then rejects with a
+		 * `CancellationError` instead of resolving, so a cancelled read is never mistaken for a failed or an empty one.
+		 */
+		cancellation?: AbortSignal;
+	}): Promise<ProviderResult<PullRequestForCommitResult>>;
 	/**
 	 * How many pull requests match each scope — the PR twin of {@link countIssues}, behind a "this will fetch ~N pull
 	 * requests" preview and a live count next to an unapplied filter. Same per-scope isolation, `key`-echo, and
@@ -1034,6 +1240,15 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
+	getIssueTrackerCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult>;
+	getIssueTrackerIssueWriteOptions(
+		options: IssueTrackerIssueWriteOptions,
+	): Promise<IssueTrackerIssueWriteOptionsResult>;
+	writeIssueTrackerIssue(options: IssueTrackerWriteOptions): Promise<IssueTrackerWriteResult>;
+	deleteIssueTrackerIssue(options: IssueTrackerDeleteOptions): Promise<IssueTrackerWriteResult>;
+	resolveIssueTrackerIssueWriteTarget(
+		options: IssueTrackerWriteTargetOptions,
+	): Promise<IssueTrackerWriteTargetResult>;
 	sweepPullRequests(options?: PullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	sweepClosedPullRequests(options?: ClosedPullRequestSweepOptions): Promise<ProviderSweepResult<PullRequestShape>>;
 	broadenIssues(options: {
@@ -1047,6 +1262,15 @@ export interface IntegrationManager {
 		cursor?: string;
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>>;
+	writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult>;
+	deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult>;
+	resolveIssueWriteTarget(options: IssueWriteTargetOptions): Promise<IssueWriteTargetResult>;
+
+	resolvePullRequestWriteTarget(options: PullRequestWriteTargetOptions): Promise<PullRequestWriteTargetResult>;
+	getPullRequestCreateCapability(
+		options: PullRequestCreateCapabilityOptions,
+	): Promise<PullRequestCreateCapabilityResult>;
+	writePullRequest(options: PullRequestWriteOptions): Promise<PullRequestWriteResult>;
 	resolveRepository(options: {
 		providerId?: IntegrationIds;
 		remoteUrl: string;

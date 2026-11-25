@@ -85,6 +85,14 @@ export interface PullRequestShape extends IssueOrPullRequest {
 	 * Read wherever `mergeQueue` is (the same `mergeQueue` field group); absent there means no such removal.
 	 */
 	readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval;
+	/**
+	 * The head commit's individual check results. `undefined` means not read; empty means read and the head has no
+	 * checks. Only GitHub and GitHub Enterprise read them, and only for a read that asks (`checkRuns`); ask
+	 * `getPullRequestFieldPresence` (`@gitlens/integrations`) for the row's `checkRuns` group.
+	 */
+	readonly checkRuns?: readonly PullRequestCheckRun[];
+	/** Set when the head has more checks than {@link checkRuns} holds. Read wherever `checkRuns` is. */
+	readonly checkRunsTruncated?: true;
 	readonly number?: number;
 	readonly authoredByMe?: boolean;
 	/**
@@ -114,6 +122,8 @@ export interface PullRequestShape extends IssueOrPullRequest {
 @loggable(i => i.id)
 @serializable
 export class PullRequest implements PullRequestShape {
+	declare readonly capturedAt?: number;
+	declare readonly captureId?: string;
 	readonly type = 'pullrequest';
 
 	constructor(
@@ -160,6 +170,8 @@ export class PullRequest implements PullRequestShape {
 		public readonly mergeQueue?: PullRequestMergeQueueEntry,
 		public readonly mergeQueueRequired?: boolean,
 		public readonly mergeQueueRemoval?: PullRequestMergeQueueRemoval,
+		public readonly checkRuns?: readonly PullRequestCheckRun[],
+		public readonly checkRunsTruncated?: true,
 	) {}
 
 	get closed(): boolean {
@@ -497,6 +509,62 @@ export interface PullRequestMergeQueueRemoval {
 	/** When the pull request was removed. */
 	removedAt: Date;
 }
+
+/** One check on a pull request's head commit: a check run, or a commit status. */
+export interface PullRequestCheckRun {
+	/** Opaque: compare for equality or hand back to core, never parse. */
+	readonly id: string;
+	readonly kind: 'check-run' | 'status';
+	/** A check run's name, or a commit status's context. */
+	readonly name: string;
+	/** The workflow an Actions check run belongs to. */
+	readonly workflowName?: string;
+	readonly status: PullRequestCheckRunStatus;
+	/** Set once `status` is `completed`. */
+	readonly conclusion?: PullRequestCheckRunConclusion;
+	readonly url?: string;
+	/** Whether the base branch requires it to pass. `undefined` means not read (only GitHub.com reads it). */
+	readonly required?: boolean;
+	readonly startedAt?: Date;
+	readonly completedAt?: Date;
+	/** Whether the check has output or a job log to read. */
+	readonly hasLog: boolean;
+}
+
+export type PullRequestCheckRunStatus = 'queued' | 'in-progress' | 'waiting' | 'pending' | 'requested' | 'completed';
+
+export type PullRequestCheckRunConclusion =
+	| 'success'
+	| 'failure'
+	| 'neutral'
+	| 'cancelled'
+	| 'skipped'
+	| 'timed-out'
+	| 'action-required'
+	| 'stale'
+	| 'startup-failure'
+	| 'error';
+
+/** A check's log tail, or why it has none. Exactly one of `log` and `unavailable` is set. */
+export type PullRequestCheckLog =
+	| { readonly log: PullRequestCheckLogText; readonly unavailable?: never }
+	| { readonly unavailable: PullRequestCheckLogUnavailableReason; readonly log?: never };
+
+/** The last lines of a check's log. `truncated` means earlier lines exist that `text` doesn't hold. */
+export interface PullRequestCheckLogText {
+	readonly text: string;
+	readonly lineCount: number;
+	readonly truncated: boolean;
+	/** An Actions job's log, or another check run's output (its title, summary and text). */
+	readonly source: 'actions-job-log' | 'check-run-output';
+}
+
+/**
+ * `'no-log'`: the check has nothing to read. `'log-not-ready'`: its job is still running. `'log-expired'`: its job
+ * finished but the host no longer keeps the log. `'log-too-large'`: the host would only serve the log whole, and it is
+ * larger than a read takes, so its last lines can't be told apart from its middle.
+ */
+export type PullRequestCheckLogUnavailableReason = 'no-log' | 'log-not-ready' | 'log-expired' | 'log-too-large';
 
 /** Why adding a pull request to its merge queue, or removing it, failed. */
 export type PullRequestMergeQueueActionFailureReason =

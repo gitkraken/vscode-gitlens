@@ -1,14 +1,14 @@
 /**
  * Per-connection recovery state for a cloud token the provider REFUSED — a revoked grant, retired scopes, an
  * app removed from the org. A purely predictive refresh (`expiresIn < 60`) cannot see that case, because the
- * backend still believes the token is valid, so without this the refused token is re-sent on every read and
+ * backend still believes the token is valid, so without this the refused token is re-sent on every request and
  * the failure only clears when the user reconnects by hand.
  *
  * One recovery refresh per connection, then the connection is the failure budget's problem:
- * - {@link recordRejection} on an `AuthenticationError` — arms the refresh, or reports that the rejection is
+ * - {@link recordRejection} when the provider rejects the credential — arms the refresh, or reports that the rejection is
  *   not recoverable so the caller counts it as a real failure instead.
- * - {@link claimRefresh} before the next read resolves its session — spends the rejection, so the refresh
- *   fires once and no further read of that connection asks the cloud again.
+ * - {@link claimRefresh} when the next operation resolves its session — spends the rejection, so the refresh
+ *   fires once and no further operation of that connection asks the cloud again.
  *
  * Deliberately NOT re-armed when the refresh hands back a different token. The GK cloud mints a new access
  * token on every `/refresh`, so a credential the provider refuses for a reason a refresh cannot fix (retired
@@ -18,18 +18,31 @@
  * or removes the stored tokens; a connection that is simply working never reaches here at all.
  */
 export class RejectedTokenTracker {
-	private readonly _rejections = new Map<string, 'armed' | 'spent'>();
+	private readonly _rejections = new Map<string, 'armed' | 'spent' | { accessToken: string; claimed: boolean }>();
 
 	/**
-	 * Whether a read of `connectionId` must force the cloud refresh of a token known to be refused, spending
-	 * the rejection so the refresh runs at most once. Spent here rather than after the read because a resolve
-	 * that throws must not leave the refresh armed and ask the cloud again on the next read.
+	 * Whether an operation on `connectionId` must force a cloud refresh of a token known to be refused. A session
+	 * lookup that throws must still spend the rejection so a later operation does not ask the cloud again.
 	 */
-	claimRefresh(connectionId: string): boolean {
-		if (this._rejections.get(connectionId) !== 'armed') return false;
+	claimRefresh(connectionId: string): boolean | ((accessToken: string | undefined) => boolean) {
+		const rejection = this._rejections.get(connectionId);
+		if (rejection == null || rejection === 'spent') return false;
 
-		this._rejections.set(connectionId, 'spent');
-		return true;
+		if (rejection === 'armed') {
+			this._rejections.set(connectionId, 'spent');
+			return true;
+		}
+
+		if (rejection.claimed) return false;
+
+		rejection.claimed = true;
+		return accessToken => {
+			if (this._rejections.get(connectionId) !== rejection) return false;
+			if (rejection.accessToken === accessToken) return true;
+
+			this._rejections.delete(connectionId);
+			return false;
+		};
 	}
 
 	/**
@@ -38,10 +51,13 @@ export class RejectedTokenTracker {
 	 * refused after the refresh is not self-healing, and only the failure budget (the primary's) ends in a reconnect
 	 * prompt.
 	 */
-	recordRejection(connectionId: string): boolean {
+	recordRejection(connectionId: string, accessToken?: string): boolean {
 		if (this._rejections.has(connectionId)) return false;
 
-		this._rejections.set(connectionId, 'armed');
+		this._rejections.set(
+			connectionId,
+			accessToken == null ? 'armed' : { accessToken: accessToken, claimed: false },
+		);
 		return true;
 	}
 
@@ -50,7 +66,7 @@ export class RejectedTokenTracker {
 		this._rejections.clear();
 	}
 
-	/** Whether any connection is holding a rejection. For assertions; the read path uses {@link claimRefresh}. */
+	/** Whether any connection is holding a rejection. For assertions; session resolution uses {@link claimRefresh}. */
 	get empty(): boolean {
 		return this._rejections.size === 0;
 	}

@@ -48,6 +48,7 @@ export type SessionPublication = {
 	/** A removal has no session from which to recover the affected storage variant. */
 	readonly cloud?: boolean;
 	readonly replacePrimary?: boolean;
+	readonly retireAll?: boolean;
 };
 
 export function getSessionIdentity(

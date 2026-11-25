@@ -5,6 +5,7 @@ import type { IssueSearchCriteria, IssueShape } from '@gitlens/git/models/issue.
 import type { IssueOrPullRequestState as PullRequestState } from '@gitlens/git/models/issueOrPullRequest.js';
 import type {
 	PullRequest,
+	PullRequestCheckLog,
 	PullRequestMergeMethod,
 	PullRequestMergeQueueActionResult,
 	PullRequestMergeQueueEntry,
@@ -14,11 +15,13 @@ import type {
 	PullRequestStackLayers,
 	PullRequestStateFilter,
 } from '@gitlens/git/models/pullRequest.js';
+import type { PullRequestActivityPage } from '@gitlens/git/models/pullRequestActivity.js';
 import type { RepositoryMetadata } from '@gitlens/git/models/repositoryMetadata.js';
 import type { ResourceDescriptor } from '@gitlens/git/models/resourceDescriptor.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
+import { isUncommitted } from '@gitlens/git/utils/revision.utils.js';
 import { ensureArray } from '@gitlens/utils/array.js';
-import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { CancellationError, isCancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { trace } from '@gitlens/utils/decorators/log.js';
 import { first } from '@gitlens/utils/iterable.js';
@@ -39,7 +42,16 @@ import {
 } from '../collectionMetadata.js';
 import type { IntegrationIds } from '../constants.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
-import { RequestNotFoundError, toError } from '../errors.js';
+import {
+	AuthenticationError,
+	AuthenticationErrorReason,
+	IntegrationReadUnavailableError,
+	isProviderUnreachableError,
+	LookupBackedOffError,
+	RequestNotFoundError,
+	RequestRateLimitError,
+	toError,
+} from '../errors.js';
 import type { ProviderRepositoriesInput } from '../manager.js';
 import { PagingMode } from '../providers/metadata.js';
 import type {
@@ -79,7 +91,7 @@ import type {
 	PullRequestEtagFields,
 	PullRequestEtagInclude,
 } from '../reads/etag.js';
-import { areDomainsOnSameHost } from '../utils/domain.utils.js';
+import { matchesInstallationOrigin } from '../utils/domain.utils.js';
 import { getSelfManagedBaseUrl, isGitSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
 import type {
 	BatchSlot,
@@ -117,6 +129,10 @@ function resolveScopeConcurrency(value: number | undefined): number {
 /** A repository as the batch and branch reads name it. */
 export type RepositoryCoordinate = { owner: string; repo: string; project?: string };
 
+export type PullRequestCheckLogCoordinate = { owner: string; repo: string; checkRunId: string };
+
+export type PullRequestActivityCoordinate = { owner: string; repo: string; number: number; cursor?: string };
+
 /**
  * Repository scopes as the host settled them ({@link GitHostIntegration.resolveRepositoryScopes}), with the `unsettled`
  * flag of each, in order. A repo-scoped read given these reads them as given rather than settling them again.
@@ -140,6 +156,29 @@ function rejectUnsettledMisses<T>(
 			? { status: 'rejected', reason: new Error(unsettledMissMessage) }
 			: slot,
 	);
+}
+
+function createCommitFanOutGate(
+	stops: (reason: unknown, answered: boolean) => boolean,
+	cancellation: AbortSignal | undefined,
+): <R>(send: () => Promise<R>, stopsOn?: (reason: unknown) => boolean) => Promise<R> {
+	let stopped: Error | undefined;
+	let answered = false;
+	return async (send, stopsOn) => {
+		if (stopped != null) throw stopped;
+		if (cancellation?.aborted) throw new CancellationError();
+
+		try {
+			const result = await send();
+			answered = true;
+			return result;
+		} catch (ex) {
+			if (stopped == null && (stopsOn != null ? stopsOn(ex) : stops(ex, answered))) {
+				stopped = toError(ex);
+			}
+			throw ex;
+		}
+	};
 }
 
 /**
@@ -194,7 +233,7 @@ export abstract class GitHostIntegration<
 			session.baseUrl ?? (session.domain || this.domain),
 			session.protocol,
 		);
-		if (baseUrl == null || !areDomainsOnSameHost(baseUrl, this.domain)) {
+		if (baseUrl == null || !matchesInstallationOrigin(this.domain, baseUrl)) {
 			throw new Error('Invalid self-managed integration base URL');
 		}
 
@@ -520,8 +559,8 @@ export abstract class GitHostIntegration<
 							this._session!,
 							repo,
 							options?.cancellation,
+							{ fresh: options?.expiryOverride === true },
 						);
-						// A canceled read may come back with nothing, which isn't an answer to keep
 						if (result == null && options?.cancellation?.aborted) {
 							cacheable.invalidate();
 							return undefined;
@@ -530,11 +569,12 @@ export abstract class GitHostIntegration<
 						this.resetRequestExceptionCount('getRepositoryMetadata');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer, and this bucket never expires one; a missing repository is.
 						if (!(ex instanceof RequestNotFoundError)) {
 							cacheable.invalidate();
 						}
-						this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
+						if (!(ex instanceof LookupBackedOffError)) {
+							this.handleProviderException('getRepositoryMetadata', ex, { scope: scope });
+						}
 						return undefined;
 					}
 				})(),
@@ -548,6 +588,7 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repo: T,
 		cancellation?: AbortSignal,
+		options?: { fresh?: boolean },
 	): Promise<RepositoryMetadata | undefined>;
 
 	/**
@@ -933,19 +974,20 @@ export abstract class GitHostIntegration<
 			return undefined;
 		}
 
+		const session = this._session;
+		if (session == null) return undefined;
+
 		const pr = this.ctx.cache.getPullRequestForBranch(
 			branch,
 			repo,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
 					try {
-						const result = await this.getProviderPullRequestForBranch(this._session!, repo, branch, opts);
+						const result = await this.getProviderPullRequestForBranch(session, repo, branch, opts);
 						this.resetRequestExceptionCount('getPullRequestForBranch');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer: left cached, the `undefined` below reads as "no pull
-						// request" for the bucket's whole expiry (an hour by branch).
 						cacheable.invalidate();
 						this.handleProviderException('getPullRequestForBranch', ex, { scope: scope });
 						if (throwOnError) throw ex;
@@ -983,20 +1025,53 @@ export abstract class GitHostIntegration<
 			return undefined;
 		}
 
+		const session = this._session;
+		if (session == null) return undefined;
+
+		const fresh = cacheOptions.expiryOverride === true;
 		const pr = this.ctx.cache.getPullRequestForSha(
 			rev,
 			repo,
-			this,
+			this.getPullRequestCacheDescriptor(session),
 			cacheable => ({
 				value: (async () => {
+					const keys = this.getCommitLookupBackoffKeys(session, repo, rev);
+					if (!fresh) {
+						const now = Date.now();
+						const until =
+							this.lookupBackoff.backedOffUntil(keys.repository, now) ??
+							this.lookupBackoff.backedOffUntil(keys.commit, now);
+						if (until != null) {
+							cacheable.invalidate();
+							if (throwOnError) {
+								throw new LookupBackedOffError(until, `The pull request lookup of ${rev}`);
+							}
+
+							return undefined;
+						}
+					}
+
 					try {
-						const result = await this.getProviderPullRequestForCommit(this._session!, repo, rev);
+						const result = await this.getProviderPullRequestForCommit(session, repo, rev, {
+							fresh: fresh,
+						});
+						this.lookupBackoff.clear(keys.commit);
+						this.lookupBackoff.clear(keys.repository);
 						this.resetRequestExceptionCount('getPullRequestForCommit');
 						return result;
 					} catch (ex) {
-						// A failed lookup is not an answer — and the by-sha bucket never expires a miss.
 						cacheable.invalidate();
-						this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						const backoff = this.getCommitLookupBackoff(ex);
+						if (backoff != null) {
+							this.lookupBackoff.fail(
+								backoff.scope === 'repository' ? keys.repository : keys.commit,
+								Date.now(),
+								backoff.until,
+							);
+						}
+						if (!(ex instanceof LookupBackedOffError)) {
+							this.handleProviderException('getPullRequestForCommit', ex, { scope: scope });
+						}
 						if (throwOnError) throw ex;
 
 						return undefined;
@@ -1012,7 +1087,38 @@ export abstract class GitHostIntegration<
 		session: ProviderAuthenticationSession,
 		repo: T,
 		rev: string,
+		options?: { fresh?: boolean },
 	): Promise<PullRequest | undefined>;
+
+	private getCommitLookupBackoffKeys(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		rev: string,
+	): { repository: string; commit: string } {
+		const repository = JSON.stringify([
+			this.getSessionFingerprint(session),
+			session.domain,
+			session.baseUrl ?? '',
+			repo.key,
+			repo.owner,
+			repo.name,
+			repo.project,
+		]);
+		return { repository: repository, commit: `${repository}@${rev}` };
+	}
+
+	protected getCommitLookupBackoff(ex: unknown): { scope: 'repository' | 'commit'; until?: number } | undefined {
+		if (isCancellationError(ex)) return ex.reason === 'timeout' ? { scope: 'repository' } : undefined;
+		if (ex instanceof AuthenticationError && ex.reason !== AuthenticationErrorReason.Forbidden) return undefined;
+		if (ex instanceof LookupBackedOffError) return { scope: 'repository', until: ex.until };
+		if (ex instanceof IntegrationReadUnavailableError) return { scope: 'repository' };
+		if (ex instanceof RequestRateLimitError) {
+			return { scope: 'repository', until: ex.resetAt != null ? ex.resetAt * 1000 : undefined };
+		}
+		if (isProviderUnreachableError(ex)) return { scope: 'repository' };
+
+		return { scope: 'commit' };
+	}
 
 	/**
 	 * Memoized identity lookups backing filter resolution. Keyed by the session's token fingerprint plus the
@@ -2303,7 +2409,11 @@ export abstract class GitHostIntegration<
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, issue => issue == null);
 
-			this.resetRequestExceptionCount('getIssuesBatch', connectionId);
+			this.settleBatchCredential('getIssuesBatch', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2350,7 +2460,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsBatchResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options?: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean },
+		options?: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<PullRequestShape | undefined>[] | undefined>> {
@@ -2371,7 +2481,11 @@ export abstract class GitHostIntegration<
 
 			const settled = await this.settleResolvedSlots(session, targets, slots, pr => pr == null);
 
-			this.resetRequestExceptionCount('getPullRequestsBatch', connectionId);
+			this.settleBatchCredential('getPullRequestsBatch', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2397,9 +2511,101 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsBatch?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean } | undefined,
+		options:
+			| { currentAccount?: { id: string; username?: string }; mergeQueue?: boolean; checkRuns?: boolean }
+			| undefined,
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined>;
+
+	async getPullRequestCheckLogsResult(
+		targets: readonly PullRequestCheckLogCoordinate[],
+		options: { tailLines: number },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestCheckLog>[] | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		const start = performance.now();
+		let slots: PromiseSettledResult<PullRequestCheckLog>[] | undefined;
+		try {
+			slots = await this.getProviderPullRequestCheckLogs?.(session, targets, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestCheckLogs', connectionId);
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			const settled = await this.settleBatchRefusals(session, targets, slots);
+
+			this.settleBatchCredential('getPullRequestCheckLogs', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
+			this.reportDeferredRequestFailures(settled, false, connectionId);
+			return { value: settled, duration: performance.now() - start };
+		} catch (ex) {
+			const struck = this.handleProviderException('getPullRequestCheckLogs', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderPullRequestCheckLogs?(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestCheckLogCoordinate[],
+		options: { tailLines: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestCheckLog>[] | undefined>;
+
+	async getPullRequestActivityResult(
+		targets: readonly PullRequestActivityCoordinate[],
+		options: { limit: number },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestActivityPage | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		const start = performance.now();
+		let slots: PromiseSettledResult<PullRequestActivityPage | undefined>[] | undefined;
+		try {
+			slots = await this.getProviderPullRequestActivity?.(session, targets, options, cancellation);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestActivity', connectionId);
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			const settled = await this.settleBatchRefusals(session, targets, slots);
+
+			this.settleBatchCredential('getPullRequestActivity', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
+			this.reportDeferredRequestFailures(settled, false, connectionId);
+			return { value: settled, duration: performance.now() - start };
+		} catch (ex) {
+			const struck = this.handleProviderException('getPullRequestActivity', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots, !struck, connectionId);
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderPullRequestActivity?(
+		session: ProviderAuthenticationSession,
+		targets: readonly PullRequestActivityCoordinate[],
+		options: { limit: number },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestActivityPage | undefined>[] | undefined>;
 
 	/**
 	 * Result-returning wrapper for the cheap check behind the batch issue read's etags: each coordinate's change
@@ -2436,9 +2642,11 @@ export abstract class GitHostIntegration<
 				keepOtherFailures: true,
 			});
 
-			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getIssuesEtagFields', connectionId);
-			}
+			this.settleBatchCredential('getIssuesEtagFields', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: settled.some(slot => slot.status === 'fulfilled'),
+			});
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleEtagCheckException('getIssuesEtagFields', ex, { scope: scope, connectionId: connectionId });
@@ -2470,7 +2678,7 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsEtagFieldsResult(
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<PullRequestEtagFields | undefined>[] | undefined>> {
@@ -2494,9 +2702,11 @@ export abstract class GitHostIntegration<
 				keepOtherFailures: true,
 			});
 
-			if (settled.some(slot => slot.status === 'fulfilled')) {
-				this.resetRequestExceptionCount('getPullRequestsEtagFields', connectionId);
-			}
+			this.settleBatchCredential('getPullRequestsEtagFields', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: settled.some(slot => slot.status === 'fulfilled'),
+			});
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
 			this.handleEtagCheckException('getPullRequestsEtagFields', ex, {
@@ -2517,7 +2727,7 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsEtagFields?(
 		session: ProviderAuthenticationSession,
 		coordinates: readonly { owner: string; repo: string; number: number; project?: string }[],
-		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean },
+		options: { etagIncludes?: readonly PullRequestEtagInclude[]; mergeQueue?: boolean; checkRuns?: boolean },
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<PullRequestEtagFields | undefined>[] | undefined>;
 
@@ -2538,7 +2748,12 @@ export abstract class GitHostIntegration<
 	 */
 	async getPullRequestsForBranchesResult(
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
+		options: {
+			currentAccount?: { id: string; username?: string };
+			limit: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+		},
 		cancellation?: AbortSignal,
 		connectionId?: string,
 	): Promise<IntegrationResult<BatchSlot<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>> {
@@ -2569,7 +2784,11 @@ export abstract class GitHostIntegration<
 				found => found.pullRequests.length === 0 && !found.truncated,
 			);
 
-			this.resetRequestExceptionCount('getPullRequestsForBranches', connectionId);
+			this.settleBatchCredential('getPullRequestsForBranches', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: true,
+			});
 			this.reportDeferredRequestFailures(settled, false, connectionId);
 			return { value: settled, duration: performance.now() - start };
 		} catch (ex) {
@@ -2597,9 +2816,120 @@ export abstract class GitHostIntegration<
 	protected getProviderPullRequestsForBranches?(
 		session: ProviderAuthenticationSession,
 		targets: readonly { owner: string; repo: string; project?: string; branch: string; headOwner?: string }[],
-		options: { currentAccount?: { id: string; username?: string }; limit: number; mergeQueue?: boolean },
+		options: {
+			currentAccount?: { id: string; username?: string };
+			limit: number;
+			mergeQueue?: boolean;
+			checkRuns?: boolean;
+		},
 		cancellation?: AbortSignal,
 	): Promise<PromiseSettledResult<{ pullRequests: PullRequestShape[]; truncated: boolean }>[] | undefined>;
+
+	async getPullRequestsForCommitsResult(
+		repo: RepositoryCoordinate,
+		shas: readonly string[],
+		options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+		connectionId?: string,
+	): Promise<IntegrationResult<BatchSlot<PullRequestShape | undefined>[] | undefined>> {
+		const scope = getScopedLogger();
+		const session = await this.resolveReadSession(connectionId, scope);
+		if (session == null || isReadSessionFailure(session)) return session && { error: session.error };
+
+		const start = performance.now();
+		const asked = shas.flatMap((sha, index) => (isUncommitted(sha) ? [] : [index]));
+		let slots: PromiseSettledResult<PullRequestShape | undefined>[] | undefined;
+		try {
+			const resolved = await this.resolveRepositoryCoordinates(session, [repo], cancellation);
+			const settledRepo = resolved.coordinates[0] ?? repo;
+			slots = await this.getProviderPullRequestsForCommits(
+				session,
+				settledRepo,
+				asked.map(index => shas[index]),
+				options,
+				cancellation,
+			);
+			if (slots == null) {
+				this.resetRequestExceptionCount('getPullRequestsForCommits', connectionId);
+				return { value: undefined, duration: performance.now() - start };
+			}
+
+			const unsettled = resolved.unsettled?.[0] === true;
+			const settled = await this.settleResolvedSlots(
+				session,
+				{ coordinates: asked.map(() => settledRepo), unsettled: asked.map(() => unsettled) },
+				slots,
+				pr => pr == null,
+			);
+
+			this.settleBatchCredential('getPullRequestsForCommits', settled, {
+				scope: scope,
+				connectionId: connectionId,
+				reset: asked.length > 0,
+			});
+			this.reportDeferredRequestFailures(settled, false, connectionId);
+
+			const value = shas.map((): BatchSlot<PullRequestShape | undefined> => ({
+				status: 'fulfilled',
+				value: undefined,
+			}));
+			asked.forEach((index, i) => {
+				value[index] = settled[i];
+			});
+			return { value: value, duration: performance.now() - start };
+		} catch (ex) {
+			const struck = this.handleProviderException('getPullRequestsForCommits', ex, {
+				scope: scope,
+				connectionId: connectionId,
+			});
+			this.reportDeferredRequestFailures(slots ?? [{ status: 'rejected', reason: ex }], !struck, connectionId);
+			return { error: toError(ex), duration: performance.now() - start };
+		}
+	}
+
+	protected getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: RepositoryCoordinate,
+		shas: readonly string[],
+		_options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const read = this.getProviderPullRequestForCommitInBatch?.bind(this);
+		if (read == null) return Promise.resolve(undefined);
+
+		const descriptor = this.toCommitRepositoryDescriptor(repo);
+		const send = this.commitFanOutGate(cancellation);
+		return mapSettledBounded(shas, providerFanOutConcurrency, sha =>
+			send(() => read(session, descriptor, sha, cancellation)),
+		);
+	}
+
+	// KEEP: throw on every failure, a missing client included; `undefined` is a cacheable none.
+	protected getProviderPullRequestForCommitInBatch?(
+		session: ProviderAuthenticationSession,
+		repo: T,
+		sha: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined>;
+
+	protected commitFanOutGate(
+		cancellation: AbortSignal | undefined,
+	): <R>(send: () => Promise<R>, stopsOn?: (reason: unknown) => boolean) => Promise<R> {
+		return createCommitFanOutGate((reason, answered) => this.stopsCommitFanOut(reason, answered), cancellation);
+	}
+
+	protected stopsCommitFanOut(reason: unknown, answered: boolean): boolean {
+		if (reason instanceof RequestRateLimitError) return true;
+		if (!(reason instanceof AuthenticationError)) return false;
+
+		return reason.reason !== AuthenticationErrorReason.Forbidden || !answered;
+	}
+
+	protected toCommitRepositoryDescriptor(repo: RepositoryCoordinate): T {
+		// KEEP: this cast holds only while every host's descriptor is a key plus owner and name, and no per-SHA read
+		// reads the key.
+		return { key: `${repo.owner}/${repo.repo}`, owner: repo.owner, name: repo.repo } as unknown as T;
+	}
 
 	/**
 	 * The PR twin of {@link countIssuesResult}: counts each scope's pull requests, transferring none where the

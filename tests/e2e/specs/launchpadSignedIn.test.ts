@@ -7,7 +7,8 @@
  * list changes on its own. So nothing here asserts counts, order or other PRs: the quick pick and view checks follow
  * one known PR, `E2E_GITHUB_PR_URL` (the same PR the MCP Start Review spec uses), and the summaries are only checked
  * for their connected state. That PR is kept open, non-draft, without reviewers, failing checks or conflicts, which
- * Launchpad files under Blocked ("Unassigned Reviewers"); assigning a reviewer would move it and fail these tests.
+ * Launchpad files under Ready to Merge; assigning a reviewer or protecting its base branch would move it and fail
+ * these tests.
  *
  * Read-only: no item action is run (no pin, snooze, merge, reviewer assignment or checkout) — the PR step is
  * only opened and dismissed. Another integration on the account may fail to load; Launchpad then shows a
@@ -26,6 +27,7 @@ import * as process from 'node:process';
 import type { VSCodeInstance } from '../baseTest.js';
 import { test as base, canSignIn, createTmpDir, expect, GitFixture } from '../baseTest.js';
 import { widenSideBarForGraph } from '../graphHelpers.js';
+import { quickInputSelector } from '../pageObjects/components/quickPick.js';
 
 const prUrl = process.env.E2E_GITHUB_PR_URL;
 // `https://github.com/<owner>/<repo>/pull/<n>` → `<owner>/<repo>#<n>`, the reference Launchpad shows for it
@@ -63,7 +65,7 @@ test.skip(!canSignIn(), 'GK_E2E_ACCESS_TOKEN_COOKIE is not set');
 test.skip(prRef == null, 'E2E_GITHUB_PR_URL is not set to a GitHub PR URL');
 test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
-const quickPickRows = '.quick-input-widget .monaco-list-row';
+const quickPickRows = `${quickInputSelector} .monaco-list-row`;
 // The first items arrive once every connected integration has answered (~11 s measured on staging)
 const itemsTimeout = 90_000;
 
@@ -122,9 +124,10 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 		await vscode.gitlens.quickPick.waitForHidden(5_000);
 	});
 
-	test('quick pick lists the test PR as blocked on unassigned reviewers', async ({ vscode }) => {
+	// SEE: qa-gk/gl-e2e has no branch protection or rulesets (checked 2026-11-18) — GitHub reports no review decision, so #5863 files the PR as ready to merge
+	test('quick pick lists the test PR as ready to merge', async ({ vscode }) => {
 		const row = await filterLaunchpadToPr(vscode);
-		expect(row?.includes('Unassigned Reviewers'), `${prRef} row names its Blocked reason`).toBe(true);
+		expect(row?.includes('Ready to Merge'), `${prRef} row names its Ready to Merge category`).toBe(true);
 	});
 
 	test('selecting the test PR opens its step with the PR actions', async ({ vscode }) => {
@@ -164,18 +167,18 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 		// Dismissed without running any of them (afterEach)
 	});
 
-	test('Launchpad view files the test PR under Blocked', async ({ vscode }) => {
+	test('Launchpad view files the test PR under Ready to Merge', async ({ vscode }) => {
 		await vscode.gitlens.executeCommand('gitlens.showLaunchpadView');
 		const tree = vscode.gitlens.launchpadViewTreeView;
 		const groups = tree.locator('[role="treeitem"][aria-level="1"]');
-		const blocked = groups.filter({ hasText: /^Blocked/ }).first();
-		await blocked.waitFor({ state: 'visible', timeout: itemsTimeout });
+		const mergeable = groups.filter({ hasText: /^Ready to Merge/ }).first();
+		await mergeable.waitFor({ state: 'visible', timeout: itemsTimeout });
 
-		// The tree renders only the rows in view, and Blocked alone can hold dozens of the account's PRs. With every
-		// other group collapsed, any PR row is one of Blocked's, so the test PR is looked for by scrolling, not by its
-		// position under a group header that may already be out of view. Every group is collapsed first, Blocked
-		// included: an expanded group pushes the headers below it out of the rendered rows, where they can't be seen
-		// (or collapsed). The handful of headers alone all fit.
+		// The tree renders only the rows in view, and Ready to Merge alone can hold dozens of the account's PRs. With
+		// every other group collapsed, any PR row is one of Ready to Merge's, so the test PR is looked for by scrolling,
+		// not by its position under a group header that may already be out of view. Every group is collapsed first,
+		// Ready to Merge included: an expanded group pushes the headers below it out of the rendered rows, where they
+		// can't be seen (or collapsed). The handful of headers alone all fit.
 		const expanded = groups.and(tree.locator('[aria-expanded="true"]'));
 		// Bounded: a row whose click doesn't collapse it must not spin until the test times out
 		for (let i = 0; i < 10; i++) {
@@ -189,9 +192,12 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 				.toBeLessThan(count);
 		}
 		expect(await expanded.count(), 'every group collapsed').toBe(0);
-		await blocked.click();
+		await mergeable.click();
 		await expect
-			.poll(() => blocked.getAttribute('aria-expanded'), { message: 'Blocked expanded', timeout: 10_000 })
+			.poll(() => mergeable.getAttribute('aria-expanded'), {
+				message: 'Ready to Merge expanded',
+				timeout: 10_000,
+			})
 			.toBe('true');
 
 		// Digit-bounded, as in the quick pick: a substring match would also take `#10` or `#123` for `#1`
@@ -209,15 +215,16 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 					scrolled++;
 					return false;
 				},
-				{ message: `${prRef} listed under Blocked in the Launchpad view`, timeout: 30_000 },
+				{ message: `${prRef} listed under Ready to Merge in the Launchpad view`, timeout: 30_000 },
 			)
 			.toBe(true);
 		// Still the only group open when the PR was found: a refresh restores the groups' stored expansion. A PR far
-		// down Blocked has scrolled the headers out of the rendered rows, so scroll back up until Blocked's renders again
+		// down Ready to Merge has scrolled the headers out of the rendered rows, so scroll back up until its header
+		// renders again
 		await vscode.page.mouse.wheel(0, -step * (scrolled + 1));
-		await blocked.waitFor({ state: 'visible', timeout: 10_000 });
-		expect(await expanded.count(), 'only Blocked expanded').toBe(1);
-		expect(await blocked.getAttribute('aria-expanded'), 'Blocked still expanded').toBe('true');
+		await mergeable.waitFor({ state: 'visible', timeout: 10_000 });
+		expect(await expanded.count(), 'only Ready to Merge expanded').toBe(1);
+		expect(await mergeable.getAttribute('aria-expanded'), 'Ready to Merge still expanded').toBe('true');
 	});
 
 	test('status bar item and Commit Graph indicator summarize the connected Launchpad', async ({ vscode }) => {
@@ -235,7 +242,7 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 			.toBe('names a PR');
 
 		// The indicator counts the account's PRs by group: connected and loaded means counts, and the test PR (filed
-		// under Blocked by the tests above) makes "blocked" one of them
+		// under Ready to Merge by the tests above) makes "can be merged" one of them — always the first
 		await vscode.gitlens.showCommitGraphView();
 		await widenSideBarForGraph(vscode);
 		const webview = await vscode.gitlens.commitGraphViewWebview;
@@ -244,10 +251,10 @@ test.describe('Launchpad on a signed-in worker', { tag: '@signed-in' }, () => {
 		await indicator.waitFor({ state: 'attached', timeout: 30_000 });
 		await expect
 			.poll(async () => (await indicator.getAttribute('aria-label')) ?? '', {
-				message: 'Commit Graph Launchpad indicator counts blocked PRs',
+				message: 'Commit Graph Launchpad indicator counts mergeable PRs',
 				timeout: itemsTimeout,
 			})
-			.toMatch(/^Launchpad — .*\d+ pull requests? (?:is|are) blocked/);
+			.toMatch(/^Launchpad — \d+ pull requests? can be merged/);
 
 		// Connected, the summary is marked as such, and hovering opens a popover that offers Open Launchpad and none of
 		// the welcome text shown before an integration is connected

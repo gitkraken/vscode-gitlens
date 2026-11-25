@@ -114,16 +114,24 @@ cache controls (`connectionId`, `etag`, expiry). The optional methods are:
 - `getRepositoryMetadata`, `getRepositoryDefaultBranch`: repository lookups.
 - `getPullRequestForSha`, `getPullRequestForBranch`, `getPullRequest`: pull-request lookups by commit, branch, or id.
 - `getIssue`, `getIssueOrPullRequest`: issue lookups by id.
-- `deletePullRequests()`: evicts every cached pull request (a merge can change pull requests no caller can name).
+- `deletePullRequests(scope?)` evicts cached pull requests for the provided `{ id, domain }` installation origin.
+  Without a scope, evict all pull requests because a merge can change pull requests no caller can name.
 
 A method you omit means no caching for that read: its loader runs on every call (and `deletePullRequests` is a
 no-op). Call a method as `cache.method(...)`; the manager never detaches it, so a class instance works.
 
-The descriptor is `{ id, domain, maybeConnected, sessionFingerprint }`, not the integration class. Its getters read
-through to the live integration each time they are read, so the values are live, not snapshots. Key entries by `id`
-and `domain`, and treat `maybeConnected` and `sessionFingerprint` as the entry's etag: when either changes (a
-reconnect, a token change) the entry must miss. The descriptor is `undefined` for lookups with no integration.
-The fixture uses the package's public `PromiseCache` utility, but any cache with the same behavior is valid.
+The cache descriptor exposes `id`, `domain`, `maybeConnected`, and `sessionFingerprint` without exposing the
+integration instance. Key entries by provider and domain, and treat the connection state and fingerprint as the
+entry's etag. Enterprise pull request descriptors also carry `installationOrigin` and the fingerprint captured for
+the request. Use that origin as the cache namespace so installations that share a hostname stay independent.
+For other reads, the state and fingerprint getters reflect the live integration. A lookup without an integration
+receives an undefined descriptor. The fixture uses the package's public `PromiseCache` utility, but any cache with
+the same behavior is valid.
+
+For a cached-only Enterprise pull request lookup, `GitHostIntegration.getCachedPullRequestScope?(remoteUrl)` accepts
+the fetch remote URL. HTTP(S) remotes must match the selected session's scheme, host, and port. SSH and scp
+remotes must match its hostname, and the scope uses the session's actual API origin. The optional method returns
+`undefined` without a matching established session and makes no authentication or network requests.
 
 ### Authentication
 
@@ -198,6 +206,9 @@ it with `page` + `hasMore` + `cursor?`. **No read throws for a provider-side fai
 | `getIssuesBatch`             | `IssueBatchResult`           | Resolves N issues by coordinate or tracker identifier; an absence is proven.                 |
 | `getPullRequestsBatch`       | `PullRequestBatchResult`     | Resolves N PRs by `(owner, repo, number)`, in any state; an absence is proven.               |
 | `getPullRequestsForBranches` | `PullRequestBranchResult`    | Each branch's PRs, in any state and fork-aware; an empty list is a proven none.              |
+| `getPullRequestCheckLogs`    | `PullRequestCheckLogResult`  | The tail of each check's log, by the `PullRequestCheckRun.id` a batch read returned.         |
+| `getPullRequestActivity`     | `PullRequestActivityResult`  | New reviews, inline review comments and conversation comments after a caller-held cursor.    |
+| `getPullRequestsForCommits`  | `PullRequestForCommitResult` | The PR each of N commits of one repo belongs to; a row without one is a resolved none.       |
 | `listIssueTrackerIssuesPage` | `IssueShape`                 | Jira (Cloud + Data Center) / Linear / Trello / Asana (issues live under resource → project). |
 | `sweepPullRequests`          | `ProviderSweepResult`        | Drains **every** page across providers (`maxPages`, default 100).                            |
 | `sweepClosedPullRequests`    | `ProviderSweepResult`        | Same, pinned to `['closed','merged']`.                                                       |
@@ -249,9 +260,9 @@ host's `IntegrationCacheProvider.getPullRequest`, so the caller owns caching the
 Both batch reads detect change with **etags**. Every fully read row carries an opaque `etag`, whether or not the
 caller sent one; send it back as the target's `etag` on the next call. Compare etags for equality only and never
 parse one: core computes it from the item's change state — a pull request's state, draft flag, update time and head
-commit (plus, on Azure DevOps, a fingerprint of the fields it changes without an update time, and on github.com a
-queued pull request's merge-queue state; see below); an issue's
-state and update time — and it is not the provider's HTTP ETag. A field the host changes without moving the update
+commit (plus, on Azure DevOps, a fingerprint of the fields it changes without an update time, on github.com a
+queued pull request's merge-queue state, and on GitHub with `checkRuns` a fingerprint of the head's checks; see below);
+an issue's state and update time — and it is not the provider's HTTP ETag. A field the host changes without moving the update
 time is not an input unless `etagIncludes` names it. Reactions are such a field: GitHub adds a reaction without
 touching the update time, so an `unchanged` issue's `thumbsUpCount` can be stale unless the call listed `'reactions'`,
 and an `unchanged` pull request's always can. A row is in one of four states:
@@ -367,20 +378,173 @@ fields on GitHub/GHE and Bitbucket DC and the by-id read's on Bitbucket Cloud. B
 `IntegrationCacheProvider.getPullRequestForBranch`.
 
 `listPullRequestsPage`, `searchPullRequestsPage`, `getPullRequestsBatch`, `getPullRequestsForBranches`,
-`sweepPullRequests` and `sweepClosedPullRequests` also take `mergeQueue`, a per-read override of the host's
+`getPullRequestsForCommits`, `sweepPullRequests` and `sweepClosedPullRequests` also take `mergeQueue`, a per-read override of the host's
 `getPullRequestReadOptions().mergeQueue`, for a host that wants queue state on one surface without paying for it on
 all of them. `true` selects merge-queue data on GitHub.com for that read, `false` doesn't, and omitting it follows the
 host's setting (off when the host has none). Enterprise and every other provider ignore it, as does a read that goes
 through provider-apis, which selects none: the repo-scoped `listPullRequestsPage` and the repo-scoped targets of the
 sweeps. The point reads on the integration classes (`getPullRequest`, `getPullRequestForBranch`,
 `getPullRequestForCommit` and `getIssueOrPullRequest`) don't take it: the host caches their rows under a key that
-doesn't carry it, so they follow the host's setting alone. `getPullRequestsBatch` and `getPullRequestsForBranches`
-resolve it once per call, so the batch's cheap check and full read, and the branch read's by-name query and the batch
-read that settles a truncated target, always select the same data. A read that selects merge-queue data adds a
+doesn't carry it, so they follow the host's setting alone. `getPullRequestsBatch`, `getPullRequestsForBranches` and
+`getPullRequestsForCommits` resolve it once per call, so the batch's cheap check and full read, the branch read's
+by-name query and the batch read that settles a truncated target, and the commit read's chunks, always select the same
+data. A read that selects merge-queue data adds a
 marker to every etag it computes, so an etag from such a read never equals one from a read that doesn't, even for a
 pull request that was never queued. Changing either the per-read option or the host's setting therefore costs one
 full read per held target, and a row held without the data is read in full again to gain it. A read that doesn't
 select it computes the etag it did before merge-queue data existed.
+
+`getPullRequestsBatch` and `getPullRequestsForBranches` also take `checkRuns`, off by default, which reads the head
+commit's individual checks onto each row on GitHub and GitHub Enterprise: `checkRuns`, one `PullRequestCheckRun` per
+check run or commit status (`kind`, `name`, `workflowName`, `status`, `conclusion`, `url`, `required`, `startedAt`,
+`completedAt`, `hasLog`, and an opaque `id`), empty when the head has no checks. Every other provider ignores it, and the
+host can't turn it on for every read. `required` is read on github.com only, and only by `getPullRequestsBatch`: the
+branch read's query doesn't know the pull request numbers it needs, so its rows, including those it settles through the
+batch read, leave it `undefined`. The first 100 checks come with the row; a head with more costs one more request per
+further 100, up to 500, read through the head commit itself, so every page belongs to the same commit. Past 500, or
+when a further page fails, the row is set `checkRunsTruncated` with the checks read so far. A field-level error under
+the checks keeps the row rather than failing the pull request. One that loses only a check's detail (say, its workflow
+refused to a token without Actions read access, which leaves `workflowName` unset) leaves the row complete; one that
+loses a whole check sets it `checkRunsTruncated`, with the checks that arrived and paging on. An error on the checks'
+connection itself still fails the pull request, since it nulls the whole rollup. `isRequired` can't be
+null, so an error there loses its check. None of these is verified live, as GitHub hasn't been seen to raise one there.
+Measured on github.com, 8 aliased pull requests with 70 checks cost 1
+point and 808 nodes, about 200 ms more than a rollup-only read. By GitHub's rate-limit formula a 25-target batch goes
+from 100 requests to 125 (1 point either way), and the cheap check adds one connection per pull request. `isRequired`
+showed no measurable cost, though it was measured only on a repository without required checks. With `checkRuns` the
+batch read's cheap check selects each check's kind, name, status, conclusion and what its `id` is built from, and both
+reads make them etag inputs, so a check that fails or finishes while the rollup and update time stay the same still
+reads as changed, and so does a check re-run to the same result, which is a new check run with a new `id`. The cheap
+check pages through the same checks as the full read, up to the same 500, at the same one request per further 100.
+Both fold them into one 64-bit hash with their count, plus a mark when the row is `checkRunsTruncated`, so the etag
+stays the same length at any number of checks, and a hash collision (about 2^-64) is the only way a change can hide.
+Only a check lost to an error the cheap check can't hit (an `isRequired` error) makes the two disagree, so such a pull
+request is read in full on every check while the error lasts. Like merge-queue data, the option adds a marker to every
+etag it computes, so switching it costs each held target one full read.
+
+`getPullRequestCheckLogs` reads the tail of each check's log on GitHub and GitHub Enterprise. A target is
+`{ key, owner, repo, checkRunId }`, where `checkRunId` is a `PullRequestCheckRun.id` exactly as a `checkRuns` read
+returned it; any other provider refuses (`unsupported` + `fetchFailed`). It has the batch reads' result contract: rows
+echo the caller's `key`; a duplicate key, an id no read returned, or a `tailLines` that isn't an integer from 1 to
+2000 (default 200) refuses the whole call; and a target whose read fails (auth, rate limit, network, an unmappable
+answer) is dropped with a warning naming it in `targetKeys` and `fetchFailed`. Every returned row carries exactly one
+of `log` (`text`, `lineCount`, `truncated`, `source`) or `unavailable`. An Actions job returns its job log
+(`source: 'actions-job-log'`), its last `tailLines` lines with `\r\n` read as `\n`; when the log is longer than the
+256 KiB read, the partial first line is dropped and `truncated` is set. Any other check run returns its output
+(`source: 'check-run-output'`): its title, summary and text, joined by blank lines and tailed the same way. A commit
+status, a check run without output, and an Actions job whose log storage has nothing (a skipped job) answer
+`unavailable: 'no-log'`. When the API has no log for a job, the job itself is read once more: still running answers
+`'log-not-ready'`, finished answers `'log-expired'`, and a job the API doesn't know answers `'no-log'`. Those two
+reasons were not verified live. On Node, an Actions log costs one REST request (the REST budget, not GraphQL points),
+whose redirect isn't followed, then two requests to the log storage, which carry no token, aren't rate-limited, and
+download at most 256 KiB. A web host (`isWeb`) can't read a redirect's target, so it follows it and streams the whole
+log, keeping the last 256 KiB; that path was not verified live either, and there a skipped job's missing log reads as
+`'log-expired'`. A storage that answers a ranged request with the whole log is streamed the same way. Either stream
+stops past 20 MiB and answers `unavailable: 'log-too-large'`, since the bytes it read are the log's middle, not its
+end. Targets are read in chunks of 25, up to 6 chunks at once. Within a chunk at most 4 Actions logs are read at a
+time, and the output of its other check runs takes one GraphQL request (1 point). A status costs no request. Log text is returned raw (an Actions log keeps its
+timestamps and `##[group]` markers) and is untrusted: it is whatever the workflow printed.
+
+`getPullRequestActivity` reads the new reviews, inline review comments and conversation comments on each pull request
+on GitHub and GitHub Enterprise. A target is `{ key, owner, repo, number, cursor? }`; any other provider refuses
+(`unsupported` + `fetchFailed`). It has the batch reads' result contract: rows echo the caller's `key`; a duplicate
+key, an empty owner or repo, a non-positive `number`, a cursor no read returned, or a `limit` that isn't an integer
+from 1 to 100 (default 30) refuses the whole call; and a target whose read fails is dropped with a warning naming it in
+`targetKeys` and `fetchFailed`. A pull request (or repository) that doesn't exist answers `{ key, notFound: true }` with
+no items and the cursor sent (or `''`). Every other row carries `items` in GitHub's timeline order, an opaque
+`cursor` to send back as the target's `cursor`, and `hasMore`. `limit` counts timeline items, reviews and
+conversation comments; each review is followed by its inline comments (`review-comment`, the first 20, with
+`commentsTruncated` set on the review when it has more). A reply in an existing inline thread arrives as a review of its own, usually with an empty body, whose
+comment names the comment it answers in `inReplyTo`. Without a cursor the read is a baseline: the newest `limit` items,
+`hasMore` false, and a cursor after them (after the pull request's creation when it has none). With one, it returns
+what was published after it, `limit` at a time in GitHub's timeline order; on `hasMore`, read again with the returned
+cursor. An item's time, its `publishedAt`, is when it was published: a review's submission (a review drafted earlier
+and submitted later counts from its submission, which is what GitHub's `since` filters on), a conversation comment's
+publication, and for an inline comment its review's. The cursor records a time and the items at or after it already
+returned, so an item is never returned twice and one published in the same second later is still seen: the newest
+item's time when the page is complete; when it is cut, the last item's time, or for a review drafted earlier when it
+was drafted, never before the cursor sent, since GitHub orders the timeline by creation rather than publication. A page
+with nothing new on it is read past in the same call, up to 4 more pages; only past those does `hasMore` come back with
+the cursor sent. Edits are not seen: an item edited after it was returned never comes back. Pending reviews (the viewer's own
+drafts) are skipped. `byViewer` says the connection's own account wrote the item; `author` is absent for a deleted
+account. It takes one GraphQL request per 25 targets, up to 6 at once, plus one per page read past, which follow their
+request one after another; GitHub
+charges for the page size asked for rather than the items returned, which at the defaults is estimated at about 1
+point per pull request. A new comment or review moves the pull request's update time, so a caller
+can gate this read on a batch read's `etag` or `updatedDate`; that was not verified for every kind of activity.
+
+`getPullRequestsForCommits` answers "which pull request does each of these commits belong to" for N commits of one
+repository (`owner`, `repo` and, on Azure DevOps, `project`), echoed under each commit's `sha`. A row with a
+`pullRequest` found one; a row without one is a resolved none (the host answered, or the SHA is the working tree's
+all-zero one, which is never sent), which a caller may cache per SHA; a SHA whose read failed has no row, and the call
+sets `fetchFailed` with a warning naming it in `targetKeys`. Bitbucket Cloud answers `404` alike for a commit it doesn't
+have (an unpushed one) and for a repository it doesn't have, so its `404` is a none only once another commit of the
+repository answered, in the same call, whatever settled first, or in an earlier lookup with the same token;
+until then the SHA fails on its own, and a `404` never stops the call. So on Bitbucket Cloud a caller shouldn't pass
+commits the remote doesn't have (unpushed ones): a window made only of those can't resolve. An answer without a list,
+or with `repo_indexed: false`, means the repository's pull request links aren't indexed yet: it fails the SHA, never
+as a none, and stops the call as the missing commit links app does. Every SHA must be a full 40-character commit SHA
+in either letter case: anything else, a branch name or a short SHA included, refuses the whole call with a warning,
+since a ref the host can't resolve as a commit would otherwise come back as a cacheable none. It takes
+`cancellation`, with `searchPullRequestsPage`'s contract: an aborted read sends nothing more and rejects with a
+`CancellationError`.
+
+A commit that belongs to several pull requests resolves to the one the single-commit lookup picks, each host its own
+way, which the batch keeps rather than normalizes:
+
+| Host                   | Pull request a commit with several resolves to                                                                                                                                                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub/GHE             | Of the two most recently updated GitHub associates with the commit (a fork's only when the fork is `owner`'s): `owner`'s own (ignoring case), then a merged one, then the most recently updated. A third is never considered. |
+| GitLab                 | Of the first page GitLab lists: an open one, then the most recently updated.                                                                                                                                                  |
+| Bitbucket Cloud and DC | Of the first page the host lists: the most recently updated.                                                                                                                                                                  |
+| Azure DevOps           | The first the pull request query lists.                                                                                                                                                                                       |
+
+Request cost for N commits, each fan-out run with bounded concurrency:
+
+| Host                   | Requests                                                                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GitHub/GHE             | ⌈N / 25⌉ aliased GraphQL requests.                                                                                                                        |
+| Azure DevOps           | ⌈N / 100⌉ pull request queries (the query takes a list of commits; Azure DevOps documents no limit on it), then one read per distinct pull request found. |
+| GitLab                 | One project lookup (kept per token), then N.                                                                                                              |
+| Bitbucket Cloud and DC | N.                                                                                                                                                        |
+
+There is no cap on N. After the first rate limit or refused credential in a call, the requests it hasn't sent yet are
+never sent: their SHAs fail with that reason, under one warning. A `403` stops the call the same way when none of its
+SHAs has answered yet, since it is then the repository's refusal, which every SHA would meet; its SHAs fail under one
+warning, scoped to the repository on a host that can check the credential (see §6) and the connection's on GitLab. A
+`403` after a SHA answered is that commit's own and stops nothing. A credential refused after some SHAs answered is
+still the credential's failure: the SHAs it failed carry the connection's `auth` warning, not a scoped one, and it runs
+the credential's recovery once for the call. Bitbucket Cloud stops the same way at the first commit it refuses because
+the pull request commit links app isn't installed, which every commit then answers, fails the call with a warning that
+names the app, and shows the host's `onBitbucketCommitLinksAppMissing` notice once. The reads are a strict form of the
+single-commit lookup's own (one that throws on a failed request where the lookup answers `undefined`, so a failure is
+never a resolved none), and a host without one reports the surface `unsupported`. Rows are that lookup's (the `point`
+projection, without `authoredByMe` or `viewer`). It is uncached and bypasses
+`IntegrationCacheProvider.getPullRequestForSha`.
+
+The integration's single-commit lookup (`getPullRequestForCommit`) never caches a failure as a commit without a pull
+request, and backs off from asking again: after a failed lookup it sends no request, spends no strike and shows no
+notice, and answers `undefined` (or, with `throwOnError`, rejects with a `LookupBackedOffError`) for 30 seconds
+after the first failure, doubling with each consecutive failure up to 10 minutes, or until a rate limit's reset time
+when the host gives one. A server error, a network failure (a transport `TimeoutError` included), a cancellation whose reason is `timeout`, a
+rate limit, Bitbucket Cloud's
+missing commit links app or links not indexed yet, a failed GitLab project lookup, and an API client that failed to
+load back off the repository; every other failure (Bitbucket
+Cloud's `404` before the repository answered, a `403` or another `4xx`, an unrecognized failure) backs off only that
+commit. Once a Bitbucket Cloud repository answered for the token, a `404` there is a commit without a pull
+request, cached and not backed off. A refused credential (`401`) and any other cancellation never back off, so a
+host `fetch` that enforces its own deadline by aborting with a plain `AbortError` reads as a cancellation and is asked
+again.
+The backoff is kept per credential and host, is cleared by a lookup that succeeds and by a disconnect, reconnect or
+refresh, and is bypassed by `expiryOverride: true`. An answer already cached is served during a backoff. GitLab's project lookup backs
+off the same way for every read of the project, so for that long a read that answers `undefined` for a failed lookup
+(a commit's author, the repository's issues) answers it without asking. The merge request lookup and the repository
+metadata read instead never keep a failed lookup as a missing project: the merge request lookup fails on it, and the
+repository metadata read (`getRepositoryMetadata`) answers `undefined` without keeping that answer. During the backoff
+they send no request, and they ask again once it has passed; `expiryOverride: true` bypasses the backoff for
+both. A `401` of the project lookup backs off only the reads that swallow it; these two still ask, so that its refusal
+reaches the credential's recovery. The token-scoped read (§10) rejects on a failed lookup and is never backed off.
+`getPullRequestsForCommits` is not backed off.
 
 `getCurrentAccount` answers who a connection is signed in as. It returns a single `account?` rather than
 `items`, and `account` is never absent without a warning: no session, a failed request, or a provider that refuses
@@ -420,7 +584,8 @@ read), `search` and `search-summary` (the filtered search, and on the host its "
 `text-search` (the host's free-text `searchPullRequests`), `account` and `account-summary` (the account-wide list and
 sweeps, `account` being a sweep's `includeReviews`, and a tracker's "my issues"), `repos` and `repos-summary` (the
 repository-scoped list and sweeps), `project` (a tracker project's issues: `listIssueTrackerIssuesPage`,
-`getIssuesForProject`), and `batch` (`getPullRequestsBatch`, `getPullRequestsForBranches`, `getIssuesBatch`). Issues
+`getIssuesForProject`), and `batch` (`getPullRequestsBatch`, `getPullRequestsForBranches`, `getIssuesBatch`).
+`getPullRequestsForCommits` rows carry `point`, the single-commit lookup's tag, since they are its rows. Issues
 have no `-summary` reads; `broadenIssues` rows carry the tag of the read that served each org. The tag names a read,
 not a field set: the same tag can carry different fields on different providers.
 
@@ -443,7 +608,8 @@ A group is `fetched` only if every field in it is. Pull request groups: `descrip
 reads, and is `undefined` elsewhere), `reviewDecision`, `assignees`, `checks` (`statusCheckRollupState`), `mergeable`
 (`mergeableState`), `diffStats` (`additions`, `deletions`, `filesChanged`), `commitCount`, `comments` (`commentsCount`),
 `reactions` (`thumbsUpCount`), `access` (`viewerCanUpdate` and `repository.accessLevel`), `authoredByMe` (with `viewer`,
-the identity it was matched against), `stack`, `milestone` and `mergeQueue`. `statusCheckRollupState`, `commitCount`
+the identity it was matched against), `stack`, `milestone`, `mergeQueue` and `checkRuns` (`checkRuns` and
+`checkRunsTruncated`). `statusCheckRollupState`, `commitCount`
 and `viewerCanUpdate` live on the `PullRequest` class every row is, not on the `PullRequestShape` type. Issue groups:
 `description` (`body`, and `bodyField` where the provider sets it, so take both from the same row), `assignees`,
 `labels`, `comments` (`commentsCount`), `reactions` (`thumbsUpCount`), `access` (`repository.accessLevel`) and
@@ -474,6 +640,7 @@ differ, and `—` means that host never produces the tag.
 | stack          | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
 | milestone      | fetched               | fetched               | fetched               | fetched               | fetched               | fetched               | fetched                 | fetched       | fetched               |
 | mergeQueue     | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | fetched / unavailable | not-requested           | not-requested | fetched / unavailable |
+| checkRuns      | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested         | not-requested           | not-requested | fetched               |
 
 <!-- field-presence: issues -->
 
@@ -515,6 +682,9 @@ The cells that aren't obvious from the projection names:
   not queued, and not updated since. Any later update clears it — a comment or a label as well as a push — because
   GitHub's timeline orders commits by commit date, not push time, so it can't say whether a push followed the
   removal; GitHub's removal itself doesn't move the update time.
+- `checkRuns` is read only by the batch reads, and only for a read that asks for it (`checkRuns: true`; see §4). The
+  `batch` cells read `fetched` for such a read; a `batch` row without `checkRuns` answers `not-requested`, which
+  `getPullRequestFieldPresence` derives from the row, since a read that selected check runs always sets it.
 - Cost, which only a read that selects merge-queue data pays (any other pays nothing; see the per-read `mergeQueue`
   option in §4): the merge-queue selection adds one connection per
   pull request (`timelineItems(last: 1)`). By GitHub's rate-limit formula (a request per connection per parent node,
@@ -537,7 +707,7 @@ What holds for all of them:
   DevOps' branch policies, Bitbucket's merge checks), so derive one from `reviews` and `reviewRequests` instead.
 - **`access` and `authoredByMe` are never `fetched`**: no other host's read sets `repository.accessLevel`, and the
   current account may not resolve. No other host has stacks, and no other host's merge queue (GitLab's merge trains
-  included) is read yet, so `mergeQueue` is `unavailable` everywhere else.
+  included) is read yet, so `mergeQueue` is `unavailable` everywhere else, and so is `checkRuns`.
 - **Substitutions.** Azure DevOps has no pull request assignees: both of its converters fill `assignees` with the
   reviewers, which `reviews` and `reviewRequests` already hold, so `assignees` is `unavailable` there. Votes are not
   reactions: a Jira issue's or Trello card's votes, and a Bitbucket issue's, land in `thumbsUpCount` (and read 0
@@ -569,6 +739,7 @@ What holds for all of them:
 | stack          | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
 | milestone      | not-requested | fetched                 | not-requested | fetched                 | fetched                 | fetched                 | fetched                 | fetched                 |
 | mergeQueue     | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
+| checkRuns      | unavailable   | unavailable             | unavailable   | unavailable             | unavailable             | unavailable             | unavailable             | unavailable             |
 
 <!-- field-presence: gitlab-issues -->
 
@@ -612,6 +783,7 @@ What holds for all of them:
 | stack          | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 | milestone      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 | mergeQueue     | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
+| checkRuns      | unavailable   | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable   |
 
 <!-- field-presence: azure-issues -->
 
@@ -650,6 +822,7 @@ What holds for all of them:
 | stack          | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 | milestone      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 | mergeQueue     | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
+| checkRuns      | unavailable             | unavailable   | — / unavailable   | unavailable   | unavailable   | unavailable     | unavailable   | unavailable   | unavailable             |
 
 <!-- field-presence: bitbucket-issues -->
 
@@ -727,6 +900,144 @@ What holds for all of them:
 - A Trello card's description is never read. Trello has no batch or account-wide read.
 - An Asana task's tags are its labels and its likes, a thumbs-up on the task, its reactions. Its comments are stories, which a task doesn't
   count, so reading them would cost a request per task. Asana has no batch read.
+
+### GitHub issue writes
+
+Use the selected GitHub connection ID from `getConfigured()` together with `providerId`, `owner`, and `repo`.
+Core resolves the repository and issue with that account before sending the mutation to GitHub. Issue numbers
+are scoped to their repository. For an existing issue, pass its `number` and the `expectedNodeId` from the
+issue read. Core verifies that the node still belongs to the requested repository and number.
+
+For GitHub Enterprise Server, use `providerId: 'cloud-github-enterprise'` and pass `domain` with the
+selected connection's host and port, or its HTTP(S) origin. Core pins the configured origin before
+contacting the instance. Issue and repository node IDs belong to that installation. The instance's GraphQL schema, the
+repository's settings, and the credentials determine which operations are available. Deletion also requires
+permission under the enterprise and organization policies. Pass `expectedLogin` when the caller has
+selected or confirmed an account by login. Core verifies the viewer with the same credential it uses for
+the operation and returns `no-connection` if the login differs. Core checks that the selected Server
+credential is current again before dispatch.
+
+| Method                    | Operation                                                                                                                                |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolveIssueWriteTarget` | Verify an existing issue and return its canonical `nodeId` and current snapshot. Use it to serialize writes across aliases or transfers. |
+| `writeIssue`              | Pass `action: 'create'` with a `title` and an optional `body`.                                                                           |
+| `writeIssue`              | Pass `action: 'edit'` with at least one of `title` or `body`. An empty body clears the description.                                      |
+| `writeIssue`              | Pass `action: 'set-state'`. Use `state: 'open'` to reopen, or `state: 'closed'` with `reason: 'completed'` or `'not_planned'`.           |
+| `deleteIssue`             | Permanently delete the issue if GitHub grants the selected account permission. Obtain confirmation in the calling UI before invoking it. |
+
+An `IssueWriteResult` with `ok: true` contains the canonical owner, repository, issue number, node ID, URL,
+title, body, and state. Deletion returns the last verified issue snapshot. GitHub deletes by node ID and can
+report a different repository if a transfer happened after preflight. In that case
+`deletedFromDifferentRepository: true` preserves the confirmation. Use the node ID to reconcile deletion
+and refresh affected lists and details. The snapshot still describes the earlier address.
+
+Pass `intent: 'delete'` to `resolveIssueWriteTarget` before asking for deletion confirmation. It checks whether
+the selected account may delete the issue and returns the snapshot to show for confirmation.
+
+An `ok: false` result contains a typed reason. GitHub can report inaccessible private resources as
+`not-found`. Check GitHub before retrying an `unknown` result, since GitHub may have applied the mutation
+before the response was lost. For an Enterprise failure with `mutationDispatched: false`, Core stopped
+before sending a mutation.
+
+### Jira Cloud issue writes
+
+Use the tracker methods on `IntegrationManager` from `@gitkraken/core-gitlens/plus/integrations/index.js`.
+Each call takes `providerId: IssuesCloudHostIntegrationId.Jira`, the selected `connectionId` and that
+connection's `resourceId` (the Atlassian cloud ID). The manager looks up the site's URL with the same
+credential used for reads. If you supply `expectedAccountId`, the account returned by Jira's `/myself`
+must match. Use the returned `accountId` for subsequent calls. Issue and project keys can repeat across
+sites, so retain the cloud ID alongside the canonical issue ID.
+
+| Method                                | Additional input                                                                                                   | Success                                                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `getIssueTrackerCreateOptions`        | `project` (key or ID), optional `issueTypeId`                                                                      | Canonical project, its `issueTypes` or the selected type's `fields`, and `truncated`.                                             |
+| `getIssueTrackerIssueWriteOptions`    | `issue` (key or ID), optional `expectedIssueId`                                                                    | Issue receipt, `accountId`, editable `fields`, `transitions`, permission flags and `deleteCapability`.                            |
+| `writeIssueTrackerIssue`              | `action: 'create'`, `project`, `issueTypeId`, `summary`, optional `description` and `fields`                       | Created issue receipt and `accountId`.                                                                                            |
+| `writeIssueTrackerIssue`              | `action: 'edit'`, `issue`, `expectedIssueId`, at least one change in `summary`, `description` or `fields`          | Updated issue receipt and `accountId`.                                                                                            |
+| `writeIssueTrackerIssue`              | `action: 'transition'`, `issue`, `expectedIssueId`, `transitionId`, optional `summary`, `description` and `fields` | Updated issue receipt and `accountId`.                                                                                            |
+| `resolveIssueTrackerIssueWriteTarget` | `issue`, optional `expectedIssueId` and `intent: 'delete'`                                                         | Canonical issue receipt and `accountId` for a confirmation UI. Delete intent also checks the credential, permission and subtasks. |
+| `deleteIssueTrackerIssue`             | `issue`, `expectedIssueId`, `expectedAccountId`                                                                    | Pre-delete issue receipt and `accountId` after Jira acknowledges the delete.                                                      |
+
+Use the metadata for the exact project, issue type or transition you selected. Each field carries its
+ID, operations, required and default flags, and any schema or allowed values Jira sends. Create
+metadata is read in at most 20 requests of up to 50 entries each. Check `truncated` before treating the
+returned list as complete. Pass Jira REST field values as a map keyed by field ID. Use the top-level
+inputs for `summary`, `description`, `project` and `issueTypeId`. A transition takes `summary` and `description` only when
+its screen sets them. Jira REST v2 accepts Jira wiki markup
+strings for rich-text fields. The caller is responsible for converting other formats.
+
+For an existing issue, retain the returned key and canonical ID together. Edit, transition and delete
+resolve the address again and send the mutation by canonical ID. A key Jira resolves to a moved issue
+or an ID that differs from the observed ID returns `conflict`. Each receipt contains the site, canonical ID
+and key, browser URL, project ID and key, issue type, summary, and workflow status ID, name and category.
+
+Before presenting a delete confirmation, resolve with `intent: 'delete'`. Delete checks the same
+site, account and issue on execution. Issues with subtasks are refused. The site grant must include
+the `delete:issue:jira` granular scope or the `write:jira-work` classic scope, and the user also needs
+Jira's Delete Issues permission. The GitKraken Jira grant currently needs an updated scope and
+reconnection before delete is available.
+
+Failures have `ok: false` and a typed `reason`. An `invalid-input` result may include `fieldErrors`
+and `messages` from Jira. A scope mismatch returns `insufficient-scope` without expiring the read
+credential. `mutationDispatched: false` means Core stopped before sending the write. Treat
+`applied: 'maybe'` as uncertain and reconcile the issue state before retrying. A successful delete
+requires Jira's `204` acknowledgement. Jira can also return `404` when visibility changes. [Jira Cloud REST v2 issue operations](https://developer.atlassian.com/cloud/jira/platform/rest/v2/api-group-issues/)
+
+### GitHub and GitHub Enterprise Server pull request writes
+
+Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the
+repository’s `owner` and `repo`, plus the `number` and `expectedNodeId` for an existing pull request.
+Core checks the node’s repository and number before dispatching the write by canonical node ID. Use
+`resolvePullRequestWriteTarget` to obtain that ID and the viewer’s current capabilities. Hosts can
+serialize writes and publication on that canonical ID, including across legacy node aliases.
+For creation, `getPullRequestCreateCapability` checks the viewer’s repository access and returns
+the canonical repository ID. Pass it as `expectedRepositoryId` to prevent selecting a replacement
+repository at the same address. For an active repository, `canCreate` is `true` when GitHub reports
+a repository role for the viewer, and `undefined` when the role is unavailable. GitHub determines
+whether the viewer may create a pull request between the chosen branches when it receives the write.
+
+For GitHub Enterprise Server, pass `providerId: 'cloud-github-enterprise'`, the connection ID,
+the full HTTP(S) installation origin as `domain`, and the expected GitHub login as `expectedLogin`
+to all three methods. The origin includes the scheme and any non-default port. The PR write API
+accepts installations served from the origin root. A path in the requested domain returns `invalid-input`.
+Core accepts `/api` and `/api/v3` as aliases for the root installation on the configured connection
+and selected credential. Any other path on either returns `no-connection` before a provider request.
+Core verifies the credential's live login and requires `expectedRepositoryId` on create.
+
+| Action for `writePullRequest` | Required input and result                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create`                      | `headRef` and `baseRef` are branch names in the selected repository. Pass a `title` and optional `body`. Returns `created`.                                        |
+| `edit`                        | Pass at least one of `title` and `body`. An empty body clears the description. Returns `updated`.                                                                  |
+| `set-state`                   | Pass `state: 'closed'` or `state: 'open'`. Returns `closed` or `reopened`.                                                                                         |
+| `merge`                       | Pass `expectedHeadSha`, `expectedBaseRef` and a `mergeMethod` listed in the direct merge capability. Returns `merged`.                                             |
+| `enqueue`                     | Pass `expectedHeadSha` and `expectedBaseRef` for a target with the queue capability. The base branch’s queue configuration selects the strategy. Returns `queued`. |
+
+The target read is uncached. Core checks active branch restrictions for direct merge and marks that
+capability unavailable if it cannot read them. Edit, close and reopen use the viewer’s permissions
+on the pull request. GitHub still applies its permissions, checks and policy at the time it receives a
+write. The write preflight checks the observed base branch. GitHub checks the expected head atomically
+for direct merge and enqueue.
+Stacked merge actions can land more than one pull request and are unavailable through this API.
+
+On GitHub Enterprise Server, Core checks the installed mutation schema, active branch rules and
+legacy linear-history policy before offering a merge strategy. It offers enqueue when the branch
+requires a queue and the installation supports the expected-head check. If Core cannot establish the
+merge policy, edit and state capabilities still reflect the viewer's pull request permissions.
+Core checks the base branch again before dispatching a merge or enqueue and verifies that the
+receipt matches the approved base. GitHub exposes the atomic check for the head only.
+
+Every confirmed result carries a canonical snapshot with GitHub’s update time and close or merge
+time when available. A GitHub.com enqueue receipt carries the snapshot verified at dispatch and the `queued`
+status. Consumers should refresh the item and related views for its latest
+queue position or merge state. `outcome-unknown` means the write may have reached GitHub. Reconcile it
+through a fresh read before retrying. `blocked` means the action was refused by the pull request state or
+branch policy. Inaccessible private resources can appear as `not-found`. After GitHub rejects a credential
+with HTTP 401, the next operation on that connection can recover it. Core never replays the write.
+
+Enterprise snapshots include the canonical origin in `domain`. An Enterprise enqueue returns the
+pull request attached to the queue entry. If the selected credential changes while GitHub processes
+a write, a confirmed result still carries its status and adds `credentialChanged: true`. Use that
+status to refresh by origin and read the snapshot under the current credential.
 
 ## 5. Paging
 
@@ -1024,7 +1335,8 @@ keeps its existing behavior. It is set only on warnings derived from a structure
 least one ID when present; a failure attributed to nothing below the provider carries none. A warning built
 from a caught exception never carries one, even when that call targeted a single organization, and an omission
 keeps its attribution in `omission.scope` instead. The batch reads (`getIssuesBatch`, `getPullRequestsBatch`,
-`getPullRequestsForBranches`) are the exception: a refused target's warning names the scope its target names —
+`getPullRequestsForBranches`, `getPullRequestsForCommits`) are the exception: a refused target's warning names the
+scope its target names (for the commit read, every SHA names its one repository) —
 the Azure DevOps organization and project, the repository on other git hosts, or the tracker's resource. So is
 `resolveRepository`: a `401`/`403` for the one repository it resolves settles as a batch read's refused target does,
 so on a host that can check the credential (Azure DevOps, Azure DevOps Server, Bitbucket, Bitbucket Data Center,
@@ -1039,6 +1351,12 @@ organizations, workspaces or sites, and their projects), or an SDK fan-out acros
 with one uncached check before reporting them; a batch read does so only when every target was refused, since a
 target that answered already proved the credential. A refused credential fails the whole read instead: an
 unscoped `auth` warning, `fetchFailed`, no results served from the cache, and the usual connection recovery.
+In a batch read, a `401` for a target of a repository another target of the same call answered from is the
+credential dying mid-call, never that repository's refusal: those targets fail under the connection's unscoped
+`auth` warning while the answered ones keep their results, the connection recovery runs once for the call, and the
+call doesn't reset the failure budget. Every other `401` of that call is then the credential's too, its repository
+answered or not. A `401` beside answers from other repositories only stays scoped when the call holds no such `401`,
+and a `403` always does.
 A refusal the provider pins on the credential itself, like Bitbucket's or Jira Cloud's for a token missing the
 OAuth scopes the read needs, is published unscoped too, once for the connection, because a reconnect (consenting
 to them again) is what fixes it; the scopes that answered keep their results.
@@ -1426,6 +1744,9 @@ footnote says otherwise.
 | `getIssuesBatch`             |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✗    |   ✗   |
 | `getPullRequestsBatch`       |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
 | `getPullRequestsForBranches` |      ✓       |          ✓           |     ✓     |      ✓¹      |           ✓¹            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getPullRequestCheckLogs`    |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getPullRequestActivity`     |      ✓       |          ✗           |     ✗     |      ✗       |            ✗            |      ✗      |   ✗    |   ✗    |   ✗   |
+| `getPullRequestsForCommits`  |      ✓       |          ✓           |     ✓     |      ✓       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |
 | Issues by `org`/`project`    |      ✗       |          ✗           |     ✗     |      ✗       |            ✓            |      ✓      |   ✓    |   ✓    |   ✓   |
 | `listIssueTrackerIssuesPage` |      —       |          —           |     —     |      —       |            —            |      ✓      |   ✓    |   ✓    |   ✓   |
 | `broadenIssues`              |      ✓       |          ✓           |     ✗     |      ✗       |            ✓            |      ✗      |   ✗    |   ✗    |   ✗   |

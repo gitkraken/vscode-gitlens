@@ -30,6 +30,7 @@ import type { ProviderRefusal } from '../collectionMetadata.js';
 import { throwIfCallerContractError, toCollectionScopeFailure } from '../collectionMetadata.js';
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
+import { IntegrationReadUnavailableError } from '../errors.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
@@ -1221,11 +1222,31 @@ export abstract class AzureDevOpsIntegrationBase<
 		);
 	}
 
+	protected override toCommitRepositoryDescriptor(repo: {
+		owner: string;
+		repo: string;
+		project?: string;
+	}): TRepositoryDescriptor {
+		if (repo.project == null) throw new Error(`Azure DevOps needs a project to read the commits of ${repo.repo}`);
+
+		const descriptor: AzureRepositoryDescriptor = {
+			key: `${repo.owner}/${repo.project}/${repo.repo}`,
+			owner: repo.owner,
+			name: `${repo.project}/_git/${repo.repo}`,
+			project: repo.project,
+		};
+		return descriptor as TRepositoryDescriptor;
+	}
+
 	protected override async getProviderPullRequestForCommit(
 		session: ProviderAuthenticationSession,
 		repo: AzureRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
+		if ((await this.authenticationService.apis.azure) == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
+		}
+
 		return this.readRepository(session, repo, (azure, target) =>
 			azure.getPullRequestForCommit(
 				this,
@@ -1235,6 +1256,43 @@ export abstract class AzureDevOpsIntegrationBase<
 				rev,
 				target.baseUrl,
 			),
+		);
+	}
+
+	protected override async getProviderPullRequestsForCommits(
+		session: ProviderAuthenticationSession,
+		repo: { owner: string; repo: string; project?: string },
+		shas: readonly string[],
+		_options: { mergeQueue?: boolean },
+		cancellation?: AbortSignal,
+	): Promise<PromiseSettledResult<PullRequestShape | undefined>[] | undefined> {
+		const azure = await this.authenticationService.apis.azure;
+		if (azure == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of commits');
+		}
+
+		const target = await this.getRepositoryTarget(session, this.toCommitRepositoryDescriptor(repo), cancellation);
+		const slots = await azure.getPullRequestsForCommits(
+			this,
+			toTokenWithInfo(this.id, session),
+			target.repo.owner,
+			target.repo.name,
+			shas,
+			target.baseUrl,
+			{ gate: this.commitFanOutGate(cancellation) },
+			cancellation,
+		);
+		if (!target.unsettled) return slots;
+
+		return slots.map((slot): PromiseSettledResult<PullRequestShape | undefined> =>
+			slot.status === 'fulfilled' && slot.value == null
+				? {
+						status: 'rejected',
+						reason: new Error(
+							`${this.name}: nothing read for '${target.repo.owner}/${target.repo.name}', whose collection couldn't be settled`,
+						),
+					}
+				: slot,
 		);
 	}
 

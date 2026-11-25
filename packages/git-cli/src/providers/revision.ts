@@ -192,7 +192,20 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 
 	@gate()
 	@debug({ quiet: true })
-	getRevisionContent(repoPath: string, path: string, rev: string): Promise<Uint8Array | undefined> {
+	getRevisionContent(
+		repoPath: string,
+		path: string,
+		rev: string,
+		options?: { literalPath?: boolean },
+	): Promise<Uint8Array | undefined> {
+		if (options?.literalPath) {
+			return this.showContentCore<Buffer>(repoPath, path, rev, {
+				encoding: 'buffer',
+				errors: 'throw',
+				literalPath: true,
+			});
+		}
+
 		const [relativePath, root] = splitPath(path, repoPath);
 		return this.showContentCore<Buffer>(root, relativePath, rev, { encoding: 'buffer', errors: 'throw' });
 	}
@@ -306,7 +319,7 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		// A scope's ancestor folders are listed with it, and a path can sit under more than one scope
 		const seen = new Set<string>();
 		const entries: GitTreeEntry[] = [];
-		for (const batch of batchLiteralPathspecs(paths, ['ls-tree', '-lrt', rev])) {
+		for (const batch of batchLiteralPathspecs(paths, ['ls-tree', '-lrtz', rev])) {
 			for (const entry of await this.getTreeForRevisionCore(repoPath, rev, undefined, batch, cancellation)) {
 				if (!seen.has(entry.path)) {
 					seen.add(entry.path);
@@ -353,8 +366,8 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 	): Promise<GitTreeEntry[]> {
 		const hasPath = Boolean(path);
 		const args = hasPath
-			? ['ls-tree', '-l', rev, '--', path]
-			: ['ls-tree', '-lrt', rev, '--', ...(pathspecs ?? [])];
+			? ['ls-tree', '-lz', rev, '--', path]
+			: ['ls-tree', '-lrtz', rev, '--', ...(pathspecs ?? [])];
 		const result = await this.git.run({ cwd: repoPath, errors: 'ignore', cancellation: cancellation }, ...args);
 		// `errors: 'ignore'` resolves an abort as an empty tree, which would read as a folder with no entries
 		if (result.completion.status === 'cancelled' || cancellation?.aborted) throw new CancellationError();
@@ -372,9 +385,12 @@ export class RevisionGitSubProvider implements GitRevisionSubProvider {
 		options?: {
 			encoding?: string;
 			errors?: GitErrorHandling;
+			/** `path` is repo-relative and used exactly as given, with no separator rewriting */
+			literalPath?: boolean;
 		},
 	): Promise<T | undefined> {
-		const [file, root] = splitPath(path, repoPath, true);
+		// `splitPath` turns every `\` into `/`, which on Linux and macOS splits a file name that holds one
+		const [file, root] = options?.literalPath ? [path, repoPath] : splitPath(path, repoPath, true);
 
 		if (isUncommittedStaged(rev)) {
 			rev = ':';

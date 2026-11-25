@@ -287,6 +287,45 @@ suite('BranchesGitSubProvider Test Suite', () => {
 		}
 	});
 
+	function testMergeTreeFailure(stderr: string, exitCode: number, reason: 'refNotFound' | 'noMergeBase'): void {
+		test(`getPotentialMergeConflicts classifies merge-tree ${reason}`, async () => {
+			gitStub.supports.withArgs('git:merge-tree:write-tree').resolves(true);
+			gitStub.run
+				.withArgs(sinon.match.has('cwd', '/repo'), 'merge-tree')
+				.rejects(new GitError(new RunError({ message: stderr, cmd: 'git', code: exitCode }, '', stderr)));
+
+			const result = await branchesProvider.getPotentialMergeConflicts('/repo', 'feature', 'main');
+
+			assert.strictEqual(result.status, 'error');
+			if (result.status === 'error') {
+				assert.strictEqual(result.reason, reason);
+			}
+		});
+
+		test(`getPotentialApplyConflicts classifies merge-tree ${reason}`, async () => {
+			gitStub.supports.withArgs('git:merge-tree:trees').resolves(true);
+			gitStub.run
+				.withArgs(sinon.match.has('cwd', '/repo'), 'rev-parse', 'commit1^')
+				.resolves(createGitResult('parent1'));
+			gitStub.run
+				.withArgs(sinon.match.has('cwd', '/repo'), 'rev-parse', 'main^{tree}')
+				.resolves(createGitResult('tree_0'));
+			gitStub.run
+				.withArgs(sinon.match.has('cwd', '/repo'), 'merge-tree')
+				.rejects(new GitError(new RunError({ message: stderr, cmd: 'git', code: exitCode }, '', stderr)));
+
+			const result = await branchesProvider.getPotentialApplyConflicts('/repo', 'main', ['commit1']);
+
+			assert.strictEqual(result.status, 'error');
+			if (result.status === 'error') {
+				assert.strictEqual(result.reason, reason);
+			}
+		});
+	}
+
+	testMergeTreeFailure('merge-tree: refs/heads/missing - not something we can merge\n', 1, 'refNotFound');
+	testMergeTreeFailure('fatal: refusing to merge unrelated histories\n', 128, 'noMergeBase');
+
 	suite('getBranches upstream remote on git without %(upstream:remotename)', () => {
 		function createBranchRecord(name: string, upstream: string): Record<string, unknown> {
 			return {

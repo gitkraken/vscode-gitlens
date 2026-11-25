@@ -28,6 +28,7 @@ import type {
 import type { DisposableTemporaryGitIndex } from '@gitlens/git/providers/staging.js';
 import type { DiffRange, RevisionUri } from '@gitlens/git/providers/types.js';
 import type { GitErrorHandling } from '@gitlens/git/run.types.js';
+import { toLiteralPathspecMatcher } from '@gitlens/git/utils/fileStatus.utils.js';
 import {
 	getRevisionRangeParts,
 	isRevisionRange,
@@ -45,7 +46,7 @@ import { fromUri, toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { gitConfigsDiff, gitConfigsLog, GitError, GitErrors } from '../exec/git.js';
+import { batchLiteralPathspecs, gitConfigsDiff, gitConfigsLog, GitError, GitErrors } from '../exec/git.js';
 import type { LogParsedFile } from '../parsers/logParser.js';
 import { getShaAndFileRangeLogParser, getShaAndFileSummaryLogParser } from '../parsers/logParser.js';
 
@@ -80,7 +81,11 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		try {
 			// A default run swallows a failure matching a git warning (not a repository, say) into empty output
 			const result = await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff, errors: options?.errors === 'throw' ? 'throw' : undefined },
+				{
+					cwd: repoPath,
+					configs: await this.git.getDiffReadConfigs(),
+					errors: options?.errors === 'throw' ? 'throw' : undefined,
+				},
 				'diff',
 				'--shortstat',
 				'--no-ext-diff',
@@ -126,13 +131,29 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			context?: number;
 			index?: DisposableTemporaryGitIndex;
 			notation?: GitRevisionRangeNotation;
+			renames?: boolean;
+			similarityThreshold?: number;
 			uris?: (string | Uri)[];
+			paths?: string[];
 			errors?: GitErrorHandling;
 		},
 		_cancellation?: AbortSignal,
 	): Promise<GitDiff | undefined> {
 		const scope = getScopedLogger();
-		const args = [`-U${options?.context ?? 3}`];
+		// `paths` are literal and exact; an empty list asks for no files rather than all of them
+		const literalPaths = options?.paths;
+		if (literalPaths != null && !literalPaths.length) return undefined;
+
+		// An external diff tool (`diff.external` or a `diff=<driver>` attribute's command) would replace the patch
+		const args = [`-U${options?.context ?? 3}`, '--no-ext-diff'];
+
+		// Left to `diff.renames` unless the caller says which
+		if (options?.renames === true) {
+			const similarityThreshold = options.similarityThreshold ?? this.context.config?.commits.similarityThreshold;
+			args.push(`-M${similarityThreshold == null ? '' : `${similarityThreshold}%`}`);
+		} else if (options?.renames === false) {
+			args.push('--no-renames');
+		}
 
 		if (to != null && isRevisionRange(to)) {
 			const parts = getRevisionRangeParts(to);
@@ -146,20 +167,33 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		const hasFrom = from != null;
 		from = prepareToFromDiffArgs(to, from, args, options?.notation);
 
-		let paths: Set<string> | undefined;
-		if (options?.uris) {
-			paths = new Set<string>(options.uris.map(p => this.provider.getRelativePath(p, repoPath)));
+		if (literalPaths == null && options?.uris) {
+			const paths = new Set<string>(options.uris.map(p => this.provider.getRelativePath(p, repoPath)));
 			args.push('--', ...paths);
 		}
 
-		let result;
+		let contents: string;
 		try {
-			result = await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff, errors: 'throw', env: options?.index?.env },
-				'diff',
-				...args,
-				args.includes('--') ? undefined : '--',
-			);
+			const runOptions = {
+				cwd: repoPath,
+				configs: await this.git.getDiffReadConfigs(),
+				errors: 'throw',
+				env: options?.index?.env,
+			} as const;
+
+			if (literalPaths != null) {
+				// One run per batch keeps each command line inside the OS limit (a rename whose sides fall in
+				// different batches reads as a delete and an add)
+				const results = await Promise.all(
+					Array.from(batchLiteralPathspecs(literalPaths, ['diff', ...args]), batch =>
+						this.git.run(runOptions, 'diff', ...args, '--', ...batch),
+					),
+				);
+				contents = results.map(r => r.stdout).join('');
+			} else {
+				const result = await this.git.run(runOptions, 'diff', ...args, args.includes('--') ? undefined : '--');
+				contents = result.stdout;
+			}
 		} catch (ex) {
 			// Before its first commit HEAD names nothing, so a diff from it fails; the empty tree is what it is against
 			if (isHead(from) && (await isUnbornHeadFailure(this.provider, repoPath, ex))) {
@@ -175,13 +209,20 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				return retried != null ? { ...retried, to: to } : undefined;
 			}
 
+			// A root commit has no `<sha>^` to diff from; the empty tree stands in for its parent
+			if (!hasFrom && from === `${to}^` && (await this.isRootCommit(repoPath, to))) {
+				const emptyTree = await this.provider.revision.getEmptyTreeSha(repoPath);
+				const retried = await this.getDiff(repoPath, to, emptyTree, options, _cancellation);
+				return retried != null ? { ...retried, to: to } : undefined;
+			}
+
 			scope?.error(ex);
 			if (options?.errors === 'throw') throw ex;
 
 			return undefined;
 		}
 
-		const diff: GitDiff = { contents: result.stdout, from: from, to: to, notation: options?.notation };
+		const diff: GitDiff = { contents: contents, from: from, to: to, notation: options?.notation };
 		return diff;
 	}
 
@@ -193,7 +234,10 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		options?: {
 			context?: number;
 			notation?: GitRevisionRangeNotation;
+			renames?: boolean;
+			similarityThreshold?: number;
 			uris?: (string | Uri)[];
+			paths?: string[];
 			errors?: GitErrorHandling;
 		},
 		cancellation?: AbortSignal,
@@ -235,6 +279,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			filters?: GitDiffFilter[];
 			includeUntracked?: boolean;
 			path?: string;
+			paths?: string[];
 			renameLimit?: number;
 			similarityThreshold?: number;
 			errors?: GitErrorHandling;
@@ -243,12 +288,13 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 		try {
 			const similarityThreshold =
 				options?.similarityThreshold ?? this.context.config?.commits.similarityThreshold;
+			const diffConfigs = await this.git.getDiffReadConfigs();
 			const configs =
 				options?.renameLimit != null
-					? [...gitConfigsDiff, '-c', `diff.renameLimit=${options.renameLimit}`]
-					: gitConfigsDiff;
-			const result = await this.git.run(
-				{ cwd: repoPath, configs: configs, errors: options?.errors === 'throw' ? 'throw' : undefined },
+					? [...diffConfigs, '-c', `diff.renameLimit=${options.renameLimit}`]
+					: diffConfigs;
+
+			const args = [
 				'diff',
 				'--numstat',
 				'--summary',
@@ -258,11 +304,65 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				options?.filters?.length ? `--diff-filter=${options.filters.join('')}` : undefined,
 				ref1OrRange ? ref1OrRange : undefined,
 				ref2 ? ref2 : undefined,
-				'--',
-				options?.path ? options.path : undefined,
-			);
+			];
 
-			const files = result.stdout ? (parseGitDiffNumStatFiles(result.stdout, repoPath) ?? []) : [];
+			// `paths` are literal and exact; an empty list asks for no files rather than all of them
+			const paths = options?.paths;
+			if (paths != null && !paths.length) return undefined;
+
+			let stdouts: string[];
+			try {
+				if (paths != null) {
+					const prefix = args.filter((a): a is string => a != null);
+					// One run per batch keeps each command line inside the OS limit (a rename whose sides fall in
+					// different batches reads as a delete and an add)
+					const results = await Promise.all(
+						Array.from(batchLiteralPathspecs(paths, prefix), batch =>
+							this.git.run(
+								{
+									cwd: repoPath,
+									configs: configs,
+									errors: options?.errors === 'throw' ? 'throw' : undefined,
+								},
+								...args,
+								'--',
+								...batch,
+							),
+						),
+					);
+					stdouts = results.map(r => r.stdout);
+				} else {
+					const result = await this.git.run(
+						{ cwd: repoPath, configs: configs, errors: options?.errors === 'throw' ? 'throw' : undefined },
+						...args,
+						'--',
+						options?.path ? options.path : undefined,
+					);
+					stdouts = [result.stdout];
+				}
+			} catch (ex) {
+				const retry = await this.getEmptyTreeRetry(repoPath, ref1OrRange, ref2, ex);
+				if (retry == null) throw ex;
+
+				return await this.getDiffStatus(repoPath, retry.ref1OrRange, retry.ref2, options);
+			}
+
+			const files: GitFile[] = [];
+			// Overlapping paths (a folder and a file inside it, or one listed twice) in different batches report a
+			// file once per batch
+			const listed = stdouts.length > 1 ? new Set<string>() : undefined;
+			for (const stdout of stdouts) {
+				if (!stdout) continue;
+
+				for (const file of parseGitDiffNumStatFiles(stdout, repoPath) ?? []) {
+					if (listed != null) {
+						if (listed.has(file.path)) continue;
+
+						listed.add(file.path);
+					}
+					files.push(file);
+				}
+			}
 
 			// Merge in untracked files when the comparison involves the working tree.
 			// Skip when `filters` excludes additions (untracked entries are semantically 'A'/added),
@@ -274,14 +374,19 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 				!isRevisionRange(ref1OrRange) &&
 				!isUncommittedStaged(ref1OrRange) &&
 				filtersAllowUntracked(options.filters) &&
-				!isNonExactPathspec(options.path)
+				(paths != null || !isNonExactPathspec(options.path))
 			) {
 				const untracked = await this.getUntrackedFilesForDiff(repoPath, options.errors);
 				if (untracked.length) {
 					const seen = new Set(files.map(f => f.path));
+					const literal = paths != null ? toLiteralPathspecMatcher(paths) : undefined;
 					for (const file of untracked) {
 						if (seen.has(file.path)) continue;
-						if (options.path && options.path !== file.path) continue;
+						if (literal != null) {
+							if (!literal(file.path)) continue;
+						} else if (options.path && options.path !== file.path) {
+							continue;
+						}
 
 						files.push(file);
 					}
@@ -293,6 +398,61 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 			if (options?.errors === 'throw') throw ex;
 
 			return undefined;
+		}
+	}
+
+	/**
+	 * What to diff instead when a status read fails only because there is nothing to diff from: an unborn `HEAD`
+	 * (before the first commit) or a root commit's missing parent. Both are the empty tree, as `getDiff` treats them.
+	 */
+	private async getEmptyTreeRetry(
+		repoPath: string,
+		ref1OrRange: string | GitRevisionRange,
+		ref2: string | undefined,
+		ex: unknown,
+	): Promise<{ ref1OrRange: string; ref2: string | undefined } | undefined> {
+		// Before its first commit HEAD names nothing, so a diff from it fails
+		if ((isHead(ref1OrRange) || isHead(ref2)) && (await isUnbornHeadFailure(this.provider, repoPath, ex))) {
+			const emptyTree = await this.provider.revision.getEmptyTreeSha(repoPath);
+			return {
+				ref1OrRange: isHead(ref1OrRange) ? emptyTree : ref1OrRange,
+				ref2: isHead(ref2) ? emptyTree : ref2,
+			};
+		}
+
+		// A root commit has no `<sha>^` to diff from
+		let parent = ref1OrRange;
+		let commit = ref2;
+		if (commit == null) {
+			// `isRevisionRange` and `getRevisionRangeParts` don't accept the `^` and `~` suffixes of a parent, and only a
+			// two-dot range diffs the parent against the commit
+			const match = /^(.+?)\.\.(?!\.)(.+)$/.exec(ref1OrRange);
+			if (match == null) return undefined;
+
+			[, parent, commit] = match;
+		}
+		if (!commit || (parent !== `${commit}^` && parent !== `${commit}~1`)) return undefined;
+		if (!(await this.isRootCommit(repoPath, commit))) return undefined;
+
+		return { ref1OrRange: await this.provider.revision.getEmptyTreeSha(repoPath), ref2: commit };
+	}
+
+	/** Whether `commit` has no parent, told from the history rather than from a failure's text. */
+	private async isRootCommit(repoPath: string, commit: string): Promise<boolean> {
+		try {
+			// `rev-list --parents` prints the commit followed by its parents, so a lone sha is a commit with none
+			const result = await this.git.run(
+				{ cwd: repoPath, errors: 'throw' },
+				'rev-list',
+				'--parents',
+				'-n',
+				'1',
+				commit,
+				'--',
+			);
+			return result.stdout.trim().split(/\s+/).length === 1;
+		} catch {
+			return false;
 		}
 	}
 
@@ -855,7 +1015,7 @@ export class DiffGitSubProvider implements GitDiffSubProvider {
 
 		try {
 			return await this.git.run(
-				{ cwd: repoPath, configs: gitConfigsDiff, encoding: options?.encoding },
+				{ cwd: repoPath, configs: await this.git.getDiffReadConfigs(), encoding: options?.encoding },
 				...params,
 				'--',
 				fileName,

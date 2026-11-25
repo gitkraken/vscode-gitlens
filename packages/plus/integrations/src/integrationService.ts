@@ -1,4 +1,10 @@
 import type { GitHubApi } from '@gitlens/git-github/api/github.js';
+import type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
+import type {
+	PullRequestCreateCapabilityResult,
+	PullRequestWriteResult,
+	PullRequestWriteTargetResult,
+} from '@gitlens/git-github/api/pullRequestWrites.js';
 import type { Account } from '@gitlens/git/models/author.js';
 import type { RefSet } from '@gitlens/git/models/autolink.js';
 import type { IssueSearchCriteria, IssueShape, IssueStateFilter } from '@gitlens/git/models/issue.js';
@@ -58,19 +64,43 @@ import type {
 	ClosedPullRequestSweepOptions,
 	GetAutolinkReferencesOptions,
 	IntegrationManager,
+	IssueDeleteOptions,
+	IssueWriteOptions,
+	IssueWriteTargetOptions,
+	IssueWriteTargetResult,
 	ListLinearProjectsOptions,
 	ListOrgsOptions,
 	ListProjectsOptions,
 	ProviderBroadenOrg,
+	PullRequestCreateCapabilityOptions,
 	PullRequestSweepOptions,
+	PullRequestWriteOptions,
+	PullRequestWriteTargetOptions,
 } from './manager.js';
 import type { GitHostIntegration } from './models/gitHostIntegration.js';
 import type { Integration, IntegrationBase, IntegrationById } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
+import type {
+	IssueTrackerCreateOptions,
+	IssueTrackerCreateOptionsResult,
+	IssueTrackerDeleteOptions,
+	IssueTrackerIssueWriteOptions,
+	IssueTrackerIssueWriteOptionsResult,
+	IssueTrackerWriteConnection,
+	IssueTrackerWriteFailure,
+	IssueTrackerWriteOptions,
+	IssueTrackerWriteResult,
+	IssueTrackerWriteTargetOptions,
+	IssueTrackerWriteTargetResult,
+} from './models/issueTrackerWrites.js';
 import type { IntegrationKey, IntegrationResult, SearchMyPullRequestsOptions } from './models/publicIntegration.js';
 import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
+import type { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github.js';
+import { toJiraIssueWriteFailure } from './providers/jiraIssueWriteErrors.js';
+import type { JiraIssueWriter } from './providers/jiraIssueWrites.js';
+import { isJiraWriteIdentifier } from './providers/jiraIssueWrites.js';
 import { providersMetadata } from './providers/metadata.js';
 import type {
 	IssueFilter,
@@ -93,9 +123,12 @@ import { listLinearProjects, listOrgs, listProjects, listRepos } from './reads/h
 import { getIssuesBatch } from './reads/issueBatch.js';
 import { listIssuesPage } from './reads/issues.js';
 import { listIssueTrackerIssuesPage } from './reads/issueTracker.js';
+import { getPullRequestActivity } from './reads/pullRequestActivity.js';
 import { getPullRequestsBatch } from './reads/pullRequestBatch.js';
 import { getPullRequestsForBranches } from './reads/pullRequestBranches.js';
+import { getPullRequestCheckLogs } from './reads/pullRequestCheckLogs.js';
 import { listPullRequestsPage } from './reads/pullRequests.js';
+import { getPullRequestsForCommits } from './reads/pullRequestsForCommits.js';
 import { resolveRepository } from './reads/resolveRepository.js';
 import { searchIssuesPage } from './reads/searchIssues.js';
 import { searchPullRequestsPage } from './reads/searchPullRequests.js';
@@ -114,18 +147,31 @@ import type {
 	ProviderResult,
 	ProviderSweepResult,
 	ProviderWarning,
+	PullRequestActivityResult,
+	PullRequestActivityTarget,
 	PullRequestBatchResult,
 	PullRequestBatchTarget,
 	PullRequestBranchResult,
 	PullRequestBranchTarget,
+	PullRequestCheckLogResult,
+	PullRequestCheckLogTarget,
 	PullRequestCountResult,
 	PullRequestCountScope,
+	PullRequestForCommitResult,
 	ResolveRepositoryResult,
 } from './results.js';
 import type { Source } from './telemetry.js';
-import { getRemoteHostMatcher, hostFromDomain, sameConfiguredBaseUrl } from './utils/domain.utils.js';
+import {
+	areDomainsOnSameHost,
+	baseUrlFromDomain,
+	getRemoteHostMatcher,
+	hostFromDomain,
+	matchesInstallationOrigin,
+	sameConfiguredBaseUrl,
+} from './utils/domain.utils.js';
 import {
 	convertRemoteProviderIdToIntegrationId,
+	getGitHubEnterprisePullRequestWriteOrigin,
 	getIntegrationIdForRemote,
 	isCloudSelfManagedHostIntegrationId,
 	isGitCloudHostIntegrationId,
@@ -180,6 +226,20 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		this._disposable = fromDisposables(
 			configuredIntegrationService.onWillChangeSession(({ integrationId, session, previousDomain }) => {
 				this.onSessionPublishing(integrationId, { session: session }, [session.domain, previousDomain]);
+			}),
+			configuredIntegrationService.onWillRemoveSessions(({ integrationId, connectionId, cloud, domain }) => {
+				for (const integration of this._integrations.values()) {
+					if (integration.id !== integrationId) continue;
+					if (
+						domain != null &&
+						isSelfManagedHostIntegrationId(integrationId) &&
+						!areDomainsOnSameHost(integration.domain, domain)
+					) {
+						continue;
+					}
+
+					integration.onSessionsRemoving(connectionId, cloud);
+				}
 			}),
 			ctx.config.onDidChange(e => {
 				if (e.remotes) {
@@ -291,6 +351,11 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		return this.getConfigured(id, { cloud: true }).some(c => !before.has(c.id));
 	}
 
+	get(id: GitCloudHostIntegrationId.GitHub): Promise<GitHubIntegration>;
+	get(
+		id: GitSelfManagedHostIntegrationId.CloudGitHubEnterprise,
+		domain: string,
+	): Promise<GitHubEnterpriseIntegration>;
 	get(id: GitCloudHostIntegrationId): Promise<GitHostIntegration>;
 	get(id: IssuesCloudHostIntegrationId): Promise<IssuesIntegration>;
 	get(
@@ -1113,11 +1178,12 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 				integration.beginForcedRefresh(connectionId);
 				const authProvider = await this.authenticationService.get(integration.authProvider.id);
 				const descriptor = { ...integration.authProviderDescriptor, connectionId: connectionId, cloud: true };
+				const signOutMark = this.configuredIntegrationService.getSignOutMark();
 				const session = await authProvider?.getSession(descriptor, { sync: true, refetch: true });
 				if (session == null) {
 					if (options?.throwOnFailure) throw new Error('No refreshed provider session');
 
-					await authProvider?.deleteSession(descriptor);
+					await authProvider?.deleteSession(descriptor, { signOutMark: signOutMark });
 				}
 			} else {
 				const failure = await integration.syncCloudConnection('connected', true);
@@ -1366,6 +1432,8 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		etagIncludes?: readonly PullRequestEtagInclude[];
 		/** See {@link IntegrationManager.getPullRequestsBatch}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsBatch}. */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBatchResult>> {
 		return getPullRequestsBatch(this, options);
 	}
@@ -1381,8 +1449,52 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		domain?: string;
 		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
 		mergeQueue?: boolean;
+		/** See {@link IntegrationManager.getPullRequestsForBranches}. */
+		checkRuns?: boolean;
 	}): Promise<ProviderResult<PullRequestBranchResult>> {
 		return getPullRequestsForBranches(this, options);
+	}
+
+	async getPullRequestCheckLogs(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** See {@link IntegrationManager.getPullRequestCheckLogs}. */
+		domain?: string;
+		targets: readonly PullRequestCheckLogTarget[];
+		/** See {@link IntegrationManager.getPullRequestCheckLogs}. */
+		tailLines?: number;
+	}): Promise<ProviderResult<PullRequestCheckLogResult>> {
+		return getPullRequestCheckLogs(this, options);
+	}
+
+	async getPullRequestActivity(options: {
+		providerId: IntegrationIds;
+		connectionId?: string;
+		/** See {@link IntegrationManager.getPullRequestActivity}. */
+		domain?: string;
+		targets: readonly PullRequestActivityTarget[];
+		/** See {@link IntegrationManager.getPullRequestActivity}. */
+		limit?: number;
+	}): Promise<ProviderResult<PullRequestActivityResult>> {
+		return getPullRequestActivity(this, options);
+	}
+
+	async getPullRequestsForCommits(options: {
+		providerId: IntegrationIds;
+		owner: string;
+		repo: string;
+		project?: string;
+		shas: readonly string[];
+		connectionId?: string;
+		/**
+		 * Explicit self-managed host domain. Used only when the requested connection has no configured domain;
+		 * it must come from the trusted authentication configuration, not repository or remote data.
+		 */
+		domain?: string;
+		mergeQueue?: boolean;
+		cancellation?: AbortSignal;
+	}): Promise<ProviderResult<PullRequestForCommitResult>> {
+		return getPullRequestsForCommits(this, options);
 	}
 
 	/**
@@ -1492,6 +1604,220 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
 		return broadenIssues(this, options);
+	}
+
+	getIssueTrackerCreateOptions(options: IssueTrackerCreateOptions): Promise<IssueTrackerCreateOptionsResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.getCreateOptions(input));
+	}
+
+	getIssueTrackerIssueWriteOptions(
+		options: IssueTrackerIssueWriteOptions,
+	): Promise<IssueTrackerIssueWriteOptionsResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.getIssueOptions(input));
+	}
+
+	writeIssueTrackerIssue(options: IssueTrackerWriteOptions): Promise<IssueTrackerWriteResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.write(input));
+	}
+
+	deleteIssueTrackerIssue(options: IssueTrackerDeleteOptions): Promise<IssueTrackerWriteResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.delete(input));
+	}
+
+	resolveIssueTrackerIssueWriteTarget(
+		options: IssueTrackerWriteTargetOptions,
+	): Promise<IssueTrackerWriteTargetResult> {
+		const input = { ...options };
+		return this.withJiraIssueWriter(input, writer => writer.resolveTarget(input));
+	}
+
+	private async withJiraIssueWriter<T>(
+		options: IssueTrackerWriteConnection,
+		callback: (writer: JiraIssueWriter) => Promise<T>,
+	): Promise<T | IssueTrackerWriteFailure> {
+		if (options.providerId == null) return { ok: false, reason: 'invalid-input', mutationDispatched: false };
+		if (options.providerId !== IssuesCloudHostIntegrationId.Jira) {
+			return { ok: false, reason: 'unsupported', mutationDispatched: false };
+		}
+		if (
+			!isJiraWriteIdentifier(options.connectionId) ||
+			!isJiraWriteIdentifier(options.resourceId) ||
+			(options.expectedAccountId !== undefined && !isJiraWriteIdentifier(options.expectedAccountId))
+		) {
+			return { ok: false, reason: 'invalid-input', mutationDispatched: false };
+		}
+
+		try {
+			if (
+				this.getConfigured(options.providerId, { cloud: true }).some(
+					connection => connection.id === options.connectionId,
+				)
+			) {
+				const api = await this.getProvidersApi();
+				const writer = await api.getJiraIssueWriter(options);
+				if (writer != null) return await callback(writer);
+			}
+			return { ok: false, reason: 'no-connection', mutationDispatched: false };
+		} catch (ex) {
+			return toJiraIssueWriteFailure(ex);
+		}
+	}
+
+	async writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult> {
+		if (options?.action !== 'create' && options?.action !== 'edit' && options?.action !== 'set-state') {
+			return { ok: false, reason: 'invalid-input' };
+		}
+
+		return this.mutateIssue({ ...options });
+	}
+
+	async deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		return this.mutateIssue({ ...options, action: 'delete' });
+	}
+
+	async resolveIssueWriteTarget(options: IssueWriteTargetOptions): Promise<IssueWriteTargetResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const result = await this.mutateIssue({ ...options, action: 'resolve' });
+		return result.ok ? { ok: true, nodeId: result.issue.nodeId, issue: result.issue } : result;
+	}
+
+	private async mutateIssue(
+		options:
+			| IssueWriteOptions
+			| (IssueDeleteOptions & { action: 'delete' })
+			| (IssueWriteTargetOptions & { action: 'resolve' }),
+	): Promise<IssueWriteResult> {
+		const connection = await this.getGitHubWriteConnection(options, 'issue');
+		if (!connection.ok) {
+			return connection.reason === 'unknown' &&
+				options.providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise
+				? { ...connection, mutationDispatched: false }
+				: connection;
+		}
+
+		return connection.integration.mutateIssue(options.connectionId, options, {
+			expectedLogin: options.expectedLogin,
+			installationOrigin: connection.installationOrigin,
+		});
+	}
+
+	private async getGitHubWriteConnection(
+		{ providerId, connectionId, domain, expectedLogin }: Omit<PullRequestCreateCapabilityOptions, 'owner' | 'repo'>,
+		kind: 'issue' | 'pull-request',
+	): Promise<
+		| { ok: true; integration: GitHubIntegration | GitHubEnterpriseIntegration; installationOrigin?: string }
+		| { ok: false; reason: 'unsupported' | 'invalid-input' | 'no-connection' | 'unknown' }
+	> {
+		const enterprise = providerId === GitSelfManagedHostIntegrationId.CloudGitHubEnterprise;
+		const requiresOrigin = enterprise && kind === 'pull-request';
+		if (!enterprise && providerId !== GitCloudHostIntegrationId.GitHub) return { ok: false, reason: 'unsupported' };
+		if (typeof connectionId !== 'string' || !connectionId.trim()) return { ok: false, reason: 'invalid-input' };
+
+		if (
+			(expectedLogin !== undefined || requiresOrigin) &&
+			(typeof expectedLogin !== 'string' || !expectedLogin || expectedLogin !== expectedLogin.trim())
+		) {
+			return { ok: false, reason: 'invalid-input' };
+		}
+
+		if (requiresOrigin) {
+			const url = typeof domain === 'string' && /^https?:\/\//i.test(domain) ? URL.parse(domain) : null;
+			if (url == null || url.href !== `${url.origin}/` || /^(?:api\.)?github\.com\.?$/i.test(url.hostname)) {
+				return { ok: false, reason: 'invalid-input' };
+			}
+		}
+
+		const host = typeof domain === 'string' ? hostFromDomain(domain) : undefined;
+		if (
+			enterprise
+				? !host || host === 'github.com' || host === 'api.github.com'
+				: domain != null &&
+					(typeof domain !== 'string' || !matchesInstallationOrigin(domain, 'https://github.com'))
+		) {
+			return { ok: false, reason: 'invalid-input' };
+		}
+
+		const connection = this.getConfigured(providerId).find(c => c.id === connectionId);
+		if (connection == null) return { ok: false, reason: 'no-connection' };
+
+		const configuredDomain = connection.baseUrl ?? connection.domain;
+		let installationOrigin: string | undefined;
+		if (enterprise) {
+			const stored =
+				connection.baseUrl == null && configuredDomain != null
+					? await this.configuredIntegrationService
+							.peekStoredSession(providerId, connectionId, connection.cloud, configuredDomain)
+							.catch(() => undefined)
+					: undefined;
+			const sessionDomain = connection.baseUrl ?? stored?.baseUrl ?? stored?.domain ?? configuredDomain;
+			const base = requiresOrigin
+				? getGitHubEnterprisePullRequestWriteOrigin(sessionDomain, stored?.protocol)
+				: baseUrlFromDomain(sessionDomain, stored?.protocol);
+			if (typeof domain !== 'string' || base == null || !matchesInstallationOrigin(domain, base)) {
+				return { ok: false, reason: 'no-connection' };
+			}
+
+			installationOrigin = new URL(base).origin;
+		}
+
+		const integration = await (
+			providerId === GitCloudHostIntegrationId.GitHub
+				? this.get(providerId)
+				: configuredDomain != null
+					? this.get(providerId, configuredDomain)
+					: Promise.resolve(undefined)
+		).catch(() => undefined);
+		return integration != null
+			? { ok: true, integration: integration, installationOrigin: installationOrigin }
+			: { ok: false, reason: 'unknown' };
+	}
+
+	async resolvePullRequestWriteTarget(options: PullRequestWriteTargetOptions): Promise<PullRequestWriteTargetResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = { ...options };
+		const connection = await this.getGitHubWriteConnection(input, 'pull-request');
+		return connection.ok
+			? connection.integration.resolvePullRequestWriteTarget(input.connectionId, input, {
+					expectedLogin: input.expectedLogin,
+					installationOrigin: connection.installationOrigin,
+				})
+			: connection;
+	}
+
+	async getPullRequestCreateCapability(
+		options: PullRequestCreateCapabilityOptions,
+	): Promise<PullRequestCreateCapabilityResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = { ...options };
+		const connection = await this.getGitHubWriteConnection(input, 'pull-request');
+		return connection.ok
+			? connection.integration.getPullRequestCreateCapability(input.connectionId, input, {
+					expectedLogin: input.expectedLogin,
+					installationOrigin: connection.installationOrigin,
+				})
+			: connection;
+	}
+
+	async writePullRequest(options: PullRequestWriteOptions): Promise<PullRequestWriteResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = { ...options };
+		const connection = await this.getGitHubWriteConnection(input, 'pull-request');
+		return connection.ok
+			? connection.integration.writePullRequest(input.connectionId, input, {
+					expectedLogin: input.expectedLogin,
+					installationOrigin: connection.installationOrigin,
+				})
+			: connection;
 	}
 
 	/**
@@ -2091,7 +2417,8 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					resource: prepared.resource,
 				}))
 			) {
-				// Signed out while it was fetched: neither synced (so nothing is pruned on its account) nor primary.
+				// A sign-out or credential replacement invalidated this fetch, so it cannot establish the primary or
+				// count toward pruning.
 				continue;
 			}
 
@@ -2261,6 +2588,7 @@ export function createIntegrationService(ctx: IntegrationServiceContext): Integr
 	const auth = new IntegrationAuthenticationService(configured, ctx, () => service, cloud);
 	service = new IntegrationService(auth, configured, ctx);
 	void purgeRetiredIntegrationStorage(ctx, configured);
+	void purgeJiraDiscoveryStorage(ctx);
 	return service;
 }
 
@@ -2276,6 +2604,18 @@ async function purgeRetiredIntegrationStorage(
 		await ctx.storage.store(retiredIntegrationsStorageKey, true);
 	} catch {
 		// Best-effort cleanup retries on the next startup while the migration flag remains unset.
+	}
+}
+
+async function purgeJiraDiscoveryStorage(ctx: IntegrationServiceContext): Promise<void> {
+	const key = 'integrations:migrated:jiraDiscovery';
+	if (ctx.storage.get<boolean>(key)) return;
+
+	try {
+		await ctx.storage.deleteWithPrefix('jira:');
+		await ctx.storage.store(key, true);
+	} catch {
+		// Retry on the next startup if storage is unavailable.
 	}
 }
 

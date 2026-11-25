@@ -149,8 +149,14 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		// for different subsets share one cache entry.
 		const all = await this.cache.getRefTips(
 			repoPath,
-			async (_commonPath, _cacheable, signal) => {
+			async (_commonPath, cacheable, signal) => {
 				const records = await this.getRefs(repoPath, signal);
+				if (!records.length) {
+					// Empty also means the listing failed; the listing's own cached answer covers a
+					// repository that truly has no refs without another git run
+					cacheable.invalidate();
+					return [];
+				}
 
 				using sw = maybeStopWatch(scope, { log: { onlyExit: true, level: 'debug' } });
 
@@ -252,7 +258,8 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 			'--all',
 			`^${oldestSha}^@`,
 		);
-		using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+		// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+		using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
 
 		// Topological propagation: `--topo-order` emits all children of X before X's own line, so
 		// by the time we process "X P1 P2..." every child has already merged its set into X. We
@@ -453,7 +460,7 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	/**
 	 * Like {@link getSymbolicReferenceName}, but tells a ref git confirmed doesn't exist (`rev-parse --verify` exit 1)
 	 * apart from a read that didn't complete (timeout, error, cancellation), which never reports `missing`.
-	 * Shares the same cached `rev-parse`, though only a found ref is cached: a missing one re-runs on every call.
+	 * Shares the same cached `rev-parse`, which keeps a missing ref as it does a found one.
 	 */
 	@debug({ quiet: true })
 	async getSymbolicReferenceNameOrMissing(
@@ -482,6 +489,9 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 				cwd: repoPath,
 				cancellation: cancellation,
 				errors: 'ignore',
+				// `--quiet` makes a name that doesn't resolve exit 1 with nothing printed (a branch with no upstream,
+				// a missing ref, a detached HEAD asked for `@{u}`), unlike a failed read, so that answer is kept too
+				expectedExitCodes: [1],
 				// Why: a fixed ref name's symbolic name is itself stable; only HEAD's, or whether the ref exists
 				// at all, changes — and the gitResults cache is cleared on those ref events. 60s TTL is the failsafe
 				// for watcher latency / web — matches the other "resolve symbolic state" calls in commits.ts.
@@ -508,16 +518,9 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 	): Promise<boolean> {
 		if (repoPath == null) return false;
 
-		const [{ values: branches }, { values: tags }] = await Promise.all([
-			this.provider.branches.getBranches(
-				repoPath,
-				{ filter: options?.filter?.branches, sort: false },
-				cancellation,
-			),
-			this.provider.tags.getTags(repoPath, { filter: options?.filter?.tags, sort: false }, cancellation),
-		]);
+		if (await this.provider.branches.hasBranch(repoPath, options?.filter?.branches, cancellation)) return true;
 
-		return branches.length !== 0 || tags.length !== 0;
+		return this.provider.tags.hasTag(repoPath, options?.filter?.tags, cancellation);
 	}
 
 	@debug({ quiet: true })
@@ -548,8 +551,8 @@ export class RefsGitSubProvider implements GitRefsSubProvider {
 		const supportsEndOfOptions = await this.git.supports('git:rev-parse:end-of-options');
 
 		// Why: a SHA-only validation (no path suffix) is effectively immutable — 5-min TTL is safe.
-		// Otherwise the resolved SHA can shift on ref move (or working-tree change for path-scoped
-		// validation); rely on gitResults being cleared on 'head'/'heads'/'remotes' events, with 60s
+		// Otherwise the resolved SHA can shift on ref move (a path-scoped validation reads the ref's tree, not
+		// the working tree); rely on gitResults being cleared on 'head'/'heads'/'remotes' events, with 60s
 		// TTL as the failsafe for watcher latency / web.
 		const stable = relativePath == null && isSha(ref);
 		const result = await this.git.run(

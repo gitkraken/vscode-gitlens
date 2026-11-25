@@ -7,7 +7,7 @@ import type { Provider } from '@gitlens/git/models/remoteProvider.js';
 import type { GitHubApiConfig } from '../config.js';
 import { filterPullRequestsBySearchState, GitHubApi, toGitHubSearchStateQualifier } from '../github.js';
 import type { GitHubTokenInfo } from '../token.js';
-import { gitHubPullRequest } from './fixtures.js';
+import { gitHubPullRequest, gitHubPullRequestLite } from './fixtures.js';
 
 /** Serves `data` to one GraphQL request and captures the query document it was asked for. */
 function captureQuery(data: unknown): {
@@ -746,6 +746,31 @@ suite('GitHubApi direct pull request lookups', () => {
 
 		assert.match(getQuery(), /\bbody\b/);
 		assert.strictEqual(pr?.body, 'Body 3');
+	});
+
+	test("getPullRequestForCommit matches the owner's fork ignoring case, as GitHub logins do", async () => {
+		// A pull request opened against the owner's own fork, and a newer one in the repository it forked.
+		const ownFork = gitHubPullRequestLite(
+			5,
+			{ state: 'MERGED', updatedAt: '2024-01-01T00:00:00Z' },
+			{ owner: 'octo', name: 'repo' },
+		);
+		ownFork.repository.isFork = true;
+		const upstream = gitHubPullRequestLite(6, { state: 'MERGED', updatedAt: '2024-02-01T00:00:00Z' });
+		const { config } = captureQuery({
+			repository: { object: { associatedPullRequests: { nodes: [upstream, ownFork] } } },
+		});
+		const api = new GitHubApi(config);
+
+		const pr = await api.getPullRequestForCommit(
+			provider,
+			token,
+			'Octo',
+			'repo',
+			'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+		);
+
+		assert.strictEqual(pr?.id, '5');
 	});
 });
 

@@ -33,6 +33,7 @@ import {
 	issueEtagFieldsFromShape,
 	issueEtagIncludes,
 	normalizeIssueEtagIncludes,
+	pullRequestCheckRunsEtag,
 	pullRequestEtag,
 	pullRequestEtagFieldsFromShape,
 	pullRequestEtagIncludes,
@@ -212,6 +213,27 @@ suite('pullRequestEtag', () => {
 			pullRequestEtag(fields, pullRequestEtagIncludes),
 			'pr1+mergeable+reviewDecision+checks:["opened",false,1767225600000,"abc","Mergeable","Approved","success"]',
 		);
+	});
+
+	test('check runs fold into one fixed-length term, whatever their number and order', () => {
+		const runs = (count: number, failing?: number) =>
+			Array.from({ length: count }, (_, i) => ({
+				id: `a:${1000 + i}`,
+				kind: 'check-run' as const,
+				name: `check ${i} of a workflow with a long, descriptive name`,
+				status: 'completed' as const,
+				conclusion: i === failing ? ('failure' as const) : ('success' as const),
+			}));
+		const etag = (r: ReturnType<typeof runs>) =>
+			pullRequestEtag({ ...base, checkRuns: pullRequestCheckRunsEtag(r, false) }, noIncludes);
+
+		const small = etag(runs(150));
+		const large = etag(runs(450));
+		assert.match(small, /,\["check-runs","[0-9a-f]{16}",150\]\]$/);
+		assert.equal(large.length, small.length);
+		assert.notEqual(large, small);
+		assert.equal(etag(runs(450).reverse()), large, 'the order GitHub lists them in never moves it');
+		assert.notEqual(etag(runs(450, 300)), large);
 	});
 
 	test('a pull request outside any merge queue keeps the exact etag it had before the queue was read', () => {

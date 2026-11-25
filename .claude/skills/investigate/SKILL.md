@@ -310,6 +310,8 @@ Also produce a machine-readable companion file: `.work/triage/reports/YYYY-MM-DD
 }
 ```
 
+Set `blockedBy` only when the code trace shows the upstream component causes the behavior, never on the reporter's attribution alone, and put the upstream issue link (or "needs filing") in `blockedDetail`.
+
 Generate a UUID for `reportId`. Write both files and confirm their paths to the user.
 
 ---

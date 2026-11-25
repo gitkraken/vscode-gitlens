@@ -3,6 +3,7 @@ export type GitFeatures =
 	| 'git:checkout:pathspec-from-file'
 	| 'git:commit-graph'
 	| 'git:commit-graph:changed-paths'
+	| 'git:diff:autoRefreshIndex:off'
 	| 'git:fetch:all-config'
 	| 'git:fetch:follow-remote-head'
 	| 'git:fetch:no-write-fetch-head'
@@ -12,6 +13,8 @@ export type GitFeatures =
 	| 'git:fsmonitor:linux'
 	| 'git:ignoreRevsFile'
 	| 'git:index:skipHash'
+	| 'git:log:diff-merges'
+	| 'git:ls-files:directory'
 	| 'git:maintenance'
 	| 'git:maintenance:pack-refs'
 	| 'git:maintenance:start'
@@ -58,6 +61,9 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	// Changed-path Bloom filters (`--changed-paths`), the v2 filter format — pre-2.31 shipped Bloom filters
 	// with real correctness bugs (bad results for merge commits), so 2.31 is the safe floor to write them.
 	['git:commit-graph:changed-paths', '2.31'],
+	// From 2.46 `diff --quiet` compares contents, so with auto-refresh off a file whose timestamps moved but whose
+	// content did not still reads as unchanged; before it, such a file reads as changed.
+	['git:diff:autoRefreshIndex:off', '2.46'],
 	// A bare `fetch` reads every remote when `fetch.all` is set
 	['git:fetch:all-config', '2.44'],
 	// A fetch using a remote's configured refspecs creates its missing `refs/remotes/<remote>/HEAD`
@@ -77,6 +83,11 @@ export const gitFeaturesByVersion = new Map<GitFeatures, string>([
 	['git:ignoreRevsFile', '2.23'],
 	// `index.skipHash` (skip the trailing index checksum for faster writes); part of `feature.manyFiles`.
 	['git:index:skipHash', '2.40'],
+	// `log --diff-merges=first-parent`: diffs a merge against its first parent only (`-m` diffs against every parent)
+	['git:log:diff-merges', '2.31'],
+	// `ls-files --others --directory --no-empty-directory` answers from the directory walk as reworked in 2.27;
+	// the flags themselves are older
+	['git:ls-files:directory', '2.27'],
 	// `git maintenance run --task=…`. The `maintenance` builtin + `commit-graph`/`gc` tasks are 2.29, but
 	// the loose-objects + incremental-repack tasks the auto tier uses landed in 2.30 (and `core.multiPackIndex`
 	// is default-on from 2.30, so no separate midx config write is needed) — 2.30 is the safe floor.

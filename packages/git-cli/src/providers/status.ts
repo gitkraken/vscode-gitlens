@@ -21,7 +21,13 @@ import { toFsPath } from '@gitlens/utils/uri.js';
 import type { CliGitProviderInternal } from '../cliGitProvider.js';
 import type { GitResult } from '../exec/exec.types.js';
 import type { Git } from '../exec/git.js';
-import { defaultExceptionHandler, gitConfigsStatus, GitErrors, maxGitCliLength } from '../exec/git.js';
+import {
+	defaultExceptionHandler,
+	defaultGitTimeout,
+	gitConfigsStatus,
+	GitErrors,
+	maxGitCliLength,
+} from '../exec/git.js';
 import { parseGitConflictFiles } from '../parsers/indexParser.js';
 import { parseGitStatus } from '../parsers/statusParser.js';
 
@@ -33,11 +39,11 @@ const disabledTimeoutBackstopMs = 1000 * 60 * 5;
  * Deadlock-backstop duration for a status read (see `dedupeByStatusGeneration`), exported for testing.
  * Always returns a value so a wedged read recovers even with `advanced.git.timeout` disabled (which bounds git
  * *commands*, not deadlock recovery). With a timeout set, `gitTimeout * 2` sits above the per-command timeout so
- * `git.run` reads reject at their own timeout first; the backstop's real job is bounding the timeout-less
- * `git.stream` reads (`hasUntrackedFiles`/`hasConflictingFiles`).
+ * `git.run` reads (and the two streamed presence checks, which are given the same limit) reject at their own timeout
+ * first; the backstop's real job is bounding a read that hangs without git's process being the cause.
  */
 export function computeDeadlockBackstopMs(gitTimeout: number | undefined): number {
-	const timeout = gitTimeout ?? 60000;
+	const timeout = gitTimeout ?? defaultGitTimeout;
 	return timeout > 0 ? timeout * 2 : disabledTimeoutBackstopMs;
 }
 
@@ -56,6 +62,22 @@ function getStatusReadKey(options?: { untracked?: 'no' | 'normal' | 'all'; branc
 		parts.push('branch=false');
 	}
 	return `getStatus:${parts.join(':')}`;
+}
+
+/**
+ * Whether `stream` yields anything, stopping at the first chunk. A stream the time limit killed rejects with the same
+ * `CancellationError` a timed-out `git.run` (and the backstop above) reject with.
+ */
+async function hasOutput(stream: AsyncGenerator<string>): Promise<boolean> {
+	// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+	using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
+
+	// Early exit on first chunk - breaking causes SIGPIPE, killing git process
+	for await (const _chunk of stream) {
+		return true;
+	}
+
+	return false;
 }
 
 export class StatusGitSubProvider implements GitStatusSubProvider {
@@ -79,9 +101,8 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	 * The exec-layer command dedup (`Git.pendingCommands`) is fenced automatically: each run carries this entry's
 	 * aggregate signal, whose id is part of the exec cache key, so a newer-generation run never joins an older
 	 * one's process; the generation-derived `correlationKey` is a readable second guard on that key. A `raceWithTimeout` backstop (scaled to `advanced.git.timeout`, see
-	 * {@link computeDeadlockBackstopMs}) replaces `@gate`'s 5-min force-clear so a never-settling read (a hung
-	 * `git.stream`, which has no per-command timeout) can't wedge same-generation callers — including blocking
-	 * awaiters like the commit flow — indefinitely.
+	 * {@link computeDeadlockBackstopMs}) replaces `@gate`'s 5-min force-clear so a never-settling read can't wedge
+	 * same-generation callers — including blocking awaiters like the commit flow — indefinitely.
 	 */
 	private dedupeByStatusGeneration<T>(
 		repoPath: string,
@@ -315,6 +336,9 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			);
 		}
 
+		// `-z` so a name git would C-quote (`"`, `\`, tab, newline) comes as it is on disk
+		params.push('-z');
+
 		return this.git.run(
 			{
 				cwd: repoPath,
@@ -359,10 +383,12 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			`hasWorkingChanges:${staged}:${unstaged}:${untracked}:${priority}`,
 			async (correlationKey, signal) => {
 				if (staged || unstaged) {
+					const diffConfigs = await this.git.getDiffReadConfigs();
 					const diffQuiet = (revision: string | undefined) =>
 						this.git.run(
 							{
 								cwd: repoPath,
+								configs: diffConfigs,
 								cancellation: signal,
 								errors: 'throw',
 								expectedExitCodes: [1],
@@ -430,11 +456,13 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 			repoPath,
 			'getWorkingChangesState',
 			async (correlationKey, signal) => {
+				const diffConfigs = await this.git.getDiffReadConfigs();
 				const [stagedResult, unstagedResult, untrackedResult] = await Promise.allSettled([
 					// Check for staged changes
 					this.git.run(
 						{
 							cwd: repoPath,
+							configs: diffConfigs,
 							cancellation: signal,
 							errors: 'throw',
 							expectedExitCodes: [1],
@@ -448,6 +476,7 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 					this.git.run(
 						{
 							cwd: repoPath,
+							configs: diffConfigs,
 							cancellation: signal,
 							errors: 'throw',
 							expectedExitCodes: [1],
@@ -486,20 +515,22 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 
 	hasConflictingFiles(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
 		// Route through `dedupeByStatusGeneration` (like every other point-in-time read here) for the join-fence
-		// and the `raceWithTimeout` backstop — a bare `git.stream` has no per-command timeout and could wedge.
+		// and the `raceWithTimeout` backstop.
 		return this.dedupeByStatusGeneration(
 			repoPath,
 			'hasConflictingFiles',
 			async (_correlationKey, signal) => {
-				const stream = this.git.stream({ cwd: repoPath, cancellation: signal }, 'ls-files', '--unmerged');
-				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
-
-				// Early exit on first chunk - breaking causes SIGPIPE, killing git process
-				for await (const _chunk of stream) {
-					return true;
-				}
-
-				return false;
+				return hasOutput(
+					this.git.stream(
+						{
+							cwd: repoPath,
+							cancellation: signal,
+							timeout: this.git.options.gitTimeout ?? defaultGitTimeout,
+						},
+						'ls-files',
+						'--unmerged',
+					),
+				);
 			},
 			cancellation,
 		);
@@ -534,21 +565,24 @@ export class StatusGitSubProvider implements GitStatusSubProvider {
 	}
 
 	private async hasUntrackedFiles(repoPath: string, cancellation?: AbortSignal): Promise<boolean> {
-		const stream = this.git.stream(
-			{ cwd: repoPath, cancellation: cancellation },
-			'ls-files',
-			// '-z', // Unneeded since we are only looking for presence
-			'--others',
-			'--exclude-standard',
+		// An untracked directory is reported as one entry without walking it, and one with nothing reportable
+		// inside is omitted; both keep the answer the same while a huge untracked folder is no longer enumerated
+		// in full. Only where git's directory walk is the reworked one: an older git keeps the full listing
+		const collapseDirectories = await this.git.supports('git:ls-files:directory');
+		return hasOutput(
+			this.git.stream(
+				{
+					cwd: repoPath,
+					cancellation: cancellation,
+					timeout: this.git.options.gitTimeout ?? defaultGitTimeout,
+				},
+				'ls-files',
+				// '-z', // Unneeded since we are only looking for presence
+				'--others',
+				'--exclude-standard',
+				...(collapseDirectories ? ['--directory', '--no-empty-directory'] : []),
+			),
 		);
-		using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
-
-		// Early exit on first chunk - breaking causes SIGPIPE, killing git process
-		for await (const _chunk of stream) {
-			return true;
-		}
-
-		return false;
 	}
 
 	@debug({ quiet: true })

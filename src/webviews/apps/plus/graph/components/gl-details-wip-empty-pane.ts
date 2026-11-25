@@ -74,6 +74,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 	@property({ type: Boolean, attribute: 'show-launchpad' }) showLaunchpad = false;
 	@property({ type: Boolean }) aiCreatePrEnabled = false;
 	@property({ type: Object }) mergeTargetStatus?: BranchMergeTargetStatus;
+	@property({ type: Boolean }) mergeTargetStatusLoading = false;
 
 	private _hadNextSteps = false;
 	private _cachedNextSteps: NextStep[] = [];
@@ -208,6 +209,17 @@ export class GlDetailsWipEmptyPane extends LitElement {
 		if (mergeTarget?.landed != null) {
 			const mergedStep = this.computeMergeTargetStep(true);
 			return mergedStep != null ? [mergedStep] : [];
+		}
+
+		if (this.mergeTargetStatusLoading) {
+			return [
+				{
+					icon: 'git-pull-request',
+					label: l10n.t('Checking for pull request…'),
+					actionLabel: l10n.t('Checking'),
+					loading: true,
+				},
+			];
 		}
 
 		const successor = mergeTarget?.successor;
@@ -411,8 +423,7 @@ export class GlDetailsWipEmptyPane extends LitElement {
 			onClick: () => this.emit('recompose-branch-changes'),
 		};
 
-		// Recomposing a landed branch would rewrite history that's already in the merge target
-		if (this.mergeTargetStatus?.mergeTarget?.landed != null) return [review];
+		if (this.mergeTargetStatus?.mergeTarget?.landed != null || this.mergeTargetStatusLoading) return [review];
 
 		return recomposeFirst ? [recompose, review] : [review, recompose];
 	}

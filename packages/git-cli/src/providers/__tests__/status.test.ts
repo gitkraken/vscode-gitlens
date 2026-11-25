@@ -32,6 +32,7 @@ function createDeferredGit(gitTimeout = 60000) {
 	const git = {
 		options: { gitTimeout: gitTimeout },
 		supports: () => Promise.resolve(true),
+		getDiffReadConfigs: () => Promise.resolve([]),
 		run: (options: { correlationKey?: string; cancellation?: AbortSignal }) =>
 			new Promise((resolve, reject) => {
 				correlationKeys.push(options?.correlationKey);
@@ -319,6 +320,7 @@ suite('StatusGitSubProvider — generation-stamped dedup', () => {
 		const git = {
 			options: { gitTimeout: 60000 },
 			supports: () => Promise.resolve(true),
+			getDiffReadConfigs: () => Promise.resolve([]),
 			run: () => Promise.reject(failure),
 		};
 		const provider = createProvider(cache, git as unknown as Git);
@@ -374,6 +376,7 @@ function createArgvRecordingGit(stdout: string = porcelainV2('main')) {
 	const git = {
 		options: { gitTimeout: 60000 },
 		supports: () => Promise.resolve(true),
+		getDiffReadConfigs: () => Promise.resolve([]),
 		run: (options: Record<string, unknown>, ...args: string[]) => {
 			calls.push({ options: options, args: args });
 			return Promise.resolve({
@@ -405,6 +408,16 @@ suite('StatusGitSubProvider.getStatus — untracked/branch options', () => {
 		await provider.getStatus(repoPath);
 
 		assert.deepStrictEqual(calls[0].args.slice(0, 4), ['status', '--porcelain=v2', '--branch', '-u']);
+	});
+
+	test('reads names as they are on disk with -z', async () => {
+		const { git, calls } = createArgvRecordingGit();
+		const provider = createProvider(cache, git);
+
+		await provider.getStatus(repoPath);
+
+		assert.ok(calls[0].args.includes('-z'));
+		assert.ok(calls[0].args.indexOf('-z') < calls[0].args.indexOf('--'));
 	});
 
 	test("untracked: 'no' passes -uno instead of -u", async () => {

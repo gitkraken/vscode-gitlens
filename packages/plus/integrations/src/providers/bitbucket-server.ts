@@ -28,7 +28,7 @@ import { toTokenWithInfo } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import type { ResponseHeaders } from '../errors.js';
-import { AuthenticationError, getAuthenticatedUser } from '../errors.js';
+import { AuthenticationError, getAuthenticatedUser, IntegrationReadUnavailableError } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/integration.js';
@@ -262,18 +262,44 @@ export class BitbucketServerIntegration extends GitHostIntegration<
 		);
 	}
 
-	protected override async getProviderPullRequestForCommit(
+	protected override getProviderPullRequestForCommitInBatch(
+		session: ProviderAuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined> {
+		return this.readPullRequestForCommit(session, repo, rev, true, cancellation);
+	}
+
+	protected override getProviderPullRequestForCommit(
 		session: ProviderAuthenticationSession,
 		repo: BitbucketRepositoryDescriptor,
 		rev: string,
 	): Promise<PullRequest | undefined> {
-		return (await this.authenticationService.apis.bitbucket)?.getServerPullRequestForCommit(
+		return this.readPullRequestForCommit(session, repo, rev, false);
+	}
+
+	private async readPullRequestForCommit(
+		session: ProviderAuthenticationSession,
+		repo: BitbucketRepositoryDescriptor,
+		rev: string,
+		deferFailure: boolean,
+		cancellation?: AbortSignal,
+	): Promise<PullRequest | undefined> {
+		const api = await this.authenticationService.apis.bitbucket;
+		if (api == null) {
+			throw new IntegrationReadUnavailableError(this.name, 'no client to read the pull requests of a commit');
+		}
+
+		return api.getServerPullRequestForCommit(
 			this,
 			toTokenWithInfo(this.id, session),
 			repo.owner,
 			repo.name,
 			rev,
 			this.apiBaseUrlFor(session),
+			{ deferFailure: deferFailure },
+			cancellation,
 		);
 	}
 

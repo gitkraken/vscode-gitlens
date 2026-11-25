@@ -1173,6 +1173,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 			sha?: string,
 			cursor?: { sha: string; skip: number },
 			cancellation?: AbortSignal,
+			isPage?: boolean,
 		): Promise<GitGraph> {
 			try {
 				iterations++;
@@ -1213,7 +1214,8 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						cursor?.skip ? `--skip=${cursor.skip}` : undefined,
 						'--',
 					);
-				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				// Unawaited: the stream logs a git error the close rethrows, which must not go unhandled
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
 
 				const rows: GitGraphRow[] = [];
 
@@ -1233,53 +1235,63 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 						}
 					})(parser.parseAsync(stream));
 
-				outer: for await (const batch of batches) {
-					for (const commit of batch) {
-						// Stopping logic (check AFTER processing the commit):
-						// - SHA + limit > 0: Find SHA, ensure at least `limit` commits loaded
-						// - SHA + limit = 0: Find SHA, stop immediately
-						// - No SHA + limit > 0: Load exactly `limit` commits
-						// - No SHA + limit = 0: Load everything remaining
-						// - SHA + limit > 0 + still unfound past 10× limit: defensive cap so an unreachable
-						//   SHA (e.g. a stale merge-base the webview hasn't yet seen invalidated) can't
-						//   walk the entire history. `hasMore=true` lets callers retry; the graph-wrapper
-						//   side deduplicates re-requests so the cap doesn't loop.
-						if (
-							(limit && count >= limit && (!sha || found || count >= limit * 10)) ||
-							(!limit && sha && found)
-						) {
-							hasMore = true;
-							aborter.abort();
-							break outer;
+				let cutShort = false;
+				try {
+					outer: for await (const batch of batches) {
+						for (const commit of batch) {
+							// Stopping logic (check AFTER processing the commit):
+							// - SHA + limit > 0: Find SHA, ensure at least `limit` commits loaded
+							// - SHA + limit = 0: Find SHA, stop immediately
+							// - No SHA + limit > 0: Load exactly `limit` commits
+							// - No SHA + limit = 0: Load everything remaining
+							// - SHA + limit > 0 + still unfound past 10× limit: defensive cap so an unreachable
+							//   SHA (e.g. a stale merge-base the webview hasn't yet seen invalidated) can't
+							//   walk the entire history. `hasMore=true` lets callers retry; the graph-wrapper
+							//   side deduplicates re-requests so the cap doesn't loop.
+							if (
+								(limit && count >= limit && (!sha || found || count >= limit * 10)) ||
+								(!limit && sha && found)
+							) {
+								hasMore = true;
+								aborter.abort();
+								break outer;
+							}
+
+							if (sha && !found && commit.sha === sha) {
+								found = true;
+							}
+
+							count++;
+							if (ids.has(commit.sha)) continue;
+
+							const built = buildRowFromCommit(commit);
+							if (built == null) continue; // remapped-stash dedup
+
+							const { row, refHeads, refRemoteHeads, refTags, head, parents } = built;
+							const refs = accumulateRowState(
+								row.sha,
+								parents,
+								refHeads,
+								refRemoteHeads,
+								refTags,
+								head,
+								row.kind === 'stash',
+							);
+							// Transient: the row processor's `+unique` decision reads this; stripped by finalize.
+							// Unsorted (the consumer re-sorts after decoding) — order doesn't affect interning.
+							row.reachability = refs?.size ? { partial: true, refs: [...refs.values()] } : undefined;
+							rowProcessor?.processRow(row, graphCtx!);
+							finalizeRowReachability(row, row.sha, refs);
+							rows.push(row);
 						}
-
-						if (sha && !found && commit.sha === sha) {
-							found = true;
-						}
-
-						count++;
-						if (ids.has(commit.sha)) continue;
-
-						const built = buildRowFromCommit(commit);
-						if (built == null) continue; // remapped-stash dedup
-
-						const { row, refHeads, refRemoteHeads, refTags, head, parents } = built;
-						const refs = accumulateRowState(
-							row.sha,
-							parents,
-							refHeads,
-							refRemoteHeads,
-							refTags,
-							head,
-							row.kind === 'stash',
-						);
-						// Transient: the row processor's `+unique` decision reads this; stripped by finalize.
-						// Unsorted (the consumer re-sorts after decoding) — order doesn't affect interning.
-						row.reachability = refs?.size ? { partial: true, refs: [...refs.values()] } : undefined;
-						rowProcessor?.processRow(row, graphCtx!);
-						finalizeRowReachability(row, row.sha, refs);
-						rows.push(row);
 					}
+				} catch (ex) {
+					// A page continues a graph already handed out, and the walk's state (`ids`, the reachability it
+					// propagated) has already moved past the rows built so far, so they can't be read again: hand
+					// them over, as a page that isn't the end. A first walk's state dies with it, so it can reject.
+					if (!isPage || !isCancellationError(ex)) throw ex;
+
+					cutShort = true;
 				}
 
 				const startingCursor = cursor?.sha;
@@ -1312,16 +1324,18 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					paging: {
 						limit: limit === 0 ? count : limit,
 						startingCursor: startingCursor,
-						hasMore: hasMore,
+						hasMore: hasMore || cutShort,
 					},
 					more: async (
 						limit: number,
 						sha?: string,
 						cancellation?: AbortSignal,
 					): Promise<GitGraph | undefined> =>
-						getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation),
+						getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation, true),
 				};
 			} catch (ex) {
+				if (isCancellationError(ex)) throw ex;
+
 				scope?.error(ex);
 				debugger;
 
@@ -1765,7 +1779,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					hasMore: hasMore,
 				},
 				more: async (limit: number, sha?: string, cancellation?: AbortSignal): Promise<GitGraph | undefined> =>
-					getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation),
+					getCommitsForGraphCore.call(this, limit, sha, cursor, cancellation, true),
 			};
 		};
 
@@ -2077,7 +2091,7 @@ export class GraphGitSubProvider implements GitGraphSubProvider {
 					'--',
 					...files,
 				);
-				using _streamDisposer = createDisposable(() => void stream.return?.(undefined));
+				using _streamDisposer = createDisposable(() => void stream.return?.(undefined)?.catch(() => {}));
 				let hasMore = false;
 				let sha;
 				const stashesOnly = filters.type === 'stash';
