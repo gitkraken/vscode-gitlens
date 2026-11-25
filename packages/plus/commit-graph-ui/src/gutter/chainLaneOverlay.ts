@@ -163,7 +163,10 @@ export class ChainLaneOverlayController implements ReactiveController {
 			// our own elements from a PRIOR successful mount so a later re-check can't be fooled by them.
 			// Leave the key unset here too — this pass didn't mount anything, so it must retry.
 			if (v.querySelector(':scope > [virtualizer-sizer]:not(.gl-graph__chain-lane)') == null) {
-				void v.layoutComplete?.then(() => this.host.requestUpdate());
+				void v.layoutComplete?.then(
+					() => this.host.requestUpdate(),
+					() => {},
+				);
 				return;
 			}
 

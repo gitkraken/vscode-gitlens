@@ -9247,19 +9247,22 @@ export class GlCommitGraph extends LitElement {
 		// Let the virtualizer render where we've landed before moving again — starting the slide against an
 		// unrendered range is what streamed blank rows past the first time.
 		const settled = scroller.layoutComplete ?? scroller.updateComplete;
-		void settled.then(() => {
-			if (this._revealGeneration !== generation) return;
+		void settled.then(
+			() => {
+				if (this._revealGeneration !== generation) return;
 
-			const el = this.virtualizerRef.value;
-			if (el == null) return;
-			// Anything that moved the viewport across the settle owns it now.
-			if (this._viewportScrollTop !== landed) {
-				this._revealEndedGeneration = generation;
-				return;
-			}
+				const el = this.virtualizerRef.value;
+				if (el == null) return;
+				// Anything that moved the viewport across the settle owns it now.
+				if (this._viewportScrollTop !== landed) {
+					this._revealEndedGeneration = generation;
+					return;
+				}
 
-			this.runRevealAnimation(el, el.scrollTop, target, generation);
-		});
+				this.runRevealAnimation(el, el.scrollTop, target, generation);
+			},
+			() => {},
+		);
 	}
 
 	/**
@@ -9303,29 +9306,32 @@ export class GlCommitGraph extends LitElement {
 		// whole failure for a row paged in by a host walk: the write "succeeds", then gets corrected away, and
 		// the reveal has already been consumed so nothing tries again. `layoutComplete` is the settle point.
 		const settled = scroller.layoutComplete ?? scroller.updateComplete;
-		void settled.then(() => {
-			if (this._revealGeneration !== generation || this._pendingRevealSha != null) return;
+		void settled.then(
+			() => {
+				if (this._revealGeneration !== generation || this._pendingRevealSha != null) return;
 
-			const el = this.virtualizerRef.value;
-			if (el == null || el.scrollTop === target) return;
+				const el = this.virtualizerRef.value;
+				if (el == null || el.scrollTop === target) return;
 
-			// A scroll that moved since our write is the user's, not the layout's — theirs wins.
-			if (this._viewportScrollTop !== landed) return;
+				// A scroll that moved since our write is the user's, not the layout's — theirs wins.
+				if (this._viewportScrollTop !== landed) return;
 
-			// End-of-content clamping is not a failed write: the browser won't scroll past the last screenful,
-			// so a row in the final viewport necessarily lands lower than `ratio` asked for, and re-writing
-			// achieves nothing. Checked HERE rather than by clamping `target` up front, because before this
-			// point the spacer can still be PRE-growth for a row that just paged in — clamping to that stale
-			// height would make the bad write look successful and cancel the very retry this exists to be.
-			// Matters more at a third than at a half: the shallower offset puts more rows in that final band.
-			if (el.scrollTop >= el.scrollHeight - el.clientHeight) return;
+				// End-of-content clamping is not a failed write: the browser won't scroll past the last screenful,
+				// so a row in the final viewport necessarily lands lower than `ratio` asked for, and re-writing
+				// achieves nothing. Checked HERE rather than by clamping `target` up front, because before this
+				// point the spacer can still be PRE-growth for a row that just paged in — clamping to that stale
+				// height would make the bad write look successful and cancel the very retry this exists to be.
+				// Matters more at a third than at a half: the shallower offset puts more rows in that final band.
+				if (el.scrollTop >= el.scrollHeight - el.clientHeight) return;
 
-			// Same reason the initial write bumps it: this is a deliberate reveal, and a lane-collapse anchor
-			// retry armed in between must not land after it and undo it.
-			this._scrollAnchorGeneration++;
-			el.scrollTop = target;
-			this.trackViewportTop(el.scrollTop);
-		});
+				// Same reason the initial write bumps it: this is a deliberate reveal, and a lane-collapse anchor
+				// retry armed in between must not land after it and undo it.
+				this._scrollAnchorGeneration++;
+				el.scrollTop = target;
+				this.trackViewportTop(el.scrollTop);
+			},
+			() => {},
+		);
 	}
 
 	private _revealAnimationFrame?: number;
@@ -9626,16 +9632,19 @@ export class GlCommitGraph extends LitElement {
 		this.trackViewportTop(landed);
 
 		const settled = scroller.layoutComplete ?? scroller.updateComplete;
-		void settled.then(() => {
-			if (this._scrollAnchorGeneration !== generation || this._viewportScrollTop !== landed) return;
-			if (this._pendingRevealSha != null || this.activeRevealSha != null) return;
+		void settled.then(
+			() => {
+				if (this._scrollAnchorGeneration !== generation || this._viewportScrollTop !== landed) return;
+				if (this._pendingRevealSha != null || this.activeRevealSha != null) return;
 
-			const el = this.virtualizerRef.value;
-			if (el == null || el.scrollTop === target) return;
+				const el = this.virtualizerRef.value;
+				if (el == null || el.scrollTop === target) return;
 
-			el.scrollTop = target;
-			this.trackViewportTop(el.scrollTop);
-		});
+				el.scrollTop = target;
+				this.trackViewportTop(el.scrollTop);
+			},
+			() => {},
+		);
 	}
 
 	// Toggles `is-scrolling` on the virtualizer for the duration of an active scroll (idempotent add per event;

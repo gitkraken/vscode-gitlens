@@ -325,6 +325,28 @@ test('a reveal still waiting for its row wins over a scroll restore', async () =
 	assert.deepEqual(errors, []);
 });
 
+test('removing the graph while a reveal or a scroll restore waits for layout raises no unhandled rejection', async () => {
+	await load();
+	const actual = await page.evaluate(async () => {
+		const rejections = [];
+		window.addEventListener('unhandledrejection', e => rejections.push(String(e.reason)));
+
+		const revealing = await mountGraph(chain('r', 300));
+		revealing.scrollToSha('r299');
+		revealing.remove();
+
+		const restoring = await mountGraph(chain('r', 300));
+		restoring.restoreScrollState({ sha: 'r200', offset: 0, scrollTop: 0 });
+		await restoring.updateComplete;
+		restoring.remove();
+
+		await new Promise(resolve => setTimeout(resolve, 100));
+		return rejections;
+	});
+	assert.deepEqual(actual, []);
+	assert.deepEqual(errors, []);
+});
+
 test('rows appended while the focused row is still near the end ask for more once, and none once hasMore is false', async () => {
 	await load();
 	const actual = await page.evaluate(async () => {
