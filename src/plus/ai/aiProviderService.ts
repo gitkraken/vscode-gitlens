@@ -1384,6 +1384,16 @@ export class AIProviderService implements AIService, Disposable {
 						`${model.provider.id}:${model.id}` as SupportedAIModels,
 					);
 				}
+
+				// KEEP: the config listener can't do this (its 'global' compare already matches), and it must
+				// follow the writes so a read racing them can't re-cache the old default
+				if (scope == null) {
+					for (const s of aiModelScopes) {
+						if (this.getScopedModelId(s) == null) {
+							this._modelCache.delete(s);
+						}
+					}
+				}
 			}
 			this._onDidChangeModel.fire({ model: model, scope: scope });
 		}
