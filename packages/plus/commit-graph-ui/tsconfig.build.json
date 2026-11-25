@@ -5,6 +5,7 @@
 		"incremental": true,
 		"isolatedDeclarations": true,
 		"declaration": true,
+		"stripInternal": true,
 		// The tarball ships no `src/`, and unlike JS source maps, a declaration map cannot embed its
 		// sources — every `.d.ts.map` would point at a file no consumer has.
 		"declarationMap": false,

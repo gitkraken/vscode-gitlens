@@ -3899,9 +3899,8 @@ export class GlCommitGraph extends LitElement {
 
 	// Visually-hidden polite live region for screen-reader announcements (lane collapse, paging).
 	// Written via the cached element ref (CSSOM textContent — no host re-render).
-	// Public so the wrapper can report the outcome of the operations it owns (the nearest-WIP jump) —
-	// this element owns the graph's only live region.
 	private liveRef = createRef<HTMLElement>();
+	/** @internal */
 	announce(message: string): void {
 		const el = this.liveRef.value;
 		if (el != null) {
@@ -3984,9 +3983,7 @@ export class GlCommitGraph extends LitElement {
 		this.announce(l10n.t('Commit info hidden.'));
 	}
 
-	/** The card closed by a path this element can't see (Esc pops the hover's overlay-stack entry directly)
-	 *  — sync the peek flag now instead of waiting for the next re-anchor to self-heal, and make the close
-	 *  audible like every other close path. */
+	/** @internal */
 	onPeekClosedExternally(): void {
 		if (!this._peekOpen) return;
 
@@ -4226,11 +4223,8 @@ export class GlCommitGraph extends LitElement {
 		this.invalidateAdornments();
 	}
 
-	// Public entry point for the details panel: clears the click-pinned ref focus when the branch
-	// sheet closes via a sheet-native path (Esc / X / scrim / Focus action) that doesn't itself touch
-	// the pin. No-op when nothing is pinned — also reached by graph-initiated closes (click-outside
-	// dismiss, same-pill toggle-off) round-tripping back through the panel, which must stay side-
-	// effect-free here to avoid a dispatch loop.
+	// KEEP: graph-initiated closes round-trip back here, so the unpinned case must stay a no-op (dispatch loop).
+	/** @internal */
 	clearRefFocus(): void {
 		if (this._pinnedRefKey == null) return;
 
@@ -4351,8 +4345,7 @@ export class GlCommitGraph extends LitElement {
 	// Pending fresh-engage timer from `reconcileModifierChain` — the modifier-hold delay in flight.
 	private _pendingHoldEngageTimer: ReturnType<typeof setTimeout> | undefined;
 
-	/** Hold off the Ctrl/Alt-hold lane dim until both are released — for a Ctrl or Alt chord whose action
-	 *  isn't a lane move. Called by the host before it consumes the chord. */
+	/** @internal */
 	public suppressModifierChainUntilRelease(): void {
 		this._suppressModifierChain = true;
 		this.cancelPendingHoldEngage();
@@ -7979,7 +7972,7 @@ export class GlCommitGraph extends LitElement {
 		this.announce(pending.kind === 'forkPoint' ? l10n.t('No further fork.') : l10n.t('No further ref.'));
 	}
 
-	/** Cancel the in-flight edge-nav search, if any — the jump toast's Cancel action calls through here. */
+	/** @internal */
 	cancelEdgeNavigation(): void {
 		this.settleEdgeNavigation('cancelled');
 	}
@@ -8252,7 +8245,7 @@ export class GlCommitGraph extends LitElement {
 		this.treeRef.value?.focus({ focusVisible: false, ...options });
 	}
 
-	/** Move keyboard and `aria-activedescendant` focus to a rendered row after programmatic navigation. */
+	/** @internal */
 	focusRow(sha: string): boolean {
 		const index = this.indexBySha.get(sha);
 		if (index == null) return false;
@@ -8721,9 +8714,7 @@ export class GlCommitGraph extends LitElement {
 		return items;
 	}
 
-	/** True when `sha` is currently rendered (present in `displayRows`); false when it's loaded but
-	 *  hidden by a collapsed lane, an active search filter, or the scope projection. The wrapper's
-	 *  getCommits/selectCommits read this to report the displayed-vs-hidden state search-nav needs. */
+	/** @internal */
 	isRowDisplayed(sha: string): boolean {
 		return this.indexBySha.has(sha);
 	}
@@ -8771,11 +8762,7 @@ export class GlCommitGraph extends LitElement {
 		return 'unknown';
 	}
 
-	/** Whether a scope projection is currently applied to the rendered rows — while it is, a row the
-	 *  graph hasn't loaded can never render (paging in deeper history only adds rows the projection
-	 *  drops), which is what lets a jump to an unloaded target answer as scope-hidden without a host
-	 *  walk. The state-level scope clears synchronously; this lifts on the next update — remedy
-	 *  flows poll it so a re-run jump can't classify against the stale projection. */
+	/** @internal */
 	isScopeProjectionActive(): boolean {
 		return this.scopeProjection != null;
 	}
@@ -9417,7 +9404,7 @@ export class GlCommitGraph extends LitElement {
 		}
 	}
 
-	/** Imperatively scroll the row list by `deltaY` px (used by the minimap wheel passthrough). */
+	/** @internal */
 	scrollByDelta(deltaY: number): void {
 		const scroller = this.virtualizerRef.value;
 		if (scroller != null) {
@@ -10719,11 +10706,7 @@ export class GlCommitGraph extends LitElement {
 		this.scrollToSha(sha);
 	}
 
-	/** Ends the reveal watch for `sha` — the wrapper calls this when the row load it started settles, in
-	 *  any way: landed, superseded, timed out. Without it a target that never materializes stays watched
-	 *  for the finder's whole session, and unrelated paging that later brings the row in yanks the
-	 *  viewport to it. Ignores a sha that isn't the one being watched, so a stale settle can't disarm a
-	 *  newer jump. */
+	/** @internal */
 	endRefFindLoad(sha: string): void {
 		if (this._refFindLoadingSha !== sha) return;
 

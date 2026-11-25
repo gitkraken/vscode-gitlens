@@ -35,9 +35,41 @@
 			"types": "./dist/wip/*.d.ts",
 			"default": "./dist/wip/*.js"
 		},
-		"./*.js": {
-			"types": "./dist/*.d.ts",
-			"default": "./dist/*.js"
+		"./a11y.js": {
+			"types": "./dist/a11y.d.ts",
+			"default": "./dist/a11y.js"
+		},
+		"./geometry.js": {
+			"types": "./dist/geometry.d.ts",
+			"default": "./dist/geometry.js"
+		},
+		"./l10n.js": {
+			"types": "./dist/l10n.d.ts",
+			"default": "./dist/l10n.js"
+		},
+		"./paging.js": {
+			"types": "./dist/paging.d.ts",
+			"default": "./dist/paging.js"
+		},
+		"./projection.js": {
+			"types": "./dist/projection.d.ts",
+			"default": "./dist/projection.js"
+		},
+		"./scope.js": {
+			"types": "./dist/scope.d.ts",
+			"default": "./dist/scope.js"
+		},
+		"./stats.js": {
+			"types": "./dist/stats.d.ts",
+			"default": "./dist/stats.js"
+		},
+		"./time.js": {
+			"types": "./dist/time.d.ts",
+			"default": "./dist/time.js"
+		},
+		"./zones.js": {
+			"types": "./dist/zones.d.ts",
+			"default": "./dist/zones.js"
 		}
 	},
 	"files": [

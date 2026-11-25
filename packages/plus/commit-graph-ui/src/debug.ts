@@ -17,6 +17,7 @@ export type GraphDebugApi = {
 	clear(): void;
 };
 
+/** @internal */
 export type GraphDebugSnapshotInput = {
 	repoPath?: string;
 	sourceRows: number;
@@ -77,6 +78,7 @@ class GraphDebugDiagnostics {
 		};
 	}
 
+	/** @internal */
 	connect(owner: object, snapshotProvider: () => unknown): void {
 		this._snapshotOwner = owner;
 		this._snapshotProvider = snapshotProvider;
@@ -84,6 +86,7 @@ class GraphDebugDiagnostics {
 		this.startLongTaskObserver();
 	}
 
+	/** @internal */
 	disconnect(owner: object): void {
 		if (this._snapshotOwner !== owner) return;
 
@@ -126,11 +129,13 @@ class GraphDebugDiagnostics {
 		this._pageRendered = false;
 	}
 
+	/** @internal */
 	cancelPage(): void {
 		this._pageMark = undefined;
 		this._pageRendered = false;
 	}
 
+	/** @internal */
 	beginUpdate(rows: object | undefined, rowsChanged: boolean, detail: GraphDebugDetail): void {
 		this._activeUpdateMark = this.mark('update-start', detail);
 		this._activeRowsMark = rowsChanged && rows != null ? this._rowsMarks.get(rows) : undefined;
@@ -141,10 +146,12 @@ class GraphDebugDiagnostics {
 		}
 	}
 
+	/** @internal */
 	measureStage(name: string, startedAt: number, detail?: GraphDebugDetail): void {
 		this.measure(name, startedAt, detail);
 	}
 
+	/** @internal */
 	endUpdate(detail: GraphDebugDetail): void {
 		const updateMark = this._activeUpdateMark;
 		const rowsChanged = this._activeRowsMark != null;
@@ -165,6 +172,7 @@ class GraphDebugDiagnostics {
 		}
 	}
 
+	/** @internal */
 	markVirtualized(detail: GraphDebugDetail): void {
 		if (this._lastRenderMark != null) {
 			this.measure('render-to-virtualized', this._lastRenderMark, detail);
@@ -318,7 +326,7 @@ export function getGraphDebugDiagnostics(): GraphDebugDiagnostics {
 	return (graphDebugDiagnostics ??= new GraphDebugDiagnostics());
 }
 
-/** Builds the expensive normalized differential snapshot only when the inspector explicitly asks for it. */
+/** @internal */
 export function createGraphDebugSnapshot(input: GraphDebugSnapshotInput): unknown {
 	return {
 		repoPath: input.repoPath,
