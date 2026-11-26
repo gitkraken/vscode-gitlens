@@ -20,6 +20,7 @@ import { CancellationError, isCancellationError, raceWithTimeout } from '@gitlen
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { TrackedSession } from '../authentication/integrationAuthenticationService.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
 	ProviderAuthenticationSession,
@@ -320,7 +321,7 @@ export abstract class AzureDevOpsIntegrationBase<
 > extends GitHostIntegration<TIntegrationId, TRepositoryDescriptor> {
 	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string;
 
-	protected trackWriteSession(session: ProviderAuthenticationSession): () => Promise<boolean> {
+	protected trackWriteSession(session: ProviderAuthenticationSession): TrackedSession {
 		return this.authenticationService.usesHostAuthenticationProvider(this.id)
 			? async () => {
 					const current = await this.resolveReadSessionOrThrow(session.id, undefined);

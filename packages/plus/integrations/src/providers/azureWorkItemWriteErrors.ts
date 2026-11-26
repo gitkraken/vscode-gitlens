@@ -75,6 +75,12 @@ export class WorkItemWriteError extends Error {
 	}
 }
 
+export class WorkItemWriteNotDispatchedError extends WorkItemWriteError {
+	constructor() {
+		super('no-connection');
+	}
+}
+
 function getRuleErrors(body: unknown, fields: readonly WorkItemWriteField[]) {
 	const data = body as
 		| {

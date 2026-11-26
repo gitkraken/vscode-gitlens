@@ -26,6 +26,8 @@ import type { ProviderAuthenticationSession } from './models.js';
 import { getSessionIdentity } from './models.js';
 import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
+export type TrackedSession = (() => Promise<boolean>) & { readonly isRetired?: () => boolean };
+
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationIds, IntegrationAuthenticationProvider>();
 
@@ -90,11 +92,11 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.providers.get(id) instanceof ObservedAuthenticationProvider;
 	}
 
-	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): () => Promise<boolean> {
+	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): TrackedSession {
 		const store = this.configuredIntegrationService;
 		const mark = store.getStoredWriteMark();
 		const identity = getSessionIdentity(session);
-		return async () => {
+		const isCurrent = async () => {
 			if (store.isStoredWriteRetiredSince(id, session, mark)) return false;
 
 			const current = await store
@@ -107,6 +109,7 @@ export class IntegrationAuthenticationService implements Disposable {
 				current.account?.id === session.account?.id
 			);
 		};
+		return Object.assign(isCurrent, { isRetired: () => store.isStoredWriteRetiredSince(id, session, mark) });
 	}
 
 	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */

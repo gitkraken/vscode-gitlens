@@ -19,7 +19,10 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type {
+	IntegrationAuthenticationService,
+	TrackedSession,
+} from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession, TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { isIncompleteCollection, toCollectionScopeFailure, withValidSkippedItems } from '../collectionMetadata.js';
@@ -53,6 +56,7 @@ import {
 	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
 import { AzurePullRequestWriter } from './azurePullRequestWrites.js';
+import { WorkItemWriteNotDispatchedError } from './azureWorkItemWriteErrors.js';
 import { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
@@ -1307,11 +1311,16 @@ export class ProvidersApi implements Disposable {
 		session: ProviderAuthenticationSession,
 		route: { collectionBaseUrl: string; collectionUrl: string; collection: string },
 		ignoreSSLErrors: boolean | 'force',
-		isSessionCurrent: () => Promise<boolean>,
+		isSessionCurrent: TrackedSession,
 	): Promise<AzureWorkItemWriter> {
 		const http = this.authenticationService.ctx.http;
 		const request: ProviderRequestFunction = o =>
-			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () => this.request(o));
+			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
+				// KEEP: no await between this check and the fetch, so a retirement cannot land in between.
+				o.method != null && o.method !== 'GET' && isSessionCurrent.isRetired?.() === true
+					? Promise.reject(new WorkItemWriteNotDispatchedError())
+					: this.request(o),
+			);
 		const negotiate = async (resource: AzureDevOpsRestResource, version: string) =>
 			(
 				await http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>

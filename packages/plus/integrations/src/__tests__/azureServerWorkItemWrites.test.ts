@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import type { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type {
@@ -579,6 +580,45 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				false,
 			);
 		});
+	});
+
+	test('does not send an edit or delete whose credential a same-id replacement retires after its last check', async () => {
+		for (const action of ['edit', 'delete'] as const) {
+			const server = createServer();
+			await withManager(server, async (manager, scope) => {
+				const configured = (
+					manager as unknown as { configuredIntegrationService: ConfiguredIntegrationService }
+				).configuredIntegrationService;
+				const peek = configured.peekStoredSession.bind(configured);
+				let checks = 0;
+				const finalCheck = action === 'edit' ? 1 : 2;
+				configured.peekStoredSession = async (...args) => {
+					const current = await peek(...args);
+					if (++checks === finalCheck && current != null) {
+						void configured.storeSession(providerId, { ...current, accessToken: 'replacement-token' });
+					}
+					return current;
+				};
+
+				const address = {
+					...scope,
+					workItemId: item.id,
+					expectedRevision: item.rev,
+					expectedAccountId: collection.identity,
+				};
+				const result =
+					action === 'edit'
+						? await manager.writeWorkItem({
+								...address,
+								action: 'edit',
+								fields: { 'System.Title': 'Edited' },
+							})
+						: await manager.deleteWorkItem(address);
+				assert.equal(checks, finalCheck, action);
+				assert.deepEqual(result, { ok: false, reason: 'no-connection', mutationDispatched: false }, action);
+				assert.deepEqual(server.mutations(), [], action);
+			});
+		}
 	});
 
 	test('reports a denied delete permission and a refused write without retrying', async () => {

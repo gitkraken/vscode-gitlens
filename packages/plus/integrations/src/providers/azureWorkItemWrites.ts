@@ -40,7 +40,11 @@ import {
 	isAzurePositiveInt,
 	sameAzureIdentifier,
 } from './azure/writeIdentity.js';
-import { toWorkItemWriteFailure, WorkItemWriteError } from './azureWorkItemWriteErrors.js';
+import {
+	toWorkItemWriteFailure,
+	WorkItemWriteError,
+	WorkItemWriteNotDispatchedError,
+} from './azureWorkItemWriteErrors.js';
 import type { ProviderRequestFunction } from './models.js';
 
 type AzureWorkItem = { id: number; rev: number; fields: Readonly<Record<string, unknown>> };
@@ -463,6 +467,8 @@ export class AzureWorkItemWriter {
 
 			return await this.toDeleteOutcome(deleted, issue, options.expectedRevision);
 		} catch (ex) {
+			if (ex instanceof WorkItemWriteNotDispatchedError) return toWorkItemWriteFailure(ex);
+
 			return toWorkItemWriteFailure(ex, { fields: metadata.fields });
 		}
 	}
@@ -690,6 +696,8 @@ export class AzureWorkItemWriter {
 
 			return { ok: true, ...this.context, issue: this.getReceipt(item, metadata) };
 		} catch (ex) {
+			if (ex instanceof WorkItemWriteNotDispatchedError) return toWorkItemWriteFailure(ex);
+
 			return toWorkItemWriteFailure(ex, { fields: metadata.fields });
 		}
 	}
