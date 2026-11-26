@@ -7,12 +7,13 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import type { KeplerRelease } from '../../../../plus/kepler/keplerRelease.js';
+import type { KeplerInstallProgress, KeplerRelease } from '../../../../plus/kepler/keplerRelease.js';
 import { KeplerInstallError } from '../../../../plus/kepler/keplerRelease.js';
 import { installKepler } from '../keplerInstall.js';
 
 const appImage = Buffer.from('#!/bin/sh\necho kepler\n'.repeat(4096));
 const appImageSha512 = createHash('sha512').update(appImage).digest('base64');
+const etag = '"kepler-0.16.0"';
 
 async function rejectsWith(
 	promise: Promise<unknown>,
@@ -40,8 +41,13 @@ suite('installKepler — Linux AppImage', () => {
 	let baseUrl: string;
 	/** Bytes the server sends before cutting the connection, with the full `content-length` claimed */
 	let truncateAt: number | undefined;
+	/** How many responses are cut at {@link truncateAt}; the rest are sent whole */
+	let truncations: number;
+	/** Whether the server sends an `ETag` and honours `Range` requests that match it */
+	let ranges: boolean;
 	let status: number;
 	let requests: number;
+	let rangeRequests: (string | undefined)[];
 	const originalHome = process.env.HOME;
 	const originalPath = process.env.PATH;
 
@@ -79,21 +85,37 @@ suite('installKepler — Linux AppImage', () => {
 			this.skip();
 		}
 
-		server = createServer((_req, res) => {
+		server = createServer((req, res) => {
 			requests++;
+			rangeRequests.push(req.headers.range);
 			if (status !== 200) {
 				res.writeHead(status).end();
 				return;
 			}
 
-			res.writeHead(200, { 'content-length': appImage.length });
-			if (truncateAt == null) {
-				res.end(appImage);
+			let body = appImage;
+			const range = /^bytes=(\d+)-$/.exec(req.headers.range ?? '');
+			if (ranges && range != null && req.headers['if-range'] === etag) {
+				const start = Number(range[1]);
+				body = appImage.subarray(start);
+				res.writeHead(206, {
+					'content-length': body.length,
+					'content-range': `bytes ${start}-${appImage.length - 1}/${appImage.length}`,
+					etag: etag,
+				});
+			} else {
+				res.writeHead(200, { 'content-length': body.length, ...(ranges ? { etag: etag } : {}) });
+			}
+
+			if (truncateAt == null || truncations <= 0) {
+				res.end(body);
 				return;
 			}
 
-			res.write(appImage.subarray(0, truncateAt));
-			res.socket?.destroy();
+			truncations--;
+			// The headers go out first, so the drop lands mid-body rather than before the response
+			res.flushHeaders();
+			setTimeout(() => res.write(body.subarray(0, truncateAt), () => res.socket?.destroy()), 20);
 		});
 		await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
 		baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -105,8 +127,11 @@ suite('installKepler — Linux AppImage', () => {
 
 	setup(async () => {
 		truncateAt = undefined;
+		truncations = Infinity;
+		ranges = true;
 		status = 200;
 		requests = 0;
+		rangeRequests = [];
 		dir = await mkdtemp(join(tmpdir(), 'gitlens-kepler-install-'));
 		home = join(dir, 'home');
 		process.env.HOME = home;
@@ -150,22 +175,58 @@ suite('installKepler — Linux AppImage', () => {
 		assert.strictEqual(await readFile(appImagePath(), 'utf8'), 'old kepler');
 	});
 
-	test('fails a download cut short of its content-length, installing nothing', async () => {
+	test('resumes a download cut short where it stopped, and reports the resume', async () => {
+		await stubXdgMime(0);
+		truncateAt = 1024;
+		truncations = 1;
+		const progress: KeplerInstallProgress[] = [];
+
+		const result = await installKepler(release(), { onProgress: p => progress.push(p) });
+
+		assert.deepStrictEqual(await readFile(result.location), appImage);
+		assert.deepStrictEqual(rangeRequests, [undefined, 'bytes=1024-']);
+		const last = progress.findLast(p => p.step === 'download');
+		assert.strictEqual(last?.transferred, appImage.length);
+		assert.strictEqual(last?.resumes, 1);
+		assert.strictEqual(last?.restarts, undefined);
+	});
+
+	test('starts a cut-short download over when the server cannot resume it, and reports the restart', async () => {
+		await stubXdgMime(0);
+		truncateAt = 1024;
+		truncations = 1;
+		ranges = false;
+		const progress: KeplerInstallProgress[] = [];
+
+		const result = await installKepler(release(), { onProgress: p => progress.push(p) });
+
+		assert.deepStrictEqual(await readFile(result.location), appImage);
+		assert.deepStrictEqual(rangeRequests, [undefined, undefined]);
+		const last = progress.findLast(p => p.step === 'download');
+		assert.strictEqual(last?.resumes, undefined);
+		assert.strictEqual(last?.restarts, 1);
+	});
+
+	test('fails a download that keeps getting cut short, after 3 retries, installing nothing', async function () {
+		this.timeout(10_000);
 		await stubXdgMime(0);
 		truncateAt = 1024;
 
 		// The connection drops mid-file, so the code is the network error's, whichever the platform gives
 		await rejectsWith(installKepler(release()), 'download', /^[A-Z][A-Z0-9_]+$/);
 
+		assert.strictEqual(requests, 4);
 		assert.strictEqual(existsSync(appImagePath()), false);
 		assert.strictEqual(existsSync(desktopEntryPath()), false);
 	});
 
-	test('fails a download the server refuses, with the HTTP status as the code', async () => {
+	test('fails a download the server refuses, with the HTTP status as the code, without retrying', async () => {
 		await stubXdgMime(0);
 		status = 404;
 
 		await rejectsWith(installKepler(release()), 'download', '404');
+
+		assert.strictEqual(requests, 1);
 
 		assert.strictEqual(existsSync(appImagePath()), false);
 	});

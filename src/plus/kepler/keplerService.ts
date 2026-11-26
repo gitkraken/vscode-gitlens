@@ -420,6 +420,8 @@ function createInstallTimings(): {
 		'duration.install'?: number;
 		'duration.register'?: number;
 		'download.size'?: number;
+		'download.resumes'?: number;
+		'download.restarts'?: number;
 	};
 } {
 	const started = Date.now();
@@ -427,6 +429,8 @@ function createInstallTimings(): {
 	let step: KeplerInstallStep | undefined;
 	let stepStarted = started;
 	let downloaded: number | undefined;
+	let resumes: number | undefined;
+	let restarts: number | undefined;
 
 	function endStep(now: number): void {
 		if (step == null) return;
@@ -438,6 +442,8 @@ function createInstallTimings(): {
 		onProgress: value => {
 			if (value.step === 'download') {
 				downloaded = value.transferred ?? downloaded;
+				resumes = value.resumes;
+				restarts = value.restarts;
 			}
 			if (value.step === step) return;
 
@@ -457,6 +463,8 @@ function createInstallTimings(): {
 				'duration.install': durations.install,
 				'duration.register': durations.register,
 				'download.size': downloaded,
+				'download.resumes': resumes,
+				'download.restarts': restarts,
 			};
 		},
 	};
@@ -494,8 +502,11 @@ function createProgressReporter(
 							: l10n.t('Downloading Kepler… {0} MB', transferred);
 				}
 
+				// KEEP: a download that starts over never moves the bar back, so a negative increment is never reported
 				const target =
-					total != null ? Math.floor(((value.transferred ?? 0) / total) * downloadShare) : reported;
+					total != null
+						? Math.max(reported, Math.floor(((value.transferred ?? 0) / total) * downloadShare))
+						: reported;
 				// Chunks arrive thousands of times per download; report only what the notification shows
 				if (message === lastMessage && target === reported) break;
 

@@ -5857,6 +5857,10 @@ or
 {
   // Set when the user cancelled too late to stop the install: Kepler is installed, but what the install was for is not carried out
   'cancelled.late': true,
+  // How many times the download started over after the connection dropped or stalled — the server sent the whole file again; absent when it never did
+  'download.restarts': number,
+  // How many times the download continued from where the connection dropped or stalled; absent when it never did
+  'download.resumes': number,
   // How many bytes were downloaded; absent when the download never started
   'download.size': number,
   // How long the whole install took, in milliseconds
@@ -5882,6 +5886,10 @@ or
 
 ```typescript
 {
+  // How many times the download started over after the connection dropped or stalled — the server sent the whole file again; absent when it never did
+  'download.restarts': number,
+  // How many times the download continued from where the connection dropped or stalled; absent when it never did
+  'download.resumes': number,
   // How many bytes were downloaded; absent when the download never started
   'download.size': number,
   // How long the whole install took, in milliseconds
@@ -5894,7 +5902,7 @@ or
   'duration.register': number,
   // How long checking the download took, in milliseconds; absent when it never started
   'duration.verify': number,
-  // What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. Never message text or a path
+  // What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `range-mismatch`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. Never message text or a path
   'failure.code': string,
   // Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine
   'failure.reason': 'cancelled' | 'download' | 'install' | 'manifest' | 'register' | 'unsupported' | 'verify',

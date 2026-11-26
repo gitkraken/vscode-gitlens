@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto';
 import { once } from 'node:events';
+import type { WriteStream } from 'node:fs';
 import { createWriteStream, existsSync } from 'node:fs';
 import { access, chmod, constants, copyFile, mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { arch, env, platform } from 'node:process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { run } from '@gitlens/utils/env/node/exec.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getKeplerInstallPaths, getKeplerProductName } from '../../../plus/kepler/keplerProviders.js';
@@ -37,6 +39,12 @@ const launchServicesRegister =
 
 /** Max time with no download progress before the download is treated as stalled. */
 const downloadStallTimeout = 60_000; // 60s
+/** How many times a download the connection dropped or stalled on is asked for again. */
+const downloadRetries = 3;
+/** Wait before asking for an interrupted download again. */
+const downloadRetryDelay = 1_000; // 1s
+/** Max time to check the Windows setup's signature. */
+const authenticodeTimeout = 180_000; // 180s
 /** Total-duration cap for the small manifest (or Windows size) request. */
 const manifestFetchTimeout = 30_000; // 30s
 
@@ -218,11 +226,111 @@ function throwIfCancelled(signal: AbortSignal | undefined): void {
 	if (signal?.aborted) throw new KeplerInstallError('cancelled', 'Cancelled');
 }
 
-/** Streams the file to disk, reporting progress and hashing as it goes. Returns the base64 SHA-512. */
+/**
+ * Streams the file to disk, reporting progress and hashing as it goes. When the connection drops or
+ * stalls after some bytes arrived, asks for the rest of it, up to {@link downloadRetries} times.
+ * Returns the base64 SHA-512.
+ */
 async function download(release: KeplerRelease, file: string, options?: KeplerInstallOptions): Promise<string> {
+	const signal = options?.signal;
+	let hash = createHash('sha512');
+	let transferred = 0;
+	let total = release.size;
+	let resumes = 0;
+	let restarts = 0;
+	let rangeValidator: string | undefined;
+	let receivedAny = false;
+
+	const report = () =>
+		options?.onProgress?.({
+			step: 'download',
+			transferred: transferred,
+			total: total,
+			resumes: resumes || undefined,
+			restarts: restarts || undefined,
+		});
+
+	const request = async (
+		requestSignal: AbortSignal,
+	): Promise<{ body: ReadableStream<Uint8Array>; append: boolean }> => {
+		const resuming = transferred > 0 && rangeValidator != null;
+		const response = await fetch(release.url, {
+			headers: resuming ? { Range: `bytes=${transferred}-`, 'If-Range': rangeValidator! } : undefined,
+			signal: requestSignal,
+		});
+		if (!response.ok || response.body == null) {
+			throw new KeplerInstallError('download', `${response.status} ${response.statusText}`, {
+				code: String(response.status),
+			});
+		}
+
+		if (response.status === 206) {
+			const range = parseContentRange(response.headers.get('content-range'));
+			if (!resuming || range?.start !== transferred) {
+				throw new KeplerInstallError('download', 'The server resumed the download at the wrong offset', {
+					code: 'range-mismatch',
+				});
+			}
+
+			total = range.total ?? total;
+			resumes++;
+			return { body: response.body, append: true };
+		}
+
+		if (receivedAny) {
+			restarts++;
+		}
+		rangeValidator = getRangeValidator(response.headers);
+		hash = createHash('sha512');
+		transferred = 0;
+		const length = Number(response.headers.get('content-length'));
+		total = Number.isFinite(length) && length > 0 ? length : release.size;
+		return { body: response.body, append: false };
+	};
+
+	const onChunk = (chunk: Uint8Array) => {
+		receivedAny = true;
+		hash.update(chunk);
+		transferred += chunk.byteLength;
+		report();
+	};
+
+	report();
+	for (let attempt = 0; ; attempt++) {
+		let interruption = await downloadAttempt(request, file, onChunk, signal);
+		if (interruption == null && total != null && transferred !== total) {
+			interruption = new KeplerInstallError('download', `Downloaded ${transferred} of ${total} bytes`, {
+				code: 'incomplete',
+			});
+		}
+		if (interruption == null) return hash.digest('base64');
+		if (!receivedAny || attempt >= downloadRetries) throw interruption;
+
+		Logger.warn(
+			`Kepler download interrupted after ${transferred} of ${total ?? '?'} bytes (${interruption.code ?? 'unknown'}); retrying`,
+		);
+		try {
+			await delay(downloadRetryDelay, undefined, { signal: signal });
+		} catch (ex) {
+			throw new KeplerInstallError('cancelled', 'Cancelled', { cause: ex });
+		}
+	}
+}
+
+/**
+ * Makes one request for the file and writes what arrives to disk — appended, when the server resumed
+ * it. Returns an error when the connection dropped or stalled, so the download can be picked up again;
+ * throws on everything else.
+ */
+async function downloadAttempt(
+	request: (signal: AbortSignal) => Promise<{ body: ReadableStream<Uint8Array>; append: boolean }>,
+	file: string,
+	onChunk: (chunk: Uint8Array) => void,
+	signal: AbortSignal | undefined,
+): Promise<KeplerInstallError | undefined> {
 	const controller = new AbortController();
 	const onAbort = () => controller.abort();
-	options?.signal?.addEventListener('abort', onAbort);
+	signal?.addEventListener('abort', onAbort);
 
 	let stalled = false;
 	let timer: ReturnType<typeof setTimeout> | undefined;
@@ -236,67 +344,84 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 		}, downloadStallTimeout);
 	};
 
-	const hash = createHash('sha512');
-	const out = createWriteStream(file);
+	let out: WriteStream | undefined;
 	let writeError: Error | undefined;
-	out.on('error', ex => {
-		writeError = ex;
-		controller.abort();
-	});
 	try {
 		armStallTimer();
-		options?.onProgress?.({ step: 'download', transferred: 0, total: release.size });
-		const response = await fetch(release.url, { signal: controller.signal });
-		if (!response.ok || response.body == null) {
-			throw new KeplerInstallError('download', `${response.status} ${response.statusText}`, {
-				code: String(response.status),
-			});
-		}
+		const { body, append } = await request(controller.signal);
 
-		const length = Number(response.headers.get('content-length'));
-		const total = Number.isFinite(length) && length > 0 ? length : release.size;
-		let transferred = 0;
-		options?.onProgress?.({ step: 'download', transferred: 0, total: total });
+		const stream = createWriteStream(file, { flags: append ? 'a' : 'w' });
+		out = stream;
+		stream.on('error', ex => {
+			writeError = ex;
+			controller.abort();
+		});
 
-		const reader = response.body.getReader();
+		const reader = body.getReader();
 		for (;;) {
 			armStallTimer();
 			const { done, value } = await reader.read();
 			if (done) break;
 
 			const chunk: Uint8Array = value;
-			hash.update(chunk);
-			if (!out.write(chunk)) {
-				await once(out, 'drain', { signal: controller.signal });
+			// KEEP: count the chunk once written, before the drain wait — a resume must start after every byte flushed
+			const drained = stream.write(chunk);
+			onChunk(chunk);
+			if (!drained) {
+				await once(stream, 'drain', { signal: controller.signal });
 			}
-			transferred += chunk.byteLength;
-			options?.onProgress?.({ step: 'download', transferred: transferred, total: total });
 		}
 
-		await new Promise<void>((resolve, reject) => out.end((err?: Error | null) => (err ? reject(err) : resolve())));
-
-		if (total != null && transferred !== total) {
-			throw new KeplerInstallError('download', `Downloaded ${transferred} of ${total} bytes`, {
-				code: 'incomplete',
-			});
-		}
-		return hash.digest('base64');
+		await closeStream(stream);
+		return undefined;
 	} catch (ex) {
-		out.destroy();
+		if (ex instanceof KeplerInstallError || writeError != null || signal?.aborted || out == null) {
+			out?.destroy();
+		} else {
+			try {
+				// KEEP: flush what arrived before the drop — the next attempt resumes after the bytes counted
+				await closeStream(out);
+			} catch (closeEx) {
+				writeError = closeEx as Error;
+			}
+		}
 		if (ex instanceof KeplerInstallError) throw ex;
-		if (options?.signal?.aborted) throw new KeplerInstallError('cancelled', 'Cancelled', { cause: ex });
+		if (signal?.aborted) throw new KeplerInstallError('cancelled', 'Cancelled', { cause: ex });
 
-		throw new KeplerInstallError(
+		const error = new KeplerInstallError(
 			'download',
 			stalled ? `Download stalled (no progress for ${downloadStallTimeout}ms)` : 'Download failed',
 			{ cause: writeError ?? ex, code: stalled ? 'stalled' : undefined },
 		);
+		if (writeError != null) throw error;
+
+		return error;
 	} finally {
 		if (timer != null) {
 			clearTimeout(timer);
 		}
-		options?.signal?.removeEventListener('abort', onAbort);
+		signal?.removeEventListener('abort', onAbort);
 	}
+}
+
+function closeStream(stream: WriteStream): Promise<void> {
+	return new Promise<void>((resolve, reject) => stream.end((err?: Error | null) => (err ? reject(err) : resolve())));
+}
+
+/** A strong validator for `If-Range`, so a resumed download can't splice two versions of the file. */
+function getRangeValidator(headers: Headers): string | undefined {
+	const etag = headers.get('etag');
+	if (etag != null && !etag.startsWith('W/')) return etag;
+
+	return headers.get('last-modified') ?? undefined;
+}
+
+/** Parses `Content-Range: bytes <start>-<end>/<total>`; `total` is absent when the server gives `*`. */
+function parseContentRange(value: string | null): { start: number; total: number | undefined } | undefined {
+	const match = value != null ? /^bytes (\d+)-\d+\/(\d+|\*)$/.exec(value.trim()) : null;
+	if (match == null) return undefined;
+
+	return { start: Number(match[1]), total: match[2] === '*' ? undefined : Number(match[2]) };
 }
 
 /** Windows publishes no SHA-512, so the setup's Authenticode signature is checked instead. */
@@ -313,7 +438,7 @@ async function verifyAuthenticode(file: string): Promise<void> {
 				'(Get-AuthenticodeSignature -LiteralPath $env:GITLENS_KEPLER_SETUP).Status',
 			],
 			'utf8',
-			{ env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_SETUP: file }, timeout: 60_000 },
+			{ env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_SETUP: file }, timeout: authenticodeTimeout },
 		);
 		status = output.trim();
 	} catch (ex) {
