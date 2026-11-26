@@ -72,7 +72,7 @@ suite('KeplerInstallMonitor', () => {
 
 	test('an install whose window closed is reported by the next window, with its last step and how long it ran', () => {
 		const closed = openWindow();
-		closed.start('windows-setup');
+		const { id } = closed.start('windows-setup');
 		closed.setStep('download');
 		clock.tick(20_000);
 		closed.setStep('install');
@@ -84,7 +84,10 @@ suite('KeplerInstallMonitor', () => {
 		clock.tick(0);
 
 		assert.deepStrictEqual(abandoned(), [
-			['kepler/install/abandoned', { kind: 'windows-setup', step: 'install', duration: 60_000 }],
+			[
+				'kepler/install/abandoned',
+				{ 'install.id': id, kind: 'windows-setup', step: 'install', duration: 60_000 },
+			],
 		]);
 		assert.strictEqual(stored, undefined);
 
@@ -95,7 +98,7 @@ suite('KeplerInstallMonitor', () => {
 
 	test('a window reloaded mid-install reports it once the install has gone quiet, not at startup', () => {
 		const reloaded = openWindow();
-		reloaded.start('mac-zip');
+		const { id } = reloaded.start('mac-zip');
 		clock.tick(5_000);
 		reloaded.dispose();
 
@@ -105,7 +108,7 @@ suite('KeplerInstallMonitor', () => {
 
 		clock.tick(1);
 		assert.deepStrictEqual(abandoned(), [
-			['kepler/install/abandoned', { kind: 'mac-zip', step: undefined, duration: 0 }],
+			['kepler/install/abandoned', { 'install.id': id, kind: 'mac-zip', step: undefined, duration: 0 }],
 		]);
 	});
 
@@ -138,25 +141,35 @@ suite('KeplerInstallMonitor', () => {
 		assert.strictEqual(sendEvent.callCount, 1);
 	});
 
+	test('each install gets its own id, which is what the stored record and the abandoned report carry', () => {
+		const window = openWindow();
+		const first = window.start('windows-setup');
+		window.stop();
+		const second = window.start('windows-setup');
+
+		assert.notStrictEqual(first.id, second.id);
+		assert.strictEqual(stored?.[Object.keys(stored)[0]].id, second.id);
+	});
+
 	test("an install started while another window's is running is concurrent; after a finished or abandoned one it is not", () => {
 		const first = openWindow();
 		const second = openWindow();
 
-		assert.deepStrictEqual(first.start('windows-setup'), { concurrent: false });
+		assert.strictEqual(first.start('windows-setup').concurrent, false);
 		clock.tick(60_000);
-		assert.deepStrictEqual(second.start('windows-setup'), { concurrent: true });
+		assert.strictEqual(second.start('windows-setup').concurrent, true);
 		second.stop();
 
 		first.stop();
-		assert.deepStrictEqual(second.start('windows-setup'), { concurrent: false });
+		assert.strictEqual(second.start('windows-setup').concurrent, false);
 		second.stop();
 
 		first.start('windows-setup');
 		first.dispose();
 		clock.tick(keplerInstallStaleAfter - 1);
-		assert.deepStrictEqual(second.start('windows-setup'), { concurrent: true });
+		assert.strictEqual(second.start('windows-setup').concurrent, true);
 		second.stop();
 		clock.tick(1);
-		assert.deepStrictEqual(second.start('windows-setup'), { concurrent: false });
+		assert.strictEqual(second.start('windows-setup').concurrent, false);
 	});
 });

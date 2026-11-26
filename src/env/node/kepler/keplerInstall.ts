@@ -5,7 +5,7 @@ import { access, chmod, constants, copyFile, mkdir, mkdtemp, readdir, rename, rm
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { arch, env, platform } from 'node:process';
-import { run } from '@gitlens/utils/env/node/exec.js';
+import { CancelledRunError, run, RunError } from '@gitlens/utils/env/node/exec.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import { getKeplerInstallPaths, getKeplerProductName } from '../../../plus/kepler/keplerProviders.js';
 import type {
@@ -310,14 +310,17 @@ async function verifyAuthenticode(file: string): Promise<void> {
 				'-NoProfile',
 				'-NonInteractive',
 				'-Command',
-				'(Get-AuthenticodeSignature -LiteralPath $env:GITLENS_KEPLER_SETUP).Status',
+				"try { (Get-AuthenticodeSignature -LiteralPath $env:GITLENS_KEPLER_SETUP -ErrorAction Stop).Status } catch { [Console]::Error.WriteLine('error:' + $_.CategoryInfo.Category); exit 1 }",
 			],
 			'utf8',
 			{ env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_SETUP: file }, timeout: 60_000 },
 		);
 		status = output.trim();
 	} catch (ex) {
-		throw new KeplerInstallError('verify', 'Unable to check the setup signature', { cause: ex });
+		throw new KeplerInstallError('verify', 'Unable to check the setup signature', {
+			cause: ex,
+			code: getPowerShellFailureCode(ex),
+		});
 	}
 
 	if (status !== 'Valid') {
@@ -326,6 +329,20 @@ async function verifyAuthenticode(file: string): Promise<void> {
 			code: /^[A-Za-z]{1,30}$/.test(status) ? `signature:${status}` : 'signature',
 		});
 	}
+}
+
+export function getPowerShellFailureCode(ex: unknown): string | undefined {
+	if (!(ex instanceof RunError) || ex instanceof CancelledRunError) return undefined;
+
+	if (typeof ex.code === 'number') {
+		// SEE: PowerShell's `ErrorCategory` enum names, such as `ObjectNotFound` or `PermissionDenied`
+		const category = /^error:([A-Za-z]{1,40})\s*$/m.exec(ex.stderr)?.[1];
+		return `exit:${ex.code}:${category ?? 'other'}`;
+	}
+
+	const code = getKeplerInstallFailureCode(ex);
+	const syscall = ex.syscall != null ? /^[a-z]{1,20}\b/.exec(ex.syscall)?.[0] : undefined;
+	return code != null && syscall != null ? `${code}:${syscall}` : code;
 }
 
 function getWindowsPowerShellEnv(): NodeJS.ProcessEnv {

@@ -25,17 +25,18 @@ export class KeplerInstallMonitor implements Disposable {
 		this.scheduleCheck(0);
 	}
 
-	start(kind: KeplerReleaseFileKind): { concurrent: boolean } {
+	start(kind: KeplerReleaseFileKind): { id: string; concurrent: boolean } {
 		const now = Date.now();
 		const concurrent = Object.entries(this.read()).some(
 			([windowId, install]) => windowId !== this.windowId && !isStale(install, now),
 		);
 
-		this._install = { kind: kind, startedAt: now, heartbeatAt: now };
+		const id = uuid();
+		this._install = { id: id, kind: kind, startedAt: now, heartbeatAt: now };
 		this.write();
 		clearInterval(this._heartbeatTimer);
 		this._heartbeatTimer = setInterval(() => this.beat(), keplerInstallHeartbeatInterval);
-		return { concurrent: concurrent };
+		return { id: id, concurrent: concurrent };
 	}
 
 	setStep(step: KeplerInstallStep): void {
@@ -103,6 +104,7 @@ export class KeplerInstallMonitor implements Disposable {
 			this.store(remaining);
 			for (const install of abandoned) {
 				this.container.telemetry.sendEvent('kepler/install/abandoned', {
+					'install.id': install.id,
 					kind: install.kind,
 					step: install.step,
 					duration: install.heartbeatAt - install.startedAt,

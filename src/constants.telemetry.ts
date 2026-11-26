@@ -2828,6 +2828,8 @@ interface KeplerSessionOpenFailedEvent extends KeplerSessionOpenEvent {
 }
 
 interface KeplerInstallEvent {
+	/** A random id for this install, the same in all of its events; not tied to the device or user */
+	'install.id': string;
 	/** The kind of installer file used, which follows the platform */
 	kind: KeplerReleaseFileKind;
 }
@@ -2837,7 +2839,11 @@ interface KeplerInstallStartedEvent extends KeplerInstallEvent {
 	concurrent?: true;
 }
 
-interface KeplerInstallAbandonedEvent extends KeplerInstallEvent {
+interface KeplerInstallAbandonedEvent {
+	/** The id of the abandoned install, as in its `kepler/install/started`; absent when it was started by an earlier GitLens */
+	'install.id'?: string;
+	/** The kind of installer file used, which follows the platform */
+	kind: KeplerReleaseFileKind;
 	/** The step the install was last known to be in; absent when it had not started downloading */
 	step?: KeplerInstallStep;
 	/** How long the install was known to be running, in milliseconds — from its start to its last sign of life, at most 30 seconds before it stopped */
@@ -2869,16 +2875,20 @@ interface KeplerInstallCompletedEvent extends KeplerInstallOutcomeEvent {
 interface KeplerInstallFailedEvent extends KeplerInstallOutcomeEvent {
 	/** Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine */
 	'failure.reason': KeplerInstallFailureReason;
-	/** What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. Never message text or a path */
+	/** What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. For the Windows signature check, a PowerShell exit code carries the kind of error PowerShell reported (`exit:1:ObjectNotFound`, or `exit:1:other` when unknown), and a Node error code the call that failed, when PowerShell can't be started (`UNKNOWN:spawn`). Never message text or a path */
 	'failure.code'?: string;
 }
 
 interface KeplerInstallSkippedEvent {
+	/** The id of the install, as in its `kepler/install/started`; present only when Kepler is found already installed after the install started (Windows) */
+	'install.id'?: string;
 	/** Why nothing was installed. `unavailable` = no desktop to install on (the web); `remote` = a remote window, Kepler belongs on the local machine; `channel` = not the production channel; `unsupported` = no installer for this platform or CPU; `already-installed` = Kepler is already installed */
 	reason: KeplerNotInstallableReason | 'already-installed';
 }
 
 interface KeplerInstallActionEvent {
+	/** The id of the install the notification ended, as in its `kepler/install/started`; absent when no install started (Kepler was already installed) */
+	'install.id'?: string;
 	/** What the user picked. `open` = Open Kepler; `download` = Download Kepler; `output` = Open Output Channel; `dismiss` = closed the notification */
 	action: 'open' | 'download' | 'output' | 'dismiss';
 	/** How Install Kepler ended. `skipped` = Kepler was already installed */

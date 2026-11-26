@@ -7,9 +7,10 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
+import { run } from '@gitlens/utils/env/node/exec.js';
 import type { KeplerRelease } from '../../../../plus/kepler/keplerRelease.js';
 import { KeplerInstallError } from '../../../../plus/kepler/keplerRelease.js';
-import { installKepler } from '../keplerInstall.js';
+import { getPowerShellFailureCode, installKepler } from '../keplerInstall.js';
 
 const appImage = Buffer.from('#!/bin/sh\necho kepler\n'.repeat(4096));
 const appImageSha512 = createHash('sha512').update(appImage).digest('base64');
@@ -179,5 +180,46 @@ suite('installKepler — Linux AppImage', () => {
 		assert.strictEqual(await readFile(appImagePath(), 'utf8'), 'old kepler');
 		assert.strictEqual(existsSync(`${appImagePath()}.download`), false);
 		assert.strictEqual(existsSync(desktopEntryPath()), true);
+	});
+});
+
+// Real processes stand in for PowerShell, so each failure arrives as `run` reports it
+suite('getPowerShellFailureCode', () => {
+	suiteSetup(function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+	});
+
+	async function codeOf(command: string, args: string[], timeout?: number): Promise<string | undefined> {
+		try {
+			await run(command, args, 'utf8', { timeout: timeout });
+		} catch (ex) {
+			return getPowerShellFailureCode(ex);
+		}
+		assert.fail('expected the command to fail');
+	}
+
+	test('adds the error category PowerShell reported to its exit code', async () => {
+		assert.strictEqual(
+			await codeOf('sh', ['-c', 'echo "error:ObjectNotFound\r" >&2; exit 1']),
+			'exit:1:ObjectNotFound',
+		);
+	});
+
+	test('says other when PowerShell exited with an error it did not categorize', async () => {
+		assert.strictEqual(
+			await codeOf('sh', ['-c', 'echo "At line:1 char:1 C:\\Users\\me" >&2; exit 1']),
+			'exit:1:other',
+		);
+		assert.strictEqual(await codeOf('sh', ['-c', 'echo "error:Not a category" >&2; exit 2']), 'exit:2:other');
+	});
+
+	test('adds the failed call to the Node error code when PowerShell cannot be started, without its path', async () => {
+		assert.strictEqual(await codeOf('/nonexistent/powershell.exe', []), 'ENOENT:spawn');
+	});
+
+	test('leaves a timeout to the generic code', async () => {
+		assert.strictEqual(await codeOf('sleep', ['5'], 50), undefined);
 	});
 });

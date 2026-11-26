@@ -238,7 +238,7 @@ suite('KeplerService.installed', () => {
 			sendEvent.getCalls().map(c => c.args),
 			[
 				['kepler/install/skipped', { reason: 'already-installed' }, source],
-				['kepler/install/action', { action: 'dismiss', after: 'skipped' }, source],
+				['kepler/install/action', { 'install.id': undefined, action: 'dismiss', after: 'skipped' }, source],
 			],
 		);
 	});
@@ -421,7 +421,13 @@ suite('KeplerService.installed', () => {
 	test("only a local window reports another window's stopped install; a remote one, on another machine's clock, leaves it", async () => {
 		sandbox.stub(configuration, 'getAny').returns(undefined);
 		const clock = sandbox.useFakeTimers({ now: 10 * 60_000, toFake: ['setTimeout', 'clearTimeout', 'Date'] });
-		const stopped = { kind: 'windows-setup', startedAt: 0, step: 'install', heartbeatAt: 60_000 } as const;
+		const stopped = {
+			id: 'stopped-install',
+			kind: 'windows-setup',
+			startedAt: 0,
+			step: 'install',
+			heartbeatAt: 60_000,
+		} as const;
 
 		const remote = makeUsageContainer({ prereleaseOrDebugging: false, alreadyTracked: false });
 		await remote.container.storage.store('kepler:installs', { 'other-window': stopped });
@@ -440,7 +446,12 @@ suite('KeplerService.installed', () => {
 
 		assert.deepStrictEqual(
 			local.sendEvent.getCalls().map(c => c.args),
-			[['kepler/install/abandoned', { kind: 'windows-setup', step: 'install', duration: 60_000 }]],
+			[
+				[
+					'kepler/install/abandoned',
+					{ 'install.id': 'stopped-install', kind: 'windows-setup', step: 'install', duration: 60_000 },
+				],
+			],
 		);
 	});
 });
@@ -594,12 +605,18 @@ suite('KeplerService.install', () => {
 		}
 		// The installer kind follows the machine the tests run on, not the release under test
 		delete completed.kind;
+		const id = sendEvent.getCall(0).args[1]!['install.id'];
+		assert.ok(typeof id === 'string' && id.length > 0);
 		assert.deepStrictEqual(completed, {
+			'install.id': id,
 			version: '0.16.0',
 			'download.size': appImage.length,
 			'cancelled.late': undefined,
 		});
-		assert.deepStrictEqual(sendEvent.getCall(2).args.slice(1), [{ action: 'dismiss', after: 'completed' }, source]);
+		assert.deepStrictEqual(sendEvent.getCall(2).args.slice(1), [
+			{ 'install.id': id, action: 'dismiss', after: 'completed' },
+			source,
+		]);
 	});
 
 	test('reports a failed install with the step, a code for what failed, and the button picked', async () => {
@@ -619,6 +636,9 @@ suite('KeplerService.install', () => {
 			['kepler/install/started', 'kepler/install/failed', 'kepler/install/action'],
 		);
 		const failed = sendEvent.getCall(1).args[1]!;
+		const id = sendEvent.getCall(0).args[1]!['install.id'];
+		assert.ok(typeof id === 'string' && id.length > 0);
+		assert.strictEqual(failed['install.id'], id);
 		assert.strictEqual(failed['failure.reason'], 'verify');
 		assert.strictEqual(failed['failure.code'], 'sha512-mismatch');
 		assert.strictEqual(failed['download.size'], appImage.length);
@@ -626,7 +646,7 @@ suite('KeplerService.install', () => {
 		assertDuration(failed['duration.download']);
 		assertDuration(failed['duration.verify']);
 		assert.strictEqual(failed['duration.install'], undefined);
-		assert.deepStrictEqual(sendEvent.getCall(2).args[1], { action: 'output', after: 'failed' });
+		assert.deepStrictEqual(sendEvent.getCall(2).args[1], { 'install.id': id, action: 'output', after: 'failed' });
 		assert.strictEqual(showOutputChannel.callCount, 1);
 	});
 

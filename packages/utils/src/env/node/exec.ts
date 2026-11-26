@@ -18,6 +18,7 @@ interface RunErrorContext {
 	killed?: boolean | undefined;
 	code?: string | number | null | undefined;
 	signal?: NodeJS.Signals | undefined;
+	syscall?: string | undefined;
 }
 
 export class RunError extends Error {
@@ -25,6 +26,7 @@ export class RunError extends Error {
 	readonly killed?: boolean | undefined;
 	readonly code?: string | number | undefined;
 	readonly signal?: NodeJS.Signals | undefined;
+	readonly syscall?: string | undefined;
 	readonly stdout: string;
 	readonly stderr: string;
 
@@ -35,6 +37,7 @@ export class RunError extends Error {
 		this.killed = context.killed;
 		this.code = context.code ?? undefined;
 		this.signal = context.signal;
+		this.syscall = context.syscall;
 		this.stdout = stdout?.trim() ?? '';
 		this.stderr = stderr?.trim() ?? '';
 

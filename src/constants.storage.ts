@@ -193,6 +193,7 @@ export interface StoredGkCLIInstallInfo {
 export type { StoredConfiguredIntegrationDescriptor, StoredIntegrationConfigurations };
 
 export interface StoredKeplerInstall {
+	id?: string;
 	kind: KeplerReleaseFileKind;
 	startedAt: number;
 	step?: KeplerInstallStep;

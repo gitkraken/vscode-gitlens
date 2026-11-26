@@ -186,7 +186,7 @@ export class KeplerService implements Disposable {
 			// The installed context key can lag an install made by hand, leaving Install Kepler on
 			// offer; say so rather than appear to do nothing
 			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: 'already-installed' }, source);
-			void this.showInstalled(undefined, 'skipped', source);
+			void this.showInstalled(undefined, 'skipped', undefined, source);
 			return Promise.resolve(true);
 		}
 
@@ -210,8 +210,9 @@ export class KeplerService implements Disposable {
 	}
 
 	private async installCore(source: Source | undefined): Promise<boolean> {
-		const data = { kind: getKeplerReleaseTargetForHost()!.kind };
-		const { concurrent } = this.installMonitor.start(data.kind);
+		const kind = getKeplerReleaseTargetForHost()!.kind;
+		const { id, concurrent } = this.installMonitor.start(kind);
+		const data = { 'install.id': id, kind: kind };
 		this.container.telemetry.sendEvent(
 			'kepler/install/started',
 			{ ...data, concurrent: concurrent || undefined },
@@ -273,14 +274,18 @@ export class KeplerService implements Disposable {
 			if (ex instanceof KeplerInstallError && ex.cause != null) {
 				Logger.error(ex.cause, 'KeplerService.install: caused by');
 			}
-			void this.showInstallFailed(reason, source);
+			void this.showInstallFailed(reason, id, source);
 			return false;
 		}
 
 		this.markInstalled();
 		const version = result.version ?? release?.version;
 		if (result.existing) {
-			this.container.telemetry.sendEvent('kepler/install/skipped', { reason: 'already-installed' }, source);
+			this.container.telemetry.sendEvent(
+				'kepler/install/skipped',
+				{ 'install.id': id, reason: 'already-installed' },
+				source,
+			);
 		} else {
 			this.container.telemetry.sendEvent(
 				'kepler/install/completed',
@@ -291,7 +296,7 @@ export class KeplerService implements Disposable {
 		// Kepler is installed either way, but the user no longer wants what the install was for
 		if (cancelledLate) return false;
 
-		void this.showInstalled(version, result.existing ? 'skipped' : 'completed', source);
+		void this.showInstalled(version, result.existing ? 'skipped' : 'completed', id, source);
 		return true;
 	}
 
@@ -308,6 +313,7 @@ export class KeplerService implements Disposable {
 	private async showInstalled(
 		version: string | undefined,
 		after: 'completed' | 'skipped',
+		installId: string | undefined,
 		source: Source | undefined,
 	): Promise<void> {
 		const open = { title: l10n.t('Open Kepler') };
@@ -317,7 +323,7 @@ export class KeplerService implements Disposable {
 		);
 		this.container.telemetry.sendEvent(
 			'kepler/install/action',
-			{ action: result === open ? 'open' : 'dismiss', after: after },
+			{ 'install.id': installId, action: result === open ? 'open' : 'dismiss', after: after },
 			source,
 		);
 		if (result === open) {
@@ -325,13 +331,21 @@ export class KeplerService implements Disposable {
 		}
 	}
 
-	private async showInstallFailed(reason: KeplerInstallFailureReason, source: Source | undefined): Promise<void> {
+	private async showInstallFailed(
+		reason: KeplerInstallFailureReason,
+		installId: string,
+		source: Source | undefined,
+	): Promise<void> {
 		const download = { title: l10n.t('Download Kepler') };
 		const output = { title: l10n.t('Open Output Channel') };
 		const result = await window.showErrorMessage(getInstallFailureMessage(reason), download, output);
 		this.container.telemetry.sendEvent(
 			'kepler/install/action',
-			{ action: result === download ? 'download' : result === output ? 'output' : 'dismiss', after: 'failed' },
+			{
+				'install.id': installId,
+				action: result === download ? 'download' : result === output ? 'output' : 'dismiss',
+				after: 'failed',
+			},
 			source,
 		);
 		if (result === download) {
