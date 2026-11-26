@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-26
+
+### Added
+
+- Adds Azure DevOps Services pull request writes to `IntegrationManager`. The selected OAuth connection can resolve available actions, create or edit pull requests, abandon or reactivate them, and complete them with an allowed merge strategy. Completion checks the reviewed refs before sending the request and reports pending, confirmed, or uncertain outcomes (plus/integrations)
+
 ## [0.50.0] - 2026-11-25
 
 ### Added
@@ -1460,7 +1466,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.50.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.0...HEAD
+[0.51.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.50.0...gitkraken:releases/core/v0.51.0
 [0.50.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.49.0...gitkraken:releases/core/v0.50.0
 [0.49.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.48.0...gitkraken:releases/core/v0.49.0
 [0.48.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.47.1...gitkraken:releases/core/v0.48.0
