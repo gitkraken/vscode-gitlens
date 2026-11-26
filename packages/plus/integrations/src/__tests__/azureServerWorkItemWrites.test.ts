@@ -347,7 +347,7 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				[{ ...edit, baseUrl: 'https://server.test' }, 'not-found'],
 				[{ ...edit, baseUrl: 'https://server.test:8443/tfs' }, 'not-found'],
 				[{ ...edit, baseUrl: 'http://server.test/tfs' }, 'not-found'],
-				[{ ...edit, collectionUrl: 'https://dev.azure.com/DefaultCollection' }, 'not-found'],
+				[{ ...edit, collectionUrl: 'https://dev.azure.com/DefaultCollection' }, 'invalid-input'],
 				[{ ...edit, collectionUrl: `${baseUrl}/Other%20Collection` }, 'not-found'],
 				[{ ...edit, organizationId: collections[1].id }, 'not-found'],
 				[
@@ -468,6 +468,30 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 					[expected],
 				);
 			});
+		}
+	});
+
+	test('refuses an Azure DevOps Services address configured as a Server connection, before any request', async () => {
+		for (const cloudBase of ['https://dev.azure.com/acme', 'https://acme.visualstudio.com']) {
+			const server = createServer(server2020, undefined, cloudBase);
+			await withManager(
+				server,
+				async (manager, scope) => {
+					const before = server.calls.length;
+					const result = await manager.writeWorkItem({
+						...scope,
+						collectionUrl: `${cloudBase}/${collection.name}`,
+						workItemId: item.id,
+						expectedRevision: item.rev,
+						expectedAccountId: collection.identity,
+						action: 'edit',
+						fields: { 'System.Title': 'Edited' },
+					});
+					assert.deepEqual(result, { ok: false, reason: 'invalid-input', mutationDispatched: false });
+					assert.equal(server.calls.length, before);
+				},
+				cloudBase,
+			);
 		}
 	});
 

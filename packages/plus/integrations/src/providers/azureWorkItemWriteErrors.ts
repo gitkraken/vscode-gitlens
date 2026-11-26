@@ -2,18 +2,24 @@ import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IssueTrackerWriteFailure } from '../models/issueTrackerWrites.js';
 import type { WorkItemWriteField, WorkItemWriteScope } from '../models/workItemWrites.js';
 import { isAzureGuid, isAzureIdentifier } from './azure/writeIdentity.js';
+import { isAzureCloudDomain } from './metadata.js';
 import {
 	AnonymousResponseError,
 	getProviderResponseBodyMessage,
 	UnexpectedHtmlResponseError,
 } from './providerErrors.js';
 
-function isHttpUrl(value: unknown): value is string {
+function isServerUrl(value: unknown): value is string {
 	if (typeof value !== 'string') return false;
 
 	try {
 		const url = new URL(value);
-		return (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password;
+		return (
+			(url.protocol === 'https:' || url.protocol === 'http:') &&
+			!url.username &&
+			!url.password &&
+			!isAzureCloudDomain(url.hostname)
+		);
 	} catch {
 		return false;
 	}
@@ -38,8 +44,8 @@ export function isWorkItemWriteScope(options: WorkItemWriteScope): boolean {
 		options.organizationName !== '..' &&
 		!/[/\\]/.test(options.organizationName) &&
 		(options.domain === undefined || isAzureIdentifier(options.domain)) &&
-		isHttpUrl(options.baseUrl) &&
-		isHttpUrl(options.collectionUrl)
+		isServerUrl(options.baseUrl) &&
+		isServerUrl(options.collectionUrl)
 	);
 }
 
