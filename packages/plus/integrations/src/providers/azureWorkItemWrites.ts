@@ -257,6 +257,7 @@ export class AzureWorkItemWriter {
 			},
 			organizationUrl,
 			'7.1',
+			() => Promise.resolve('7.1'),
 			isSessionCurrent,
 		);
 	}
@@ -267,6 +268,7 @@ export class AzureWorkItemWriter {
 		options: AzureServerWorkItemWriteScope,
 		collectionUrl: string,
 		resolveApiVersion: () => Promise<string | undefined>,
+		resolveStatesApiVersion: (apiVersion: string) => Promise<string | undefined>,
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
 		const headers = { Authorization: authorization };
@@ -300,6 +302,7 @@ export class AzureWorkItemWriter {
 		if (apiVersion == null) throw new WorkItemWriteError('unsupported');
 
 		const project = await readProject(request, headers, collectionUrl, options.projectId, apiVersion);
+		let statesApiVersion: Promise<string> | undefined;
 		return new AzureWorkItemWriter(
 			request,
 			headers,
@@ -313,6 +316,12 @@ export class AzureWorkItemWriter {
 			},
 			collectionUrl,
 			apiVersion,
+			() =>
+				(statesApiVersion ??= resolveStatesApiVersion(apiVersion).then(version => {
+					if (version == null) throw new WorkItemWriteError('unsupported');
+
+					return version;
+				})),
 			isSessionCurrent,
 		);
 	}
@@ -325,6 +334,7 @@ export class AzureWorkItemWriter {
 		private readonly context: WorkItemWriteContext,
 		private readonly organizationUrl: string,
 		private readonly apiVersion: string,
+		private readonly getStatesApiVersion: () => Promise<string>,
 		private readonly isSessionCurrent: () => Promise<boolean>,
 	) {
 		this.projectUrl = `${organizationUrl}/${context.project.id}`;
@@ -569,7 +579,7 @@ export class AzureWorkItemWriter {
 				? type.states
 				: readValues(
 						await this.read<{ value?: WorkItemState[] }>(`${path}/states`, {
-							'api-version': this.previewApiVersion,
+							'api-version': await this.getStatesApiVersion(),
 						}),
 					);
 		if (states.some(state => !isAzureIdentifier(state?.name) || !isAzureIdentifier(state.category))) {
@@ -630,11 +640,6 @@ export class AzureWorkItemWriter {
 			state: { name: state.name, category: state.category },
 			bodyField: getAzureWorkItemBodyField(metadata.fields, metadata.catalog, item.fields),
 		};
-	}
-
-	// SEE: learn.microsoft.com work-item-type-states/list: preview (`6.0-preview.1`) before Server 2022's 7.0.
-	private get previewApiVersion(): string {
-		return this.apiVersion === '7.1' ? this.apiVersion : `${this.apiVersion}-preview.1`;
 	}
 
 	private async assertSessionCurrent(): Promise<void> {

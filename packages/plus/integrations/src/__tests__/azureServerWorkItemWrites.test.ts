@@ -74,7 +74,7 @@ function json(data: unknown, status = 200): Response {
 
 function createServer(
 	profile: Profile = server2020,
-	respond?: (call: Call) => Response | undefined,
+	respond?: (call: Call) => Response | Promise<Response> | undefined,
 	domain: string = baseUrl,
 ) {
 	const runtime = createFakeRuntime();
@@ -112,7 +112,9 @@ function createServer(
 		};
 		calls.push(call);
 
-		if (method === 'OPTIONS') return azureRestDiscoveryResponse(url, profile) ?? json({}, 404);
+		if (method === 'OPTIONS') {
+			return (await respond?.(call)) ?? azureRestDiscoveryResponse(url, profile) ?? json({}, 404);
+		}
 
 		const version = url.searchParams.get('api-version');
 		if (version != null) {
@@ -120,7 +122,7 @@ function createServer(
 			if (major > Number(profile.maxVersion.split('.')[0])) return json({ message: 'unsupported version' }, 404);
 		}
 
-		const custom = respond?.(call);
+		const custom = await respond?.(call);
 		if (custom != null) return custom;
 
 		const headers = new Headers(init?.headers);
@@ -393,6 +395,75 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 			},
 			collectionUrl,
 		);
+	});
+
+	test('reads the type states at the version the states resource itself negotiates', async () => {
+		const statesLocationId = '7c9d7a76-4a09-43e8-b5df-bd792f4ac6aa';
+		const statesRoute = `${collection.name}/${project.id}/_apis/wit/workitemtypes/Task/states`;
+		const cases = [
+			{
+				server: server2020,
+				states: { maxVersion: '6.0', releasedVersion: '5.0', resourceVersion: 2 },
+				expected: '6.0-preview.2',
+			},
+			{
+				server: { maxVersion: '7.0', releasedVersion: '7.0' },
+				states: { maxVersion: '7.0', releasedVersion: '7.0', resourceVersion: 1 },
+				expected: '7.0',
+			},
+			{
+				server: { maxVersion: '5.0', releasedVersion: '5.0' },
+				states: { maxVersion: '5.0', releasedVersion: '4.1', resourceVersion: 1 },
+				expected: '5.0-preview.1',
+			},
+			{ server: server2020, states: undefined, expected: undefined },
+		] as const;
+		for (const { server: profile, states, expected } of cases) {
+			const server = createServer(profile, call => {
+				if (call.method === 'OPTIONS') {
+					if (!call.route.endsWith('/_apis/wit')) return undefined;
+
+					return azureRestDiscoveryResponse(call.url, profile)
+						?.json()
+						.then(body =>
+							json({
+								value: (body as { value: { id: string }[] }).value.flatMap(location =>
+									location.id !== statesLocationId
+										? [location]
+										: states != null
+											? [{ ...location, ...states }]
+											: [],
+								),
+							}),
+						);
+				}
+				if (call.route === `${collection.name}/${project.id}/_apis/wit/workitemtypes/Task`) {
+					return json({ ...type, states: undefined });
+				}
+				if (call.route === statesRoute) {
+					return call.url.searchParams.get('api-version') === expected
+						? json({ value: type.states })
+						: json({ message: 'VS403508: wrong version' }, 400);
+				}
+				return undefined;
+			});
+			await withManager(server, async (manager, scope) => {
+				const options = await manager.getWorkItemCreateOptions({ ...scope, workItemType: type.name });
+				const statesCalls = server.calls.filter(c => c.route === statesRoute);
+				if (expected == null) {
+					assert.deepEqual(options, { ok: false, reason: 'unsupported', mutationDispatched: false });
+					assert.deepEqual(statesCalls, []);
+					return;
+				}
+
+				assert.ok(options.ok && 'states' in options, JSON.stringify(options));
+				assert.deepEqual(options.states, type.states);
+				assert.deepEqual(
+					statesCalls.map(c => c.url.searchParams.get('api-version')),
+					[expected],
+				);
+			});
+		}
 	});
 
 	test('refuses a collection whose connection data names another collection id or directory', async () => {

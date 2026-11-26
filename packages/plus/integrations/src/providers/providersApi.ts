@@ -1312,20 +1312,22 @@ export class ProvidersApi implements Disposable {
 		const http = this.authenticationService.ctx.http;
 		const request: ProviderRequestFunction = o =>
 			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () => this.request(o));
+		const negotiate = async (resource: AzureDevOpsRestResource, version: string) =>
+			(
+				await http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
+					this.azureRestApi.getRestApiResource(
+						{ namespace: route.collection, resource: resource, version: version },
+						{ token: session.accessToken, isPAT: true, baseUrl: route.collectionBaseUrl },
+					),
+				)
+			)?.apiVersion;
 		return AzureWorkItemWriter.connectServer(
 			request,
 			azureAuthorization(session.accessToken, true),
 			options,
 			route.collectionUrl,
-			async () => {
-				const resource = await http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
-					this.azureRestApi.getRestApiResource(
-						{ namespace: route.collection, resource: 'workItems', version: '7.0' },
-						{ token: session.accessToken, isPAT: true, baseUrl: route.collectionBaseUrl },
-					),
-				);
-				return toAzureServerWorkItemApiVersion(resource?.apiVersion);
-			},
+			async () => toAzureServerWorkItemApiVersion(await negotiate('workItems', '7.0')),
+			apiVersion => negotiate('workItemTypeStates', apiVersion),
 			isSessionCurrent,
 		);
 	}
