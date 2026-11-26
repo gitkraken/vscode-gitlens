@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.51.1] - 2026-11-26
+
+### Fixed
+
+- Fixes missing pull requests assigned to reviewer groups for Azure DevOps Services organizations connected with a personal access token by sending group membership and identity lookups to the Services identity host (plus/integrations) ([gitkraken/kepler#5749](https://github.com/gitkraken/kepler/issues/5749))
+
 ## [0.51.0] - 2026-11-26
 
 ### Added
@@ -1466,7 +1472,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.1...HEAD
+[0.51.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.0...gitkraken:releases/core/v0.51.1
 [0.51.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.50.0...gitkraken:releases/core/v0.51.0
 [0.50.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.49.0...gitkraken:releases/core/v0.50.0
 [0.49.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.48.0...gitkraken:releases/core/v0.49.0
