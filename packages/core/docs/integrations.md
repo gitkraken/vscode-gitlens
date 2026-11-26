@@ -1047,6 +1047,59 @@ including one produced by the host's fetch, is `rate-limit` and never reported a
 confirm the result of a dispatched write, it returns `applied: 'maybe'`. Reconcile the provider state before
 attempting a new write.
 
+### Azure DevOps Services pull request writes
+
+The following `IntegrationManager` methods and their types are exported from
+`@gitkraken/core-gitlens/plus/integrations/index.js`.
+
+| Method                                | Input                                                                                                          | Success                                                                                        |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `getAzurePullRequestCreateCapability` | `connectionId`, `organization`, project and repository names or IDs, optional `expectedAccountId`.             | Live Azure profile ID and canonical organization, project and repository.                      |
+| `resolveAzurePullRequestWriteTarget`  | The same scope plus the pull request `number`.                                                                 | Live profile ID, pull request snapshot and action capabilities, including allowed merge types. |
+| `writeAzurePullRequest`               | `connectionId`, `expectedAccountId`, `organization`, `projectId`, `repositoryId` and one of the actions below. | A typed write status and pull request receipt.                                                 |
+
+- `create` takes fully qualified `sourceRef` and `targetRef` in the selected repository, `title` and optional `description`.
+- `edit` takes `number` and at least one of `title` or `description`. Pass an empty description to clear it.
+- `abandon` and `reactivate` take `number`.
+- `complete` takes `number`, `strategy`, `expectedSourceRef`, `expectedSourceSha`, `expectedTargetRef` and `expectedTargetSha`.
+  Strategy values are `noFastForward`, `squash`, `rebase` and `rebaseMerge`.
+
+Use the connection that read the repository or pull request. Keep the returned `accountId` as
+`expectedAccountId` and the canonical repository and PR number across confirmation. This API uses Azure
+DevOps Services OAuth or Entra credentials with profile, organization and repository access. Writes
+require `vso.code_write` or a scope that includes it, such as `vso.code_manage`. A selected PAT reports
+`unsupported`. Azure DevOps Server has its own integration. Core checks the live profile and the scope,
+then checks that the same credential is still current immediately before dispatch.
+
+Capabilities reflect repository and PR state, applicable blocking merge strategy policies, and the refs
+available for confirmation. Azure evaluates the viewer's write permissions and required reviewers and
+policies at dispatch. Draft and fork PRs are unavailable for completion through this API. For drafts,
+Azure requires a ready PR. The completion contract carries the source ref in the selected repository,
+which cannot identify a fork repository.
+
+Keep both fully qualified refs and SHAs from a resolved target with completion available. In that
+snapshot, `targetSha` is the exact live target ref tip. Azure's `lastMergeTargetCommit` describes its
+last merge preview and can remain behind the branch tip. Core checks the preview's source commit against
+the live source tip and sends Azure the approved SHA in `lastMergeSourceCommit`.
+
+Before dispatch Core checks the strategy and live refs, rereads the PR for retargeting, and checks the
+approved target tip again. A conflict from the current preview blocks completion. If the preview targets
+an older tip, Azure evaluates the current merge on dispatch. A queued merge remains unavailable for
+completion. Azure's update API provides no atomic target or PR revision comparison, so the target may
+move after the preflight reads.
+Completion explicitly requests the selected merge strategy with policy bypass disabled.
+See the [Azure DevOps update API](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-7.1)
+and [scoped policy configurations API](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/policy-configurations/get?view=azure-devops-rest-7.1).
+
+`forbidden` includes write-scope and permission rejections. `policy-blocked`, `invalid-input`,
+`conflict`, `source-changed`, and `target-changed` distinguish provider and preflight failures.
+`completed` confirms Azure reported the PR completed and the merge succeeded. `pending` acknowledges a queued completion.
+The typed target read reports the PR as active while Azure still reports the merge queued, even if Azure
+sets its PR status to completed. A completed PR status with a failed or unconfirmed merge reports a
+failure. Use the typed read to reconcile pending completion before publishing a merged state.
+`outcome-unknown` means Core dispatched a write and could not confirm the result. For pending or
+uncertain writes, reconcile with a read before attempting another write. Core sends each mutation once.
+
 ### GitHub and GitHub Enterprise Server pull request writes
 
 Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the

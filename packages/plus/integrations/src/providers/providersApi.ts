@@ -31,6 +31,7 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
+import type { AzurePullRequestCreateCapabilityOptions } from '../models/azurePullRequestWrites.js';
 import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type { WorkItemWriteScope } from '../models/workItemWrites.js';
@@ -51,6 +52,7 @@ import {
 	requireAzureWorkItemStateCategories,
 	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
+import { AzurePullRequestWriter } from './azurePullRequestWrites.js';
 import { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
@@ -1274,6 +1276,23 @@ export class ProvidersApi implements Disposable {
 		} catch (e) {
 			return this.handleProviderError<ProviderAccount>(tokenWithInfo, e);
 		}
+	}
+
+	getAzurePullRequestWriter(
+		options: AzurePullRequestCreateCapabilityOptions,
+		session: ProviderAuthenticationSession,
+		isSessionCurrent: () => Promise<boolean>,
+	): Promise<AzurePullRequestWriter> {
+		return AzurePullRequestWriter.connect(
+			this.request,
+			{
+				accessToken: session.accessToken,
+				accountsAuthorization: azureAuthorization(session.accessToken, true),
+				gitAuthorization: azureAuthorization(session.accessToken, false),
+			},
+			options,
+			isSessionCurrent,
+		);
 	}
 
 	getAzureWorkItemWriter(

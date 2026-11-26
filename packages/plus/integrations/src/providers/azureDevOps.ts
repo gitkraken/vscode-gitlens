@@ -31,6 +31,7 @@ import { throwIfCallerContractError, toCollectionScopeFailure } from '../collect
 import type { GitSelfManagedHostIntegrationId } from '../constants.js';
 import { GitCloudHostIntegrationId } from '../constants.js';
 import { IntegrationReadUnavailableError } from '../errors.js';
+import type { AzurePullRequestCreateCapabilityOptions } from '../models/azurePullRequestWrites.js';
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
@@ -60,6 +61,8 @@ import {
 	toAzurePullRequestEtagFields,
 	toAzureWorkItemEtagFields,
 } from './azure/models.js';
+import { AzurePullRequestWriteError } from './azurePullRequestWriteErrors.js';
+import type { AzurePullRequestWriter } from './azurePullRequestWrites.js';
 import { WorkItemWriteError } from './azureWorkItemWriteErrors.js';
 import type { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { providersMetadata } from './metadata.js';
@@ -2364,14 +2367,32 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 		return 'https://dev.azure.com';
 	}
 
+	async getPullRequestWriter(
+		options: AzurePullRequestCreateCapabilityOptions,
+	): Promise<AzurePullRequestWriter | undefined> {
+		const session = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
+		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
+		if (session.type === 'pat') throw new AzurePullRequestWriteError('unsupported');
+
+		const isSessionCurrent = this.trackWriteSession(session);
+		const api = await this.getProvidersApi();
+		return api.getAzurePullRequestWriter(options, session, isSessionCurrent);
+	}
+
 	async getWorkItemWriter(options: WorkItemWriteScope): Promise<AzureWorkItemWriter | undefined> {
 		const session = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
 		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
 		if (session.type === 'pat') throw new WorkItemWriteError('unsupported');
 
-		const isSessionCurrent = this.authenticationService.usesHostAuthenticationProvider(this.id)
+		const isSessionCurrent = this.trackWriteSession(session);
+		const api = await this.getProvidersApi();
+		return api.getAzureWorkItemWriter(options, session, isSessionCurrent);
+	}
+
+	private trackWriteSession(session: ProviderAuthenticationSession): () => Promise<boolean> {
+		return this.authenticationService.usesHostAuthenticationProvider(this.id)
 			? async () => {
-					const current = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
+					const current = await this.resolveReadSessionOrThrow(session.id, undefined);
 					return (
 						current != null &&
 						getSessionIdentity(current) === getSessionIdentity(session) &&
@@ -2379,7 +2400,5 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 					);
 				}
 			: this.authenticationService.trackStoredSession(this.id, session);
-		const api = await this.getProvidersApi();
-		return api.getAzureWorkItemWriter(options, session, isSessionCurrent);
 	}
 }

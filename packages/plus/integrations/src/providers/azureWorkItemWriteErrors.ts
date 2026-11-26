@@ -1,39 +1,21 @@
 import type { IssueTrackerWriteFailure } from '../models/issueTrackerWrites.js';
 import type { WorkItemWriteField, WorkItemWriteScope } from '../models/workItemWrites.js';
+import { isAzureGuid, isAzureIdentifier } from './azure/writeIdentity.js';
 import {
 	AnonymousResponseError,
 	getProviderResponseBodyMessage,
 	UnexpectedHtmlResponseError,
 } from './providerErrors.js';
 
-const guidPattern = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i;
-
 export function isWorkItemWriteScope(options: WorkItemWriteScope): boolean {
 	return (
-		isWorkItemIdentifier(options.connectionId) &&
-		isGuid(options.organizationId) &&
+		isAzureIdentifier(options.connectionId) &&
+		isAzureGuid(options.organizationId) &&
 		typeof options.organizationName === 'string' &&
 		/^[a-z0-9][a-z0-9-]*$/i.test(options.organizationName) &&
-		isGuid(options.projectId) &&
-		(options.expectedAccountId === undefined || isWorkItemIdentifier(options.expectedAccountId))
+		isAzureGuid(options.projectId) &&
+		(options.expectedAccountId === undefined || isAzureIdentifier(options.expectedAccountId))
 	);
-}
-
-export function isGuid(value: unknown): value is string {
-	return typeof value === 'string' && guidPattern.test(value);
-}
-
-export function isWorkItemIdentifier(value: unknown): value is string {
-	return (
-		typeof value === 'string' &&
-		value.length > 0 &&
-		value.trim() === value &&
-		![...value].some(character => character < ' ' || character === '\x7f')
-	);
-}
-
-export function isWorkItemNumber(value: unknown): value is number {
-	return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 2147483647;
 }
 
 export class WorkItemWriteError extends Error {

@@ -31,12 +31,14 @@ import {
 	toAzureWorkItemWriteFields,
 } from './azure/workItemWriteMetadata.js';
 import {
-	isGuid,
-	isWorkItemIdentifier,
-	isWorkItemNumber,
-	toWorkItemWriteFailure,
-	WorkItemWriteError,
-} from './azureWorkItemWriteErrors.js';
+	getAzureWriteOrganizations,
+	getAzureWriteProfile,
+	isAzureGuid,
+	isAzureIdentifier,
+	isAzurePositiveInt,
+	sameAzureIdentifier,
+} from './azure/writeIdentity.js';
+import { toWorkItemWriteFailure, WorkItemWriteError } from './azureWorkItemWriteErrors.js';
 import type { ProviderRequestFunction } from './models.js';
 
 type AzureWorkItem = { id: number; rev: number; fields: Readonly<Record<string, unknown>> };
@@ -55,12 +57,7 @@ type WorkItemMetadata = {
 };
 type Patch = { op: 'add' | 'test'; path: string; value: unknown } | { op: 'remove'; path: string };
 
-const azureProfileApi = 'https://app.vssps.visualstudio.com/_apis';
 const projectSecurityNamespaceId = '52d39943-cb85-4d7f-8fa8-c6baac873819';
-
-function sameIdentifier(actual: unknown, expected: string): boolean {
-	return typeof actual === 'string' && actual.toLowerCase() === expected.toLowerCase();
-}
 
 function isSameId(actual: unknown, id: number): boolean {
 	return actual === id || actual === String(id);
@@ -70,7 +67,7 @@ function isDeletedItem(
 	item: AzureDeletedWorkItem | undefined,
 	id: number,
 ): item is AzureDeletedWorkItem & { project: string } {
-	if (item == null || !isSameId(item.id, id) || !isWorkItemIdentifier(item.project)) return false;
+	if (item == null || !isSameId(item.id, id) || !isAzureIdentifier(item.project)) return false;
 
 	return (
 		item.code == null || item.code === 0 || (typeof item.code === 'number' && item.code >= 200 && item.code < 300)
@@ -79,7 +76,7 @@ function isDeletedItem(
 
 function getDeletedRevision(item: AzureDeletedWorkItem, id: number): number | undefined {
 	const resource = item.resource;
-	return resource != null && isSameId(resource.id, id) && isWorkItemNumber(resource.rev) ? resource.rev : undefined;
+	return resource != null && isSameId(resource.id, id) && isAzurePositiveInt(resource.rev) ? resource.rev : undefined;
 }
 
 // SEE: Azure reports `deletedDate` as a zone-less en-US UTC string ("11/25/2026 6:24:35 PM"), observed live.
@@ -107,15 +104,15 @@ function readValues<T>(body: { value?: T[] } | undefined): T[] {
 }
 
 function assertExistingAddress(address: WorkItemAddress): void {
-	if (!isWorkItemNumber(address.workItemId)) throw new WorkItemWriteError('invalid-input');
+	if (!isAzurePositiveInt(address.workItemId)) throw new WorkItemWriteError('invalid-input');
 }
 
 function assertMutationIdentity(expectedAccountId: string): void {
-	if (!isWorkItemIdentifier(expectedAccountId)) throw new WorkItemWriteError('invalid-input');
+	if (!isAzureIdentifier(expectedAccountId)) throw new WorkItemWriteError('invalid-input');
 }
 
 function assertSameRevision(item: AzureWorkItem, expectedRevision: number): void {
-	if (!isWorkItemNumber(expectedRevision)) throw new WorkItemWriteError('invalid-input');
+	if (!isAzurePositiveInt(expectedRevision)) throw new WorkItemWriteError('invalid-input');
 	if (item.rev !== expectedRevision) throw new WorkItemWriteError('conflict');
 }
 
@@ -201,29 +198,21 @@ export class AzureWorkItemWriter {
 		options: WorkItemWriteScope,
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
-		const { body: profile } = await request<{ id?: string }>({
-			url: `${azureProfileApi}/profile/profiles/me`,
-			headers: { Authorization: `Bearer ${credential.accessToken}` },
-			redirect: 'error',
-		});
+		const { body: profile } = await getAzureWriteProfile(request, credential.accessToken);
 		const accountId = profile?.id;
 		if (
-			!isWorkItemIdentifier(accountId) ||
-			(options.expectedAccountId !== undefined && !sameIdentifier(accountId, options.expectedAccountId))
+			!isAzureIdentifier(accountId) ||
+			(options.expectedAccountId !== undefined && !sameAzureIdentifier(accountId, options.expectedAccountId))
 		) {
 			throw new WorkItemWriteError('no-connection');
 		}
 
 		const headers = { Authorization: credential.authorization };
-		const { body: accounts } = await request<{ value?: { accountId: string; accountName: string }[] }>({
-			url: `${azureProfileApi}/accounts?memberId=${encodeURIComponent(accountId)}&api-version=7.1`,
-			headers: headers,
-			redirect: 'error',
-		});
+		const { body: accounts } = await getAzureWriteOrganizations(request, credential.authorization, accountId);
 		const organization = readValues(accounts).find(
 			account =>
-				sameIdentifier(account.accountId, options.organizationId) &&
-				sameIdentifier(account.accountName, options.organizationName),
+				sameAzureIdentifier(account.accountId, options.organizationId) &&
+				sameAzureIdentifier(account.accountName, options.organizationName),
 		);
 		if (organization == null) throw new WorkItemWriteError('not-found');
 
@@ -233,7 +222,7 @@ export class AzureWorkItemWriter {
 			headers: headers,
 			redirect: 'error',
 		});
-		if (!sameIdentifier(project?.id, options.projectId) || !isWorkItemIdentifier(project?.name)) {
+		if (!sameAzureIdentifier(project?.id, options.projectId) || !isAzureIdentifier(project?.name)) {
 			throw new WorkItemWriteError('not-found');
 		}
 
@@ -267,7 +256,7 @@ export class AzureWorkItemWriter {
 	async getCreateOptions(options: WorkItemCreateOptions): Promise<WorkItemCreateOptionsResult> {
 		if (options.workItemType === undefined) {
 			const types = await this.read<{ value?: AzureWorkItemTypeMetadata[] }>('/workitemtypes');
-			const enabled = readValues(types).filter(type => isWorkItemIdentifier(type.name) && !type.isDisabled);
+			const enabled = readValues(types).filter(type => isAzureIdentifier(type.name) && !type.isDisabled);
 			return { ok: true, ...this.context, workItemTypes: enabled.map(type => ({ name: type.name })) };
 		}
 
@@ -404,13 +393,13 @@ export class AzureWorkItemWriter {
 			...(revision !== undefined && { revision: revision }),
 			...(deletedAt !== undefined && { deletedAt: deletedAt }),
 		} as const;
-		const project = sameIdentifier(
+		const project = sameAzureIdentifier(
 			deleted.project,
-			isGuid(deleted.project) ? this.context.project.id : this.context.project.name,
+			isAzureGuid(deleted.project) ? this.context.project.id : this.context.project.name,
 		)
 			? this.context.project
 			: await this.findProject(deleted.project);
-		if (sameIdentifier(project.id, this.context.project.id) && revision === expectedRevision + 1) {
+		if (sameAzureIdentifier(project.id, this.context.project.id) && revision === expectedRevision + 1) {
 			return { ok: true, ...this.context, issue: issue, deletion: { ...deletion, revision: revision } };
 		}
 
@@ -430,9 +419,9 @@ export class AzureWorkItemWriter {
 				`/projects/${encodeAzurePathSegment(nameOrId)}`,
 			);
 			if (
-				isGuid(project?.id) &&
-				isWorkItemIdentifier(project.name) &&
-				(sameIdentifier(project.name, nameOrId) || sameIdentifier(project.id, nameOrId))
+				isAzureGuid(project?.id) &&
+				isAzureIdentifier(project.name) &&
+				(sameAzureIdentifier(project.name, nameOrId) || sameAzureIdentifier(project.id, nameOrId))
 			) {
 				return { id: project.id, name: project.name };
 			}
@@ -460,9 +449,9 @@ export class AzureWorkItemWriter {
 				value?: { namespaceId?: unknown; actions?: { bit?: unknown; name?: unknown }[] }[];
 			}>(`/securitynamespaces/${projectSecurityNamespaceId}`);
 			const bit = readValues(namespaces)
-				.find(namespace => sameIdentifier(namespace?.namespaceId, projectSecurityNamespaceId))
+				.find(namespace => sameAzureIdentifier(namespace?.namespaceId, projectSecurityNamespaceId))
 				?.actions?.find(action => action?.name === 'WORK_ITEM_DELETE')?.bit;
-			if (!isWorkItemNumber(bit)) return { allowed: 'unknown' };
+			if (!isAzurePositiveInt(bit)) return { allowed: 'unknown' };
 
 			const permissions = await this.readOrganization<{ value?: unknown[] }>(
 				`/permissions/${projectSecurityNamespaceId}/${bit}`,
@@ -481,7 +470,7 @@ export class AzureWorkItemWriter {
 	}
 
 	private async getMetadata(name: string): Promise<WorkItemMetadata> {
-		if (!isWorkItemIdentifier(name) || name === '.' || name === '..' || /[/\\]/.test(name)) {
+		if (!isAzureIdentifier(name) || name === '.' || name === '..' || /[/\\]/.test(name)) {
 			throw new WorkItemWriteError('invalid-input');
 		}
 
@@ -491,7 +480,7 @@ export class AzureWorkItemWriter {
 			this.read<{ value?: AzureWorkItemTypeField[] }>(`${path}/fields`, { $expand: 'All' }),
 			this.read<{ value?: AzureWorkItemFieldDefinition[] }>('/fields'),
 		]);
-		if (!sameIdentifier(type?.name, name) || !isWorkItemIdentifier(type?.referenceName)) {
+		if (!sameAzureIdentifier(type?.name, name) || !isAzureIdentifier(type?.referenceName)) {
 			throw new WorkItemWriteError('unknown');
 		}
 		if (type.transitions == null || typeof type.transitions !== 'object' || Array.isArray(type.transitions)) {
@@ -502,7 +491,7 @@ export class AzureWorkItemWriter {
 			Array.isArray(type.states) && type.states.length !== 0
 				? type.states
 				: readValues(await this.read<{ value?: WorkItemState[] }>(`${path}/states`));
-		if (states.some(state => !isWorkItemIdentifier(state?.name) || !isWorkItemIdentifier(state.category))) {
+		if (states.some(state => !isAzureIdentifier(state?.name) || !isAzureIdentifier(state.category))) {
 			throw new WorkItemWriteError('unknown');
 		}
 
@@ -528,12 +517,12 @@ export class AzureWorkItemWriter {
 	}
 
 	private isInProject(item: AzureWorkItem | undefined): item is AzureWorkItem {
-		return sameIdentifier(item?.fields?.['System.TeamProject'], this.context.project.name);
+		return sameAzureIdentifier(item?.fields?.['System.TeamProject'], this.context.project.name);
 	}
 
 	private itemType(item: AzureWorkItem): string {
 		const type = item.fields['System.WorkItemType'];
-		if (!isWorkItemIdentifier(type)) throw new WorkItemWriteError('unknown');
+		if (!isAzureIdentifier(type)) throw new WorkItemWriteError('unknown');
 
 		return type;
 	}
@@ -542,8 +531,8 @@ export class AzureWorkItemWriter {
 		const title = item.fields['System.Title'];
 		const state = metadata.states.find(candidate => candidate.name === item.fields['System.State']);
 		if (
-			!isWorkItemNumber(item.id) ||
-			!isWorkItemNumber(item.rev) ||
+			!isAzurePositiveInt(item.id) ||
+			!isAzurePositiveInt(item.rev) ||
 			typeof title !== 'string' ||
 			state == null ||
 			this.itemType(item) !== metadata.type.name

@@ -29,6 +29,14 @@ import type {
 	SupportedCloudIntegrationIds,
 } from './constants.js';
 import type {
+	AzurePullRequestCreateCapabilityOptions,
+	AzurePullRequestCreateCapabilityResult,
+	AzurePullRequestWriteOptions,
+	AzurePullRequestWriteResult,
+	AzurePullRequestWriteTargetOptions,
+	AzurePullRequestWriteTargetResult,
+} from './models/azurePullRequestWrites.js';
+import type {
 	IssueTrackerCreateOptions,
 	IssueTrackerCreateOptionsResult,
 	IssueTrackerDeleteOptions,
@@ -1252,6 +1260,14 @@ export interface IntegrationManager {
 		 */
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
+	getAzurePullRequestCreateCapability(
+		options: AzurePullRequestCreateCapabilityOptions,
+	): Promise<AzurePullRequestCreateCapabilityResult>;
+	resolveAzurePullRequestWriteTarget(
+		options: AzurePullRequestWriteTargetOptions,
+	): Promise<AzurePullRequestWriteTargetResult>;
+	writeAzurePullRequest(options: AzurePullRequestWriteOptions): Promise<AzurePullRequestWriteResult>;
+
 	getWorkItemCreateOptions(options: WorkItemCreateOptions): Promise<WorkItemCreateOptionsResult>;
 	getWorkItemWriteOptions(options: WorkItemAddress): Promise<WorkItemWriteOptionsResult>;
 	writeWorkItem(options: WorkItemWriteOptions): Promise<WorkItemWriteResult>;
