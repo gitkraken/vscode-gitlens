@@ -391,7 +391,13 @@ export class ConfiguredIntegrationService implements Disposable {
 	storeSession(
 		id: IntegrationIds,
 		session: ProviderAuthenticationSession,
-		options?: { signOutMark?: number; resource?: ConnectionResource; expectedStoredAccessToken?: string },
+		options?: {
+			signOutMark?: number;
+			resource?: ConnectionResource;
+			expectedStoredAccessToken?: string;
+			/** Taken before the token was fetched: refuses a store a newer credential for the connection overtook. */
+			storedWriteMark?: number;
+		},
 	): Promise<boolean> {
 		return this.withLock(id, async () => {
 			if (options?.signOutMark != null && this.isSessionRetiredSince(id, session, options.signOutMark)) {
@@ -406,8 +412,18 @@ export class ConfiguredIntegrationService implements Disposable {
 				return false;
 			}
 
-			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
-				if (previous != null) {
+			const changed = getSessionIdentity(previous) !== getSessionIdentity(session);
+			if (
+				changed &&
+				previous != null &&
+				options?.storedWriteMark != null &&
+				this.isStoredWriteRetiredSince(id, session, options.storedWriteMark)
+			) {
+				return false;
+			}
+
+			if (changed) {
+				if (previous != null || options?.storedWriteMark != null) {
 					this.retireStoredWrites(`${id}|connection:${session.id}`);
 				}
 

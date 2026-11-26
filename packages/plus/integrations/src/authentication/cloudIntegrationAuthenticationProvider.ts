@@ -4,6 +4,7 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { IntegrationIds } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { isNonExpiringZeroTokenIntegrationId, isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
@@ -100,6 +101,7 @@ abstract class IntegrationAuthenticationProviderBase<
 		let previousToken;
 		let refetched: ProviderAuthenticationSession | undefined;
 		let signOutMark: number;
+		let storedWriteMark: number;
 		if (options?.forceNewSession) {
 			if (isSelfManagedHostIntegrationId(this.authProviderId)) {
 				const connectionId =
@@ -131,10 +133,12 @@ abstract class IntegrationAuthenticationProviderBase<
 				{ signOut: true, preserveConfigured: isSelfManagedHostIntegrationId(this.authProviderId) },
 			);
 			signOutMark = this.configuredIntegrationService.getSignOutMark();
+			storedWriteMark = this.configuredIntegrationService.getStoredWriteMark();
 		} else {
 			// Taken before the stored-token read (a sign-out landing during the read is ordered after it by the storage
 			// lock, so it counts either way).
 			signOutMark = this.configuredIntegrationService.getSignOutMark();
+			storedWriteMark = this.configuredIntegrationService.getStoredWriteMark();
 			const stored = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
 				options?.sync ? { ...descriptor, cloud: true } : descriptor,
@@ -173,6 +177,11 @@ abstract class IntegrationAuthenticationProviderBase<
 				const stored = await this.configuredIntegrationService.storeSession(this.authProviderId, session, {
 					signOutMark: signOutMark,
 					expectedStoredAccessToken: scopedRecovery ? previousToken : undefined,
+					// KEEP: a write authorizes against the stored credential, so an older fetch must not replace a newer one.
+					storedWriteMark:
+						this.authProviderId === GitSelfManagedHostIntegrationId.AzureDevOpsServer
+							? storedWriteMark
+							: undefined,
 				});
 				if (!stored) {
 					// A disconnect leaves no credential here. A recovery can leave a replacement for this same
