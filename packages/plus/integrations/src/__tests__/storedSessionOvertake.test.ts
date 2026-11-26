@@ -47,7 +47,6 @@ type TokenFetch = {
 	answerNone: () => void;
 };
 
-/** Every provider-token fetch waits for the test to answer it, so the test chooses the order fetches finish in. */
 function setup() {
 	const runtime = createFakeRuntime();
 	runtime.account.getAccount = async () => ({ id: 'me' });
@@ -111,7 +110,6 @@ async function settle(): Promise<void> {
 
 type Fixture = ReturnType<typeof setup>;
 
-/** Answers the oldest unanswered token fetch, waiting for one to start. */
 async function answer(
 	fixture: Fixture,
 	token: string,
@@ -129,13 +127,11 @@ async function answer(
 	}
 }
 
-/** A rejected-token refresh reads the token, then refreshes it: two fetches. */
 async function answerRefresh(fixture: Fixture, token: string): Promise<void> {
 	await answer(fixture, 'rejected-token');
 	await answer(fixture, token);
 }
 
-/** Answers the token fetch for `connection` (or the provider-wide one), waiting for it to start. */
 async function answerFor(
 	fixture: Fixture,
 	connection: string | undefined,

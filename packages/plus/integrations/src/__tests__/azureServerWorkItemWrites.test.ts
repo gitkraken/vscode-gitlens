@@ -23,7 +23,6 @@ const collections = [
 	{ id: 'fd62411b-0000-4000-8000-000000000001', name: 'DefaultCollection', identity: 'collection-identity-a' },
 	{ id: 'fd62411b-0000-4000-8000-000000000002', name: 'Other Collection', identity: 'collection-identity-b' },
 ];
-/** The same project name in both collections, with different ids. */
 const projects = [
 	{ id: '12ba3e78-27d9-4ad4-82a2-4142734e75f0', name: 'Shared', collection: collections[0].name },
 	{ id: '58650c76-e42c-4377-9ddd-8c2fdecabaa5', name: 'Shared', collection: collections[1].name },
