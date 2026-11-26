@@ -52,7 +52,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 	private readonly actualRetirements = new Map<string, number>();
 	private readonly hostRetirements = new Map<string, number>();
 	private readonly activeRetirements = new Set<Retirement>();
-	private readonly claimWitnesses = new Map<string, { mark: number; witness: string | undefined }>();
+	private readonly claimWitnesses = new Map<string, { mark: number; request: number; witness: string | undefined }>();
 	private readonly issuances = new WeakMap<ProviderAuthenticationSession, Issuance>();
 	private sequence = 0;
 	private globalRetirement = 0;
@@ -133,16 +133,24 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			...(sessionKey != null ? [`actual:${sessionKey}`] : []),
 		];
 		const witness = source == null ? undefined : JSON.stringify([identity, source.account?.id]);
-		if (latest == null || latest.request <= request) {
+		const accepted = latest == null || latest.request <= request;
+		if (accepted && claims.every(claim => (this.claimWitnesses.get(claim)?.request ?? 0) <= request)) {
 			for (const claim of claims) {
-				if (this.claimWitnesses.get(claim)?.witness !== witness) {
-					this.claimWitnesses.set(claim, { mark: ++this.sequence, witness: witness });
-				}
+				const current = this.claimWitnesses.get(claim);
+				this.claimWitnesses.set(claim, {
+					mark: current != null && current.witness === witness ? current.mark : ++this.sequence,
+					request: request,
+					witness: witness,
+				});
 			}
 			if (session != null) {
 				this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
 			}
+		} else if (session != null && claims.every(claim => this.claimWitnesses.get(claim)?.witness === witness)) {
+			this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
+		}
 
+		if (accepted) {
 			if (previous == null || previous.identity !== identity || credential?.identity !== identity) {
 				this.publish(
 					{
@@ -170,8 +178,6 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			if (sessionKey != null) {
 				this.credentials.set(sessionKey, observation);
 			}
-		} else if (session != null && claims.every(claim => this.claimWitnesses.get(claim)?.witness === witness)) {
-			this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
 		}
 
 		return session;

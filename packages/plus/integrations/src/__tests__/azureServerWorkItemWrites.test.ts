@@ -805,6 +805,33 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 			respond = () => Promise.resolve(undefined);
 			await observed.getSession(local);
 			assert.equal(localFence(), true, 'a negative source invalidates the selector');
+
+			const scoped = { ...selected, scopes: ['x'] };
+			const hold = () => {
+				let release!: (value: ProviderAuthenticationSession) => void;
+				respond = () => new Promise(resolve => (release = resolve));
+				return (value: ProviderAuthenticationSession) => release(value);
+			};
+
+			let releaseA = hold();
+			const pendingA = observed.getSession(selected);
+			respond = () => Promise.resolve(session('b-token', false));
+			const newerB = (await observed.getSession(scoped))!;
+			releaseA(session('a-token'));
+			const olderA = (await pendingA)!;
+			assert.equal(observed.trackSession(newerB)(), false, 'an older result in another scope does not overwrite');
+			assert.equal(observed.trackSession(olderA)(), true, 'an older result in another scope fails closed');
+
+			respond = () => Promise.resolve(session('me-token'));
+			await observed.getSession(selected);
+			releaseA = hold();
+			const pendingOwner = observed.getSession(scoped);
+			respond = () => Promise.resolve(session('me-token'));
+			const sameWitness = (await observed.getSession(selected))!;
+			releaseA(session('other-token', false));
+			const olderOwner = (await pendingOwner)!;
+			assert.equal(observed.trackSession(sameWitness)(), false, 'a newer same-witness result keeps its order');
+			assert.equal(observed.trackSession(olderOwner)(), true);
 		} finally {
 			observed.dispose();
 		}
