@@ -14,11 +14,13 @@ function isServerUrl(value: unknown): value is string {
 
 	try {
 		const url = new URL(value);
+		const host = url.hostname.replace(/\.+$/, '').toLowerCase();
 		return (
 			(url.protocol === 'https:' || url.protocol === 'http:') &&
 			!url.username &&
 			!url.password &&
-			!isAzureCloudDomain(url.hostname)
+			!isAzureCloudDomain(host) &&
+			!host.endsWith('.dev.azure.com')
 		);
 	} catch {
 		return false;

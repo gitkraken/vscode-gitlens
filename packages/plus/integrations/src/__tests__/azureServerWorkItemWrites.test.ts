@@ -10,6 +10,7 @@ import type {
 } from '../index.js';
 import { createIntegrationManager } from '../index.js';
 import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
+import { isWorkItemWriteScope } from '../providers/azureWorkItemWriteErrors.js';
 import { createFakeRuntime } from './fakeRuntime.js';
 
 const providerId = GitSelfManagedHostIntegrationId.AzureDevOpsServer;
@@ -472,12 +473,25 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 	});
 
 	test('refuses an Azure DevOps Services address configured as a Server connection, before any request', async () => {
-		for (const cloudBase of ['https://dev.azure.com/acme', 'https://acme.visualstudio.com']) {
+		for (const cloudBase of [
+			'https://dev.azure.com/acme',
+			'https://acme.visualstudio.com',
+			'https://dev.azure.com./acme',
+			'https://DEV.AZURE.COM../acme',
+			'https://acme.visualstudio.com.',
+			'https://vssps.dev.azure.com./acme',
+		]) {
 			const server = createServer(server2020, undefined, cloudBase);
+			const fetch = server.runtime.http.fetch;
+			let requests = 0;
+			server.runtime.http.fetch = (input, init) => {
+				requests++;
+				return fetch(input, init);
+			};
 			await withManager(
 				server,
 				async (manager, scope) => {
-					const before = server.calls.length;
+					requests = 0;
 					const result = await manager.writeWorkItem({
 						...scope,
 						collectionUrl: `${cloudBase}/${collection.name}`,
@@ -487,11 +501,29 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 						action: 'edit',
 						fields: { 'System.Title': 'Edited' },
 					});
-					assert.deepEqual(result, { ok: false, reason: 'invalid-input', mutationDispatched: false });
-					assert.equal(server.calls.length, before);
+					assert.deepEqual(
+						result,
+						{ ok: false, reason: 'invalid-input', mutationDispatched: false },
+						cloudBase,
+					);
+					assert.equal(requests, 0, cloudBase);
 				},
 				cloudBase,
 			);
+		}
+
+		for (const host of ['tfs.westeurope.cloudapp.azure.com', 'dev.azure.com.contoso.test', 'devazure.com']) {
+			const base = `https://${host}/tfs`;
+			const scope: AzureServerWorkItemWriteScope = {
+				providerId: providerId,
+				connectionId: 'connection',
+				baseUrl: base,
+				organizationId: collection.id,
+				organizationName: collection.name,
+				collectionUrl: `${base}/${collection.name}`,
+				projectId: project.id,
+			};
+			assert.equal(isWorkItemWriteScope(scope), true, host);
 		}
 	});
 
