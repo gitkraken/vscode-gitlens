@@ -41,9 +41,7 @@ suite('installKepler — Linux AppImage', () => {
 	let baseUrl: string;
 	/** Bytes the server sends before cutting the connection, with the full `content-length` claimed */
 	let truncateAt: number | undefined;
-	/** How many responses are cut at {@link truncateAt}; the rest are sent whole */
 	let truncations: number;
-	/** Whether the server sends an `ETag` and honours `Range` requests that match it */
 	let ranges: boolean;
 	let status: number;
 	let requests: number;
@@ -113,7 +111,6 @@ suite('installKepler — Linux AppImage', () => {
 			}
 
 			truncations--;
-			// The headers go out first, so the drop lands mid-body rather than before the response
 			res.flushHeaders();
 			setTimeout(() => res.write(body.subarray(0, truncateAt), () => res.socket?.destroy()), 20);
 		});

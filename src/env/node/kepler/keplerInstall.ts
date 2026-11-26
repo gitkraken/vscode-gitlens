@@ -39,11 +39,8 @@ const launchServicesRegister =
 
 /** Max time with no download progress before the download is treated as stalled. */
 const downloadStallTimeout = 60_000; // 60s
-/** How many times a download the connection dropped or stalled on is asked for again. */
 const downloadRetries = 3;
-/** Wait before asking for an interrupted download again. */
 const downloadRetryDelay = 1_000; // 1s
-/** Max time to check the Windows setup's signature. */
 const authenticodeTimeout = 180_000; // 180s
 /** Total-duration cap for the small manifest (or Windows size) request. */
 const manifestFetchTimeout = 30_000; // 30s
@@ -226,11 +223,7 @@ function throwIfCancelled(signal: AbortSignal | undefined): void {
 	if (signal?.aborted) throw new KeplerInstallError('cancelled', 'Cancelled');
 }
 
-/**
- * Streams the file to disk, reporting progress and hashing as it goes. When the connection drops or
- * stalls after some bytes arrived, asks for the rest of it, up to {@link downloadRetries} times.
- * Returns the base64 SHA-512.
- */
+/** Streams the file to disk, reporting progress and hashing as it goes. Returns the base64 SHA-512. */
 async function download(release: KeplerRelease, file: string, options?: KeplerInstallOptions): Promise<string> {
 	const signal = options?.signal;
 	let hash = createHash('sha512');
@@ -274,10 +267,11 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 
 			total = range.total ?? total;
 			resumes++;
+			report();
 			return { body: response.body, append: true };
 		}
 
-		if (receivedAny) {
+		if (transferred > 0) {
 			restarts++;
 		}
 		rangeValidator = getRangeValidator(response.headers);
@@ -285,6 +279,7 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 		transferred = 0;
 		const length = Number(response.headers.get('content-length'));
 		total = Number.isFinite(length) && length > 0 ? length : release.size;
+		report();
 		return { body: response.body, append: false };
 	};
 
@@ -317,11 +312,6 @@ async function download(release: KeplerRelease, file: string, options?: KeplerIn
 	}
 }
 
-/**
- * Makes one request for the file and writes what arrives to disk — appended, when the server resumed
- * it. Returns an error when the connection dropped or stalled, so the download can be picked up again;
- * throws on everything else.
- */
 async function downloadAttempt(
 	request: (signal: AbortSignal) => Promise<{ body: ReadableStream<Uint8Array>; append: boolean }>,
 	file: string,
@@ -408,7 +398,6 @@ function closeStream(stream: WriteStream): Promise<void> {
 	return new Promise<void>((resolve, reject) => stream.end((err?: Error | null) => (err ? reject(err) : resolve())));
 }
 
-/** A strong validator for `If-Range`, so a resumed download can't splice two versions of the file. */
 function getRangeValidator(headers: Headers): string | undefined {
 	const etag = headers.get('etag');
 	if (etag != null && !etag.startsWith('W/')) return etag;
@@ -416,7 +405,6 @@ function getRangeValidator(headers: Headers): string | undefined {
 	return headers.get('last-modified') ?? undefined;
 }
 
-/** Parses `Content-Range: bytes <start>-<end>/<total>`; `total` is absent when the server gives `*`. */
 function parseContentRange(value: string | null): { start: number; total: number | undefined } | undefined {
 	const match = value != null ? /^bytes (\d+)-\d+\/(\d+|\*)$/.exec(value.trim()) : null;
 	if (match == null) return undefined;
