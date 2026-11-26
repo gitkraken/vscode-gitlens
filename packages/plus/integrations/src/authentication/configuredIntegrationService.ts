@@ -55,21 +55,8 @@ type IntegrationSessionChangeEvent = {
 };
 
 type StoredWriteRetirements = { epoch: number; scopes: Map<string, number> };
+type CredentialAcquisitions = { unscoped?: Promise<void>; connections: Map<string, Promise<void>> };
 
-function enqueue<T>(queues: Map<IntegrationIds, Promise<void>>, id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
-	const run = (queues.get(id) ?? Promise.resolve()).then(fn);
-	const settled = run.then(
-		() => undefined,
-		() => undefined,
-	);
-	queues.set(id, settled);
-	void settled.then(() => {
-		if (queues.get(id) === settled) {
-			queues.delete(id);
-		}
-	});
-	return run;
-}
 const storedWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], StoredWriteRetirements>();
 
 export class ConfiguredIntegrationService implements Disposable {
@@ -88,8 +75,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * miss a connection it cannot see yet, or be undone by the pending write (#5948).
 	 */
 	private readonly _locks = new Map<IntegrationIds, Promise<void>>();
-	/** Separate from {@link _locks}: an acquisition holds its slot across remote requests and its own storage calls. */
-	private readonly _acquisitions = new Map<IntegrationIds, Promise<void>>();
+	private readonly _acquisitions = new Map<IntegrationIds, CredentialAcquisitions>();
 	/** Monotonic across providers; see {@link getSignOutMark}. */
 	private _signOutEpoch = 0;
 	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
@@ -332,21 +318,73 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	private withLock<T>(id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
-		return enqueue(this._locks, id, fn);
+		const run = (this._locks.get(id) ?? Promise.resolve()).then(fn);
+		const settled = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		this._locks.set(id, settled);
+		void settled.then(() => {
+			if (this._locks.get(id) === settled) {
+				this._locks.delete(id);
+			}
+		});
+		return run;
 	}
 
-	/**
-	 * Whether a credential's stored read, fetch and publication for `id` run one at a time (see
-	 * {@link withCredentialAcquisition}). Only Azure DevOps Server, whose work item writes authorize against the
-	 * stored credential, so a slower, older fetch must never be published over a newer one.
-	 */
 	serializesCredentialAcquisition(id: IntegrationIds): boolean {
 		return id === GitSelfManagedHostIntegrationId.AzureDevOpsServer;
 	}
 
-	/** Not reentrant: `fn` must not wait on another acquisition for the same provider. */
-	withCredentialAcquisition<T>(id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
-		return this.serializesCredentialAcquisition(id) ? enqueue(this._acquisitions, id, fn) : fn();
+	/**
+	 * KEEP: not reentrant. A `connectionId` acquisition waits for that connection's and every earlier unscoped one;
+	 * an unscoped acquisition waits for every earlier acquisition of `id`.
+	 */
+	withCredentialAcquisition<T>(
+		id: IntegrationIds,
+		connectionId: string | undefined,
+		fn: () => Promise<T>,
+	): Promise<T> {
+		if (!this.serializesCredentialAcquisition(id)) return fn();
+
+		let queue = this._acquisitions.get(id);
+		if (queue == null) {
+			queue = { connections: new Map() };
+			this._acquisitions.set(id, queue);
+		}
+
+		const predecessors = (
+			connectionId != null
+				? [queue.unscoped, queue.connections.get(connectionId)]
+				: [queue.unscoped, ...queue.connections.values()]
+		).filter(p => p != null);
+		const run = Promise.all(predecessors).then(() => fn());
+		const settled = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		if (connectionId != null) {
+			queue.connections.set(connectionId, settled);
+		} else {
+			queue.unscoped = settled;
+			queue.connections.clear();
+		}
+
+		const current = queue;
+		void settled.then(() => {
+			if (connectionId != null) {
+				if (current.connections.get(connectionId) === settled) {
+					current.connections.delete(connectionId);
+				}
+			} else if (current.unscoped === settled) {
+				current.unscoped = undefined;
+			}
+
+			if (current.unscoped == null && current.connections.size === 0 && this._acquisitions.get(id) === current) {
+				this._acquisitions.delete(id);
+			}
+		});
+		return run;
 	}
 
 	/**

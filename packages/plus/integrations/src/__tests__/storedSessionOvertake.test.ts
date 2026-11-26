@@ -28,6 +28,16 @@ const connection: CloudIntegrationConnection & { id: string } = {
 	accountName: 'me',
 };
 
+const hostB: IntegrationAuthenticationSessionDescriptor = {
+	domain: 'other.test',
+	scopes: [],
+	connectionId: 'connection-b',
+	cloud: true,
+};
+const hostBToken = { tokenId: 'connection-b', domain: 'https://other.test/tfs' };
+const implicitA: IntegrationAuthenticationSessionDescriptor = { domain: 'server.test', scopes: [], cloud: true };
+const unconfigured: IntegrationAuthenticationSessionDescriptor = { domain: 'third.test', scopes: [], cloud: true };
+
 type TokenFetch = { path: string; answer: (token: string, overrides?: Record<string, unknown>) => void };
 
 /** Every provider-token fetch waits for the test to answer it, so the test chooses the order fetches finish in. */
@@ -69,8 +79,10 @@ function setup() {
 	return {
 		fetches: fetches,
 		configured: configured,
-		getSession: async (options: { refreshRejectedToken?: boolean; sync?: boolean }) =>
-			(await auth.get(id)).getSession(descriptor, options),
+		getSession: async (
+			options: { refreshRejectedToken?: boolean; sync?: boolean },
+			target: IntegrationAuthenticationSessionDescriptor = descriptor,
+		) => (await auth.get(id)).getSession(target, options),
 		reconcile: () => service['reconcileCloudConnections'](id, [connection], true),
 		stored: async () => (await configured.peekStoredSession(id, connectionId, true, 'server.test'))?.accessToken,
 		dispose: () => service.dispose(),
@@ -97,6 +109,21 @@ async function answer(fixture: Fixture, token: string, overrides?: Record<string
 async function answerRefresh(fixture: Fixture, token: string): Promise<void> {
 	await answer(fixture, 'rejected-token');
 	await answer(fixture, token);
+}
+
+/** Answers the token fetch for `connection` (or the provider-wide one), waiting for it to start. */
+async function answerFor(
+	fixture: Fixture,
+	connection: string | undefined,
+	token: string,
+	overrides?: Record<string, unknown>,
+): Promise<void> {
+	const matches = (fetch: TokenFetch) =>
+		connection != null ? fetch.path.includes(`/tokens/${connection}`) : !fetch.path.includes('/tokens/');
+	while (!fixture.fetches.some(matches)) {
+		await new Promise(resolve => setTimeout(resolve, 0));
+	}
+	fixture.fetches.splice(fixture.fetches.findIndex(matches), 1)[0].answer(token, overrides);
 }
 
 async function seed(fixture: Fixture, token: string): Promise<void> {
@@ -178,6 +205,92 @@ suite('Azure DevOps Server credential acquisition ordering', () => {
 			} finally {
 				fixture.dispose();
 			}
+		}
+	});
+
+	test('a resolution on another Server host progresses while one host holds its acquisition', async () => {
+		const fixture = setup();
+		try {
+			await seed(fixture, 'stored-token');
+			const seededB = fixture.getSession({ sync: true }, hostB);
+			await answerFor(fixture, hostB.connectionId, 'b-stored', hostBToken);
+			assert.equal((await seededB)?.accessToken, 'b-stored');
+
+			const heldA = fixture.reconcile();
+			await settle();
+			assert.equal(fixture.fetches.length, 1);
+			const refreshB = fixture.getSession({ refreshRejectedToken: true }, hostB);
+			await answerFor(fixture, hostB.connectionId, 'b-rejected', hostBToken);
+			await answerFor(fixture, hostB.connectionId, 'b-new', hostBToken);
+			assert.equal((await refreshB)?.accessToken, 'b-new');
+
+			await answerFor(fixture, connectionId, 'a-new');
+			await heldA;
+			assert.equal(await fixture.stored(), 'a-new');
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('a resolution of the implicit primary orders with one naming its connection id, and only with it', async () => {
+		const fixture = setup();
+		try {
+			await seed(fixture, 'stored-token');
+			const seededB = fixture.getSession({ sync: true }, hostB);
+			await answerFor(fixture, hostB.connectionId, 'b-stored', hostBToken);
+			await seededB;
+
+			const explicit = fixture.getSession({ refreshRejectedToken: true });
+			await settle();
+			assert.equal(fixture.fetches.length, 1);
+			const implicit = fixture.getSession({ refreshRejectedToken: true }, implicitA);
+			await settle();
+			assert.equal(fixture.fetches.length, 1, 'the implicit primary waits for its explicit alias');
+
+			const refreshB = fixture.getSession({ refreshRejectedToken: true }, hostB);
+			await answerFor(fixture, hostB.connectionId, 'b-rejected', hostBToken);
+			await answerFor(fixture, hostB.connectionId, 'b-new', hostBToken);
+			assert.equal((await refreshB)?.accessToken, 'b-new', 'another host does not wait for the alias');
+
+			await answerRefresh(fixture, 'explicit-token');
+			assert.equal((await explicit)?.accessToken, 'explicit-token');
+			assert.ok(fixture.fetches.every(f => f.path.includes(`/tokens/${connectionId}`)));
+			await answerRefresh(fixture, 'implicit-token');
+			assert.equal((await implicit)?.accessToken, 'implicit-token');
+			assert.equal(await fixture.stored(), 'implicit-token');
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('an unresolved connection waits for earlier acquisitions and holds back later ones', async () => {
+		const fixture = setup();
+		try {
+			await seed(fixture, 'stored-token');
+
+			const heldA = fixture.getSession({ refreshRejectedToken: true });
+			await settle();
+			const unresolved = fixture.getSession({ sync: true }, unconfigured);
+			await settle();
+			const laterB = fixture.getSession({ sync: true }, hostB);
+			await settle();
+			assert.equal(fixture.fetches.length, 1, 'only the held acquisition fetches');
+
+			await answerRefresh(fixture, 'a-new');
+			await heldA;
+			await settle();
+			assert.equal(fixture.fetches.length, 1);
+			assert.equal(fixture.fetches[0].path.includes('/tokens/'), false, 'the unresolved one runs before B');
+			await answerFor(fixture, undefined, 'unresolved-token', {
+				tokenId: 'connection-c',
+				domain: 'https://third.test/tfs',
+			});
+			await unresolved;
+
+			await answerFor(fixture, hostB.connectionId, 'b-token', hostBToken);
+			assert.equal((await laterB)?.accessToken, 'b-token');
+		} finally {
+			fixture.dispose();
 		}
 	});
 

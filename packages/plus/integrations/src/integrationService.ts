@@ -2554,22 +2554,24 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 						return await fetchConnection();
 					}
 
-					// Fetched and published in the same acquisition as the auth provider's, so neither publishes a token
-					// older than one the other already stored.
-					return await this.configuredIntegrationService.withCredentialAcquisition(id, async () => {
-						const prepared = await fetchConnection();
-						if (prepared == null) return undefined;
+					return await this.configuredIntegrationService.withCredentialAcquisition(
+						id,
+						connection.id,
+						async () => {
+							const prepared = await fetchConnection();
+							if (prepared == null) return undefined;
 
-						const stored = await this.configuredIntegrationService.storeSession(
-							id,
-							prepared.providerSession,
-							{
-								signOutMark: signOutMark,
-								resource: prepared.resource,
-							},
-						);
-						return stored ? { ...prepared, kind: 'published' as const } : undefined;
-					});
+							const stored = await this.configuredIntegrationService.storeSession(
+								id,
+								prepared.providerSession,
+								{
+									signOutMark: signOutMark,
+									resource: prepared.resource,
+								},
+							);
+							return stored ? { ...prepared, kind: 'published' as const } : undefined;
+						},
+					);
 				} catch (ex) {
 					scope?.warn(
 						`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,

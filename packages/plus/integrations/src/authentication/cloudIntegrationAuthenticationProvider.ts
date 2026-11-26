@@ -96,19 +96,43 @@ abstract class IntegrationAuthenticationProviderBase<
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: GetSessionOptions,
 	): Promise<ProviderAuthenticationSession | undefined> {
-		// Taken before queueing, so a sign-out while this waits refuses the store it makes.
+		// KEEP: taken before queueing, so a sign-out while this waits refuses its store.
 		const signOutMark = this.configuredIntegrationService.getSignOutMark();
 		if (!this.configuredIntegrationService.serializesCredentialAcquisition(this.authProviderId)) {
 			return this.acquireSession(descriptor, options, signOutMark);
 		}
 
+		const connectionId = descriptor.connectionId || this.getImplicitCloudConnectionId(descriptor, options);
 		// KEEP: connecting reaches this provider's own getSession again, so it runs after the queued acquisition.
-		const session = await this.configuredIntegrationService.withCredentialAcquisition(this.authProviderId, () =>
-			this.acquireSession(descriptor, { ...options, skipConnect: true }, signOutMark),
+		const session = await this.configuredIntegrationService.withCredentialAcquisition(
+			this.authProviderId,
+			connectionId,
+			() =>
+				this.acquireSession(
+					connectionId != null ? { ...descriptor, connectionId: connectionId } : descriptor,
+					{ ...options, skipConnect: true },
+					signOutMark,
+				),
 		);
 		return session == null && options?.createIfNeeded && !options.forceNewSession
 			? this.connectNewSession(descriptor, options)
 			: session;
+	}
+
+	private getImplicitCloudConnectionId(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options: GetSessionOptions | undefined,
+	): string | undefined {
+		const connectionId = this.configuredIntegrationService.getConfiguredConnectionId(
+			this.authProviderId,
+			descriptor.domain,
+			true,
+		);
+		const stored = this.configuredIntegrationService.resolveConnectionId(
+			this.authProviderId,
+			options?.sync ? { ...descriptor, cloud: true } : descriptor,
+		);
+		return connectionId === stored ? connectionId : undefined;
 	}
 
 	private async acquireSession(
@@ -294,8 +318,6 @@ export class CloudIntegrationAuthenticationProvider<
 		const connected = await this.connectCloudSession(true, options?.source);
 		if (!connected) return undefined;
 
-		// This should get us the session we just created with connectCloudSession, because a syncCloudIntegrations run from
-		// integration service should have resulted in it being created and stored by this provider
 		return this.getSession(descriptor, { source: options?.source });
 	}
 
