@@ -597,6 +597,8 @@ suite('KeplerService.install', () => {
 		assert.deepStrictEqual(completed, {
 			version: '0.16.0',
 			'download.size': appImage.length,
+			'download.resumes': undefined,
+			'download.restarts': undefined,
 			'cancelled.late': undefined,
 		});
 		assert.deepStrictEqual(sendEvent.getCall(2).args.slice(1), [{ action: 'dismiss', after: 'completed' }, source]);

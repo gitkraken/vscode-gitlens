@@ -2859,6 +2859,10 @@ interface KeplerInstallOutcomeEvent extends KeplerInstallEvent {
 	'duration.register'?: number;
 	/** How many bytes were downloaded; absent when the download never started */
 	'download.size'?: number;
+	/** How many times the download continued from where the connection dropped or stalled; absent when it never did */
+	'download.resumes'?: number;
+	/** How many times the download started over after the connection dropped or stalled — the server sent the whole file again; absent when it never did */
+	'download.restarts'?: number;
 }
 
 interface KeplerInstallCompletedEvent extends KeplerInstallOutcomeEvent {
@@ -2869,7 +2873,7 @@ interface KeplerInstallCompletedEvent extends KeplerInstallOutcomeEvent {
 interface KeplerInstallFailedEvent extends KeplerInstallOutcomeEvent {
 	/** Which step failed. `cancelled` = the user cancelled; `manifest` = the update manifest could not be read; `download` = the download failed; `verify` = the file failed its integrity check; `install` = the file could not be installed; `register` = Linux only, the `kepler://` handler could not be set; `unsupported` = nothing installable for this machine */
 	'failure.reason': KeplerInstallFailureReason;
-	/** What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. Never message text or a path */
+	/** What failed, when known: an HTTP status (`404`), a process exit code (`exit:2`) or signal, a Node error code (`ENOTFOUND`, `EACCES`), `timeout`, or one of `file-not-listed`, `incomplete`, `stalled`, `range-mismatch`, `sha512-missing`, `sha512-mismatch`, `signature:<status>`, `no-app`, `not-found`. Never message text or a path */
 	'failure.code'?: string;
 }
 

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 - Fixes GitLens silently failing when Git can't be found or used &mdash; blame, history and repositories disappeared without the error explaining why; GitLens now shows it, and setting `git.path` to a working Git restores everything without reloading the window ([#6343](https://github.com/gitkraken/vscode-gitlens/issues/6343))
 - Fixes the _Commit Graph_ header offering _Push_ and _Force Push_ for a branch whose pull request was merged while its remote branch was kept, or deleted on the remote but not yet pruned locally ([#6335](https://github.com/gitkraken/vscode-gitlens/issues/6335))
 - Fixes the AI model shown for composing commits, reviewing changes, and resolving conflicts staying on the previous default after you change the default AI model in GitLens, until the window is reloaded ([#6353](https://github.com/gitkraken/vscode-gitlens/issues/6353))
+- Fixes _Install Kepler_ failing when the connection drops or stalls during the download &mdash; the download now picks up where it stopped, and on Windows checking the setup's signature has more time before it gives up
 
 ## [19.7.0] - 2026-11-24
 

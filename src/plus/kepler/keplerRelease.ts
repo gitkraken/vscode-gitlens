@@ -333,6 +333,10 @@ export interface KeplerInstallProgress {
 	readonly transferred?: number;
 	/** Total bytes to download, when known; only for `download` */
 	readonly total?: number;
+	/** How many times the download continued where the connection dropped; only for `download` */
+	readonly resumes?: number;
+	/** How many times the download started over after the connection dropped; only for `download` */
+	readonly restarts?: number;
 }
 
 /** What an install did. */
