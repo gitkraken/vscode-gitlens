@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { builtinModules } from 'node:module';
-import { join, relative } from 'node:path';
+import { dirname, join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'tsdown';
 import { createOutputNamer } from '../../scripts/package/tsdownOutputNames.mjs';
 // The single source of truth for which packages core bundles and where each lands inside it.
@@ -26,11 +27,11 @@ const entry = packages.flatMap(pkg => {
 	return [`${src}/**/*.ts`, `!${src}/**/*.d.ts`, `!${src}/**/__tests__/**`];
 });
 
-// Where an inlined module's emitted path is rooted: `packages/plus/ai/src/foo.ts` becomes `plus/ai/foo.js`,
-// matching the layout the old copy-the-dist-tree bundle step produced and that the generated `exports` map
-// addresses. The sub-packages' own manifests resolve `@gitlens/<pkg>` to that same `src/`, so the bundler
-// reads SOURCE with no alias needed.
-const outputName = createOutputNamer(packages.map(pkg => [srcDirOf(pkg), pkg.dest] as const));
+const sdkDist = dirname(fileURLToPath(import.meta.resolve('@gitkraken/provider-apis/providers')));
+const outputName = createOutputNamer([
+	...packages.map(pkg => [srcDirOf(pkg), pkg.dest] as const),
+	[sdkDist, '_types/provider-apis'],
+]);
 
 // Anything a consumer installs stays a bare specifier. Derived from the sub-packages' own manifests rather
 // than listed here, so a new runtime dependency can never be silently inlined into the published tarball.
@@ -71,6 +72,8 @@ export default defineConfig({
 		resolve: { extensionAlias: { '.js': ['.ts', '.js'] } },
 	},
 	deps: {
+		// KEEP: Ship the relationship declarations without exposing the SDK as a consumer type dependency.
+		dts: { alwaysBundle: ['@gitkraken/provider-apis/providers'] },
 		neverBundle: [
 			// `#env/*` MUST survive in the emitted JS: the manifest's `imports` conditions are what pick the
 			// node or browser tree at the consumer's resolution time, which is the whole point of the split.

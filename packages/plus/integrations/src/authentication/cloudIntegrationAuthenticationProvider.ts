@@ -7,6 +7,7 @@ import type { IntegrationIds } from '../constants.js';
 import type { Sources } from '../telemetry.js';
 import { areDomainsOnSameHost } from '../utils/domain.utils.js';
 import { isNonExpiringZeroTokenIntegrationId, isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
+import type { CloudIntegrationSync } from './cloudIntegrationObservations.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type {
 	GetSessionOptions,
@@ -33,6 +34,7 @@ abstract class IntegrationAuthenticationProviderBase<
 	ID extends IntegrationIds = IntegrationIds,
 > implements IntegrationAuthenticationProvider {
 	protected readonly disposables: Disposable[] = [];
+	protected readonly primaryResponses = new WeakMap<ProviderAuthenticationSession, 'named' | 'legacy'>();
 
 	constructor(
 		protected readonly authenticationService: IntegrationAuthenticationService,
@@ -53,7 +55,7 @@ abstract class IntegrationAuthenticationProviderBase<
 	@trace()
 	async deleteSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
-		options?: { preserveConfigured?: boolean; signOutMark?: number },
+		options?: { preserveConfigured?: boolean; signOutMark?: number; sync?: CloudIntegrationSync },
 	): Promise<void> {
 		const domain = isSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
 		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
@@ -67,7 +69,11 @@ abstract class IntegrationAuthenticationProviderBase<
 			this.authProviderId,
 			{ ...descriptor, cloud: true },
 			true,
-			{ preserveConfigured: options?.preserveConfigured ?? true, signOutMark: options?.signOutMark },
+			{
+				preserveConfigured: options?.preserveConfigured ?? true,
+				signOutMark: options?.signOutMark,
+				sync: options?.sync,
+			},
 		);
 
 		if (deleted && configured?.length) {
@@ -77,29 +83,37 @@ abstract class IntegrationAuthenticationProviderBase<
 
 	@trace()
 	async deleteAllSessions(descriptor?: IntegrationAuthenticationSessionDescriptor): Promise<void> {
-		// Self-managed providers group every host under one provider id, so scope the clear to this
-		// descriptor's host when given; for cloud providers the domain stays undefined here, clearing every account.
+		await this.clearSessions(descriptor);
+	}
+
+	async clearSessions(
+		descriptor?: IntegrationAuthenticationSessionDescriptor,
+		sync?: CloudIntegrationSync,
+	): Promise<boolean> {
 		const domain = isSelfManagedHostIntegrationId(this.authProviderId) ? descriptor?.domain : undefined;
-		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, {
-			domain: domain,
-		});
-
-		await this.configuredIntegrationService.deleteAllStoredSessions(this.authProviderId, undefined, domain);
-
-		if (configured?.length) {
+		const configured = this.configuredIntegrationService.getConfigured(this.authProviderId, { domain: domain });
+		const cleared = await this.configuredIntegrationService.deleteAllStoredSessions(
+			this.authProviderId,
+			undefined,
+			domain,
+			sync,
+		);
+		if (cleared && configured.length) {
 			this.fireChange();
 		}
+		return cleared;
 	}
 
 	@trace()
 	async getSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: GetSessionOptions,
+		authority?: CloudIntegrationSync,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		// KEEP: taken before queueing, so a sign-out while this waits refuses its store.
 		const signOutMark = this.configuredIntegrationService.getSignOutMark();
 		if (!this.configuredIntegrationService.serializesCredentialAcquisition(this.authProviderId)) {
-			return this.acquireSession(descriptor, options, signOutMark);
+			return this.acquireSession(descriptor, options, signOutMark, signOutMark, authority);
 		}
 
 		const connectionId = descriptor.connectionId || this.getImplicitCloudConnectionId(descriptor, options);
@@ -112,6 +126,8 @@ abstract class IntegrationAuthenticationProviderBase<
 					connectionId != null ? { ...descriptor, connectionId: connectionId } : descriptor,
 					{ ...options, skipConnect: true },
 					signOutMark,
+					this.configuredIntegrationService.getStoredWriteMark(),
+					authority,
 				),
 		);
 		if (session != null || !options?.createIfNeeded || options.forceNewSession) return session;
@@ -119,7 +135,7 @@ abstract class IntegrationAuthenticationProviderBase<
 		if (
 			this.configuredIntegrationService.isSessionRetiredSince(
 				this.authProviderId,
-				{ id: connectionId ?? '', domain: descriptor.domain },
+				{ id: connectionId ?? '', domain: descriptor.domain, cloud: descriptor.cloud },
 				signOutMark,
 			)
 		) {
@@ -149,6 +165,8 @@ abstract class IntegrationAuthenticationProviderBase<
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options: (GetSessionOptions & { skipConnect?: boolean }) | undefined,
 		initialSignOutMark: number,
+		acquisitionMark: number,
+		authority?: CloudIntegrationSync,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		let signOutMark = initialSignOutMark;
 		let session;
@@ -185,6 +203,7 @@ abstract class IntegrationAuthenticationProviderBase<
 				{ signOut: true, preserveConfigured: isSelfManagedHostIntegrationId(this.authProviderId) },
 			);
 			signOutMark = this.configuredIntegrationService.getSignOutMark();
+			acquisitionMark = signOutMark;
 		} else {
 			const stored = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
@@ -215,24 +234,61 @@ abstract class IntegrationAuthenticationProviderBase<
 				session == null &&
 				options?.refetch &&
 				refetched != null &&
-				this.configuredIntegrationService.isSessionRetiredSince(this.authProviderId, refetched, signOutMark)
+				this.configuredIntegrationService.isSessionRetiredSince(
+					this.authProviderId,
+					refetched,
+					signOutMark,
+					acquisitionMark,
+				)
 			) {
 				throw new CancellationError();
 			}
 
 			if (session != null) {
+				const primaryResponse = this.primaryResponses.get(session);
 				const stored = await this.configuredIntegrationService.storeSession(this.authProviderId, session, {
 					signOutMark: signOutMark,
+					acquisitionMark: acquisitionMark,
 					expectedStoredAccessToken: scopedRecovery ? previousToken : undefined,
+					primaryResponse: primaryResponse,
+					sync: authority,
 				});
-				if (!stored) {
-					// A disconnect leaves no credential here. A recovery can leave a replacement for this same
-					// connection, which a forced sync must not interpret as a disconnect and delete.
-					session = await this.configuredIntegrationService.getStoredSession(this.authProviderId, {
-						...descriptor,
-						connectionId: session.id,
-						cloud: session.cloud,
-					});
+				if (authority?.isCurrent() === false) throw new CancellationError();
+
+				const primary =
+					primaryResponse === 'named'
+						? this.configuredIntegrationService.supersedingPrimary(
+								this.authProviderId,
+								session,
+								signOutMark,
+							)
+						: undefined;
+				if (primary != null) {
+					const current = await this.configuredIntegrationService.peekStoredSession(
+						this.authProviderId,
+						primary,
+						true,
+						descriptor.domain,
+					);
+					if (
+						current == null ||
+						this.configuredIntegrationService.supersedingPrimary(
+							this.authProviderId,
+							session,
+							signOutMark,
+						) !== primary
+					) {
+						throw new CancellationError();
+					}
+
+					session = current;
+				} else if (!stored) {
+					session = await this.configuredIntegrationService.peekStoredSession(
+						this.authProviderId,
+						session.id,
+						session.cloud,
+						descriptor.domain,
+					);
 					options?.isRejectedToken?.(session?.accessToken);
 				} else if (refetched?.id != null && refetched.id !== session.id) {
 					// The replacement belongs to a different connection (the cloud's primary moved to another
@@ -242,10 +298,19 @@ abstract class IntegrationAuthenticationProviderBase<
 						this.authProviderId,
 						{ ...descriptor, connectionId: refetched.id, cloud: true },
 						true,
-						{ preserveConfigured: true },
+						{
+							preserveConfigured: true,
+							signOutMark: signOutMark,
+							unobservedSince: signOutMark,
+							sync: authority,
+						},
 					);
 				}
 			}
+		}
+
+		if (session?.cloud && this.configuredIntegrationService.lastCloudLogout > signOutMark) {
+			throw new CancellationError();
 		}
 
 		if (previousToken !== session?.accessToken) {
@@ -396,6 +461,8 @@ export class CloudIntegrationAuthenticationProvider<
 			(!scopedToThisHost || Boolean(session.domain?.trim())) &&
 			!areDomainsOnSameHost(session.domain, descriptor.domain);
 
+		const fallbackId =
+			connectionId ?? this.configuredIntegrationService.resolveConnectionId(this.authProviderId, descriptor);
 		let session = await cloudIntegrations.getConnectionSession(this.authProviderId, undefined, connectionId);
 		if (isForAnotherHost(session)) return undefined;
 		if (options?.isRejectedToken != null && session?.id != null && session.id !== connectionId) return undefined;
@@ -442,10 +509,10 @@ export class CloudIntegrationAuthenticationProvider<
 			}
 		}
 
-		return {
+		const resolved: ProviderAuthenticationSession = {
 			// Prefer the backend's per-connection token id (multi-account); fall back to the resolved
 			// primary/legacy connection id so existing single-connection storage keys are preserved.
-			id: session.id ?? this.configuredIntegrationService.resolveConnectionId(this.authProviderId, descriptor),
+			id: session.id ?? fallbackId,
 			accessToken: session.accessToken,
 			scopes: descriptor.scopes,
 			account: {
@@ -473,6 +540,10 @@ export class CloudIntegrationAuthenticationProvider<
 			// Carried for providers whose client needs an app key alongside the token (e.g. Trello).
 			appKey: session.appKey,
 		};
+		if (connectionId == null) {
+			this.primaryResponses.set(resolved, session.id == null ? 'legacy' : 'named');
+		}
+		return resolved;
 	}
 
 	private async disconnectCloudSession(

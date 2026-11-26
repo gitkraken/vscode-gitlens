@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { defer } from '@gitlens/utils/promise.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { GitCloudHostIntegrationId, IssuesCloudHostIntegrationId } from '../constants.js';
@@ -87,7 +88,7 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 						}
 					: {
 							data: {
-								tokenId: path.split('/').pop(),
+								tokenId: path === 'v1/provider-tokens/github' ? 'tok1' : path.split('/').pop(),
 								accessToken: 'a',
 								expiresIn: 3600,
 								scopes: 'repo',
@@ -130,7 +131,7 @@ suite('createIntegrationManager — vertical-slice smoke', () => {
 						}
 					: {
 							data: {
-								tokenId: path.split('/').pop(),
+								tokenId: path === 'v1/provider-tokens/github' ? 'tok2' : path.split('/').pop(),
 								accessToken: 'a',
 								expiresIn: 3600,
 								scopes: 'repo',
@@ -288,6 +289,52 @@ suite('createIntegrationManager (public facade) — integration-object surface',
 });
 
 suite('ConfiguredIntegrationService.purgeStoredConfiguration — retired-id cleanup', () => {
+	for (const disposeAt of ['before the first lock', 'between providers']) {
+		test(`startup migration finishes both retired providers after disposal ${disposeAt}`, async () => {
+			const runtime = createFakeRuntime();
+			const retired = ['github-enterprise', 'gitlab-self-hosted'];
+			const host = 'old.example.com';
+			await runtime.storage.store(
+				'integrations:configured',
+				Object.fromEntries(
+					retired.map(id => [id, [{ integrationId: id, domain: host, cloud: false, scopes: 'repo' }]]),
+				),
+			);
+			for (const id of retired) {
+				await runtime.storage.storeSecret(`integration.auth:${id}|${host}`, '{}');
+				await runtime.storage.storeSecret(`integration.auth.cloud:${id}|${host}`, '{}');
+			}
+			const marker = 'integrations:migrated:cloudOnly';
+			const first = defer<void>();
+			const release = defer<void>();
+			const complete = defer<void>();
+			const store = runtime.storage.store;
+			runtime.storage.store = async (key, value) => {
+				await store(key, value);
+				if (key === 'integrations:configured' && disposeAt === 'between providers') {
+					first.fulfill();
+					await release.promise;
+				}
+				if (key === marker) {
+					complete.fulfill();
+				}
+			};
+			const manager = createIntegrationManager(runtime);
+			if (disposeAt === 'between providers') {
+				await first.promise;
+			}
+			manager.dispose();
+			assert.equal(runtime.storage.get(marker), undefined);
+			release.fulfill();
+			await complete.promise;
+			assert.deepEqual(runtime.storage.get('integrations:configured'), {});
+			for (const id of retired) {
+				assert.equal(await runtime.storage.getSecret(`integration.auth:${id}|${host}`), undefined);
+				assert.equal(await runtime.storage.getSecret(`integration.auth.cloud:${id}|${host}`), undefined);
+			}
+		});
+	}
+
 	test('deletes config, secrets, and connected flags for retired ids while leaving live ids intact', async () => {
 		const runtime = createFakeRuntime();
 		// Seed pre-cloud-only local self-managed state (the retired `github-enterprise` id) plus a live id.

@@ -294,6 +294,16 @@ export type {
 	WorkItemWriteTargetOptions,
 	WorkItemWriteTargetResult,
 } from './models/workItemWrites.js';
+export type {
+	CaptureRelationshipCurrency,
+	IssueRelationshipsOptions,
+	IssueRelationshipsResult,
+	IssueRelationshipWriteOptions,
+	IssueRelationshipWriteResult,
+	IssueRelationshipPin,
+	IssueRelationshipReceipt,
+	IssueRelationshipFailure,
+} from './models/issueRelationships.js';
 export type { IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
 export type {
 	PullRequestCreateCapabilityResult,

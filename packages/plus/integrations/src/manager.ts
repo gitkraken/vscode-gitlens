@@ -37,6 +37,13 @@ import type {
 	AzurePullRequestWriteTargetResult,
 } from './models/azurePullRequestWrites.js';
 import type {
+	CaptureRelationshipCurrency,
+	IssueRelationshipsOptions,
+	IssueRelationshipsResult,
+	IssueRelationshipWriteOptions,
+	IssueRelationshipWriteResult,
+} from './models/issueRelationships.js';
+import type {
 	IssueTrackerCreateOptions,
 	IssueTrackerCreateOptionsResult,
 	IssueTrackerDeleteOptions,
@@ -1296,6 +1303,16 @@ export interface IntegrationManager {
 		cursor?: string;
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>>;
+	getIssueRelationships(
+		options: IssueRelationshipsOptions,
+		isHostSessionCurrent?: () => boolean,
+		captureCurrency?: CaptureRelationshipCurrency,
+	): Promise<IssueRelationshipsResult>;
+	writeIssueRelationship(
+		options: IssueRelationshipWriteOptions,
+		isHostSessionCurrent?: () => boolean,
+		captureCurrency?: CaptureRelationshipCurrency,
+	): Promise<IssueRelationshipWriteResult>;
 	writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult>;
 	deleteIssue(options: IssueDeleteOptions): Promise<IssueWriteResult>;
 	resolveIssueWriteTarget(options: IssueWriteTargetOptions): Promise<IssueWriteTargetResult>;

@@ -1,17 +1,23 @@
 import { CancellationError } from '@gitlens/utils/cancellation.js';
+import type { Disposable } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
+import type { IntegrationIds } from '../constants.js';
 import { areDomainsOnSameHost, hostFromDomain } from '../utils/domain.utils.js';
+import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type {
 	GetSessionOptions,
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthenticationProvider.js';
-import type { ProviderAuthenticationSession, SessionPublication } from './models.js';
-import { getSessionIdentity } from './models.js';
+import type { ProviderAuthenticationSession, RelationshipSessionGuard, SessionPublication } from './models.js';
+import { getSessionIdentity, isSameAuthenticationSession, sessionExpiry } from './models.js';
 
 type Observation = {
 	request: number;
 	identity: string | undefined;
+	accountId?: string;
+	expiry: number;
+	tenure: number;
 	descriptorDomain: string;
 	actualDomain: string;
 	cloud: boolean | undefined;
@@ -22,6 +28,7 @@ type Observation = {
 
 type Issuance = {
 	mark: number;
+	logout: number;
 	claims: string[];
 	descriptor: IntegrationAuthenticationSessionDescriptor;
 };
@@ -57,15 +64,68 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 	private sequence = 0;
 	private globalRetirement = 0;
 	private disposed = false;
+	private hostChanges = 0;
+	private hostObserver?: Disposable;
 
 	constructor(
 		private readonly host: IntegrationAuthenticationProvider,
 		private readonly selfManaged: boolean,
 		private readonly publish: (publication: SessionPublication, domains: (string | undefined)[]) => void,
+		private readonly configured?: { id: IntegrationIds; store: ConfiguredIntegrationService },
 	) {}
 
 	get onDidChange(): Event<void> {
 		return this.host.onDidChange;
+	}
+
+	captureRelationshipSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+	): (session: ProviderAuthenticationSession) => RelationshipSessionGuard & { isRetired: () => boolean } {
+		if (this.disposed) throw new CancellationError();
+
+		if (this.hostObserver == null) {
+			const observer = this.host.onDidChange(() => this.hostChanges++);
+			if (this.disposed) {
+				observer.dispose();
+				throw new CancellationError();
+			}
+
+			this.hostObserver = observer;
+		}
+		const generation = this.hostChanges;
+		const request = this.sequence;
+		return session => {
+			const key = actualKey(session.domain || descriptor.domain, session.id, session.cloud);
+			const identity = getSessionIdentity(session);
+			const accountId = session.account?.id;
+			const tenure = this.credentials.get(key)?.tenure;
+			const isRetired = () => generation !== this.hostChanges || this.isRetired(request, descriptor, session);
+			const isCurrent = () => {
+				const latest = this.credentials.get(key);
+				return (
+					!isRetired() &&
+					latest != null &&
+					latest.tenure === tenure &&
+					latest.identity === identity &&
+					latest.accountId === accountId &&
+					latest.expiry > Date.now()
+				);
+			};
+			return {
+				isCurrent: isCurrent,
+				isRetired: isRetired,
+				verify: async () => {
+					if (!isCurrent()) return false;
+
+					const latest = await this.getSession(descriptor);
+					if (latest == null || !isSameAuthenticationSession(latest, session)) {
+						return false;
+					}
+
+					return isCurrent();
+				},
+			};
+		};
 	}
 
 	async getSession(
@@ -75,6 +135,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		if (this.disposed) return undefined;
 
 		const request = ++this.sequence;
+		const logout = this.configured?.store.lastCloudLogout ?? 0;
 		const scope = JSON.stringify([
 			descriptor.connectionId,
 			domainKey(descriptor.domain),
@@ -84,6 +145,9 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		const { isRejectedToken, ...hostOptions } = options ?? {};
 		const source = await this.host.getSession(descriptor, isRejectedToken == null ? options : hostOptions);
 		if (
+			(source?.cloud &&
+				this.configured?.store.hasCloudLogout &&
+				!(await this.configured.store.confirmHostCloudSession(this.configured.id, source, logout))) ||
 			(source != null && this.selfManaged && !areDomainsOnSameHost(descriptor.domain, source.domain)) ||
 			this.isRetired(request, descriptor, source)
 		) {
@@ -103,7 +167,11 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		const credential = sessionKey == null ? undefined : this.credentials.get(sessionKey);
 		const latest =
 			credential != null && (previous == null || credential.request > previous.request) ? credential : previous;
-		if (latest != null && latest.request > request && latest.identity !== identity) {
+		if (
+			latest != null &&
+			latest.request > request &&
+			(latest.identity !== identity || (isRejectedToken != null && latest.accountId !== source?.account?.id))
+		) {
 			isRejectedToken?.(undefined);
 			throw new CancellationError();
 		}
@@ -143,14 +211,39 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 					witness: witness,
 				});
 			}
-			if (session != null) {
-				this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
-			}
-		} else if (session != null && claims.every(claim => this.claimWitnesses.get(claim)?.witness === witness)) {
-			this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
+		}
+		if (session != null && claims.every(claim => this.claimWitnesses.get(claim)?.witness === witness)) {
+			this.issuances.set(session, {
+				mark: this.sequence,
+				logout: logout,
+				claims: claims,
+				descriptor: descriptor,
+			});
 		}
 
 		if (accepted) {
+			const observation: Observation = {
+				request: request,
+				identity: identity,
+				accountId: source?.account?.id,
+				expiry: sessionExpiry(source?.expiresAt),
+				tenure:
+					credential != null &&
+					credential.identity === identity &&
+					credential.accountId === source?.account?.id
+						? credential.tenure
+						: request,
+				descriptorDomain: descriptor.domain,
+				actualDomain: session?.domain || descriptor.domain,
+				cloud: session?.cloud ?? descriptor.cloud,
+				sessionKey: sessionKey,
+				sessionId: source?.id ?? latest?.sessionId ?? descriptor.connectionId,
+				connectionId: descriptor.connectionId,
+			};
+			this.observations.set(scope, observation);
+			if (sessionKey != null) {
+				this.credentials.set(sessionKey, observation);
+			}
 			if (previous == null || previous.identity !== identity || credential?.identity !== identity) {
 				this.publish(
 					{
@@ -163,21 +256,6 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 					[descriptor.domain, session?.domain, previous?.actualDomain],
 				);
 			}
-
-			const observation: Observation = {
-				request: request,
-				identity: identity,
-				descriptorDomain: descriptor.domain,
-				actualDomain: session?.domain || descriptor.domain,
-				cloud: session?.cloud ?? descriptor.cloud,
-				sessionKey: sessionKey,
-				sessionId: source?.id ?? latest?.sessionId ?? descriptor.connectionId,
-				connectionId: descriptor.connectionId,
-			};
-			this.observations.set(scope, observation);
-			if (sessionKey != null) {
-				this.credentials.set(sessionKey, observation);
-			}
 		}
 
 		return session;
@@ -189,6 +267,8 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		if (issuance == null) return () => true;
 
 		return () =>
+			(this.configured != null &&
+				(this.configured.store.getCloudDeparture(this.configured.id, session) ?? 0) > issuance.logout) ||
 			issuance.claims.some(claim => (this.claimWitnesses.get(claim)?.mark ?? 0) > issuance.mark) ||
 			this.isRetired(issuance.mark, issuance.descriptor, session);
 	}
@@ -222,6 +302,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		if (this.disposed) return;
 
 		this.disposed = true;
+		this.hostObserver?.dispose();
 		this.retireAll();
 		this.host.dispose();
 	}

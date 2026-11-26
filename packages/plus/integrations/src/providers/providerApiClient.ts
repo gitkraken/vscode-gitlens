@@ -19,7 +19,7 @@ export function createProviderApiRequest(
 					...options,
 					headers: { ...(userAgent != null ? { 'User-Agent': userAgent } : {}), ...options.headers },
 				});
-				return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers));
+				return parseFetchResponseForApi<T>(response, () => hasAuthorization(options.headers), url);
 			});
 		} catch (ex) {
 			throw markRequestError(ex, { url: url, method: options.method });
@@ -30,15 +30,10 @@ export function createProviderApiRequest(
 export async function parseFetchResponseForApi<T>(
 	response: Response,
 	sentCredential?: () => boolean,
+	requestUrl = response.url,
 ): Promise<ProviderRequestResponse<T>> {
-	// Media types are case-insensitive (RFC 9110 §8.3.1) and `fetch` hands the header back exactly as the server
-	// wrote it, so match on a lowercased copy rather than the raw value.
 	const contentType = (response.headers.get('content-type') || '').toLowerCase();
 
-	// A credential the server served as the anonymous user was rejected, whatever the body says; reading it as data
-	// reports an account with nothing in it (see `AnonymousResponseError`). Checked before the body is parsed, which
-	// may itself fail. A 401 already fails as the credential's rejection, with its body, and a throttle or a server
-	// failure keeps its own error: neither proves anything about the credential.
 	if (
 		response.status !== 401 &&
 		response.status !== 429 &&
@@ -46,7 +41,6 @@ export async function parseFetchResponseForApi<T>(
 		getAuthenticatedUser(response.headers) === 'anonymous' &&
 		sentCredential?.() === true
 	) {
-		// Released rather than left for the collector: an unread body holds its connection.
 		void response.body?.cancel().catch(() => undefined);
 		throw new AnonymousResponseError(response.status, {
 			headers: Object.fromEntries(response.headers.entries()),
@@ -57,42 +51,54 @@ export async function parseFetchResponseForApi<T>(
 	let body;
 	let servedHtml = false;
 
-	// parse the response body
-	if (contentType.startsWith('application/json')) {
-		const text = await response.text();
-		// A sign-in page a server mislabels as JSON is the same page under another header, and `<` can never open
-		// valid JSON — so recognize it rather than letting JSON.parse throw a SyntaxError carrying no status.
-		if (text.trimStart().startsWith('<')) {
-			servedHtml = true;
-			body = text;
+	const headers = Object.fromEntries(response.headers.entries());
+	try {
+		if (!response.ok && requestUrl === 'https://api.github.com/graphql') {
+			// KEEP: GraphQL execution evidence can arrive with a missing or incorrect media type.
+			body = await response.json();
+			if (body == null || typeof body !== 'object' || Array.isArray(body)) {
+				throw new Error('Expected a GitHub GraphQL response object.');
+			}
+		} else if (contentType.startsWith('application/json')) {
+			const text = await response.text();
+			if (text.trimStart().startsWith('<')) {
+				servedHtml = true;
+				body = text;
+			} else {
+				body = text.trim().length > 0 ? JSON.parse(text) : null;
+			}
+		} else if (contentType.startsWith('text/') || contentType === '') {
+			body = await response.text();
+			servedHtml = contentType.startsWith('text/html') && body.trim().length > 0;
+		} else if (contentType.startsWith('application/vnd.github.raw+json')) {
+			body = await response.arrayBuffer();
 		} else {
-			body = text.trim().length > 0 ? JSON.parse(text) : null;
+			void response.body?.cancel().catch(() => undefined);
+			throw new Error(`Unsupported content-type: ${contentType}`);
 		}
-	} else if (contentType.startsWith('text/') || contentType === '') {
-		body = await response.text();
-		// An empty body is never a sign-in page, and a write answering `204` can carry a stale `text/html` from
-		// whatever its endpoint usually returns — so require actual markup, not just the header.
-		servedHtml = contentType.startsWith('text/html') && body.trim().length > 0;
-	} else if (contentType.startsWith('application/vnd.github.raw+json')) {
-		body = await response.arrayBuffer();
-	} else {
-		throw new Error(`Unsupported content-type: ${contentType}`);
+	} catch (ex) {
+		if (response.ok) throw ex;
+
+		const retryAfter = response.status === 403 ? response.headers.get('retry-after') : null;
+		throw Object.assign(new Error(`(${response.status}) Unable to decode the provider response.`), {
+			statusCode: response.status,
+			...(retryAfter != null && {
+				response: { status: response.status, headers: { 'retry-after': retryAfter } },
+			}),
+		});
 	}
 
 	const result = {
 		body: body,
-		headers: Object.fromEntries(response.headers.entries()),
+		headers: headers,
 		status: response.status,
 		statusText: response.statusText,
 	};
 
-	// A 2xx carrying a page rather than data is a rejected credential wearing a success status (GKDEV-3617); a
-	// non-2xx keeps its own status error below, which is the better diagnostic.
 	if (response.ok && servedHtml) {
 		throw new UnexpectedHtmlResponseError(response.status, contentType, result);
 	}
 
-	// throw an error if the response is not ok
 	if (!response.ok) {
 		const status = `(${response.status})${response.statusText ? ` ${response.statusText}` : ''}.`;
 		const detail = getProviderResponseBodyMessage(body);

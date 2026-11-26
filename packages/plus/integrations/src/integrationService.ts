@@ -25,8 +25,10 @@ import { fromDisposables } from '@gitlens/utils/disposable.js';
 import type { Event } from '@gitlens/utils/event.js';
 import { Emitter } from '@gitlens/utils/event.js';
 import { filterMap, flatten } from '@gitlens/utils/iterable.js';
+import { Logger } from '@gitlens/utils/logger.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
+import type { CloudIntegrationSync } from './authentication/cloudIntegrationObservations.js';
 import { CloudIntegrationService } from './authentication/cloudIntegrationService.js';
 import type { ConfiguredIntegrationsChangeEvent } from './authentication/configuredIntegrationService.js';
 import { ConfiguredIntegrationService } from './authentication/configuredIntegrationService.js';
@@ -88,6 +90,13 @@ import type {
 } from './models/azurePullRequestWrites.js';
 import type { GitHostIntegration } from './models/gitHostIntegration.js';
 import type { Integration, IntegrationBase, IntegrationById } from './models/integration.js';
+import type {
+	CaptureRelationshipCurrency,
+	IssueRelationshipsOptions,
+	IssueRelationshipsResult,
+	IssueRelationshipWriteOptions,
+	IssueRelationshipWriteResult,
+} from './models/issueRelationships.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
 import type {
 	IssueTrackerCreateOptions,
@@ -270,6 +279,15 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					integration.onSessionsRemoving(connectionId, cloud);
 				}
 			}),
+			configuredIntegrationService.onCloudLogout(departing => {
+				this.cloudSyncQueue = Promise.resolve();
+				for (const connection of departing) {
+					this.getCachedForDomain(connection.integrationId, connection.domain)?.onCloudConnectionRetired(
+						connection.id,
+						connection.retained,
+					);
+				}
+			}),
 			ctx.config.onDidChange(e => {
 				if (e.remotes) {
 					this._ignoreSSLErrors.clear();
@@ -406,16 +424,23 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		let integration = this.getCached(id, domain);
 		if (integration == null) {
 			switch (id) {
-				case GitCloudHostIntegrationId.GitHub:
-					integration = new (
-						await import(/* webpackChunkName: "integrations" */ './providers/github.js')
-					).GitHubIntegration(
+				case GitCloudHostIntegrationId.GitHub: {
+					const { GitHubIntegration } = await import(
+						/* webpackChunkName: "integrations" */ './providers/github.js'
+					);
+					if (this._disposed) throw new CancellationError();
+
+					const cached = this.getCached(id);
+					if (cached != null) return cached;
+
+					integration = new GitHubIntegration(
 						this.ctx,
 						this.authenticationService,
 						this.getProvidersApi.bind(this),
 						this._onDidChangeIntegrationConnection,
 					);
 					break;
+				}
 
 				case GitSelfManagedHostIntegrationId.CloudGitHubEnterprise:
 					if (domain == null) {
@@ -1807,6 +1832,65 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		}
 	}
 
+	async getIssueRelationships(
+		options: IssueRelationshipsOptions,
+		isHostSessionCurrent?: () => boolean,
+		captureCurrency?: CaptureRelationshipCurrency,
+	): Promise<IssueRelationshipsResult> {
+		if (options == null) return { ok: false, reason: 'invalid-input' };
+
+		const input = structuredClone(options);
+		const target = await this.getIssueRelationshipConnection(input, isHostSessionCurrent);
+		return target.ok ? target.integration.getIssueRelationships(input, target.isCurrent, captureCurrency) : target;
+	}
+
+	async writeIssueRelationship(
+		options: IssueRelationshipWriteOptions,
+		isHostSessionCurrent?: () => boolean,
+		captureCurrency?: CaptureRelationshipCurrency,
+	): Promise<IssueRelationshipWriteResult> {
+		if (options == null) {
+			return { ok: false, reason: 'invalid-input', mutationDispatched: false, outcome: 'not-sent' };
+		}
+
+		const input = structuredClone(options);
+		if (input.action === 'add' && input.replaceParent !== undefined && !input.expectedConnectionProof) {
+			return { ok: false, reason: 'invalid-input', mutationDispatched: false, outcome: 'not-sent' };
+		}
+
+		const target = await this.getIssueRelationshipConnection(input, isHostSessionCurrent);
+		return target.ok
+			? target.integration.writeIssueRelationship(input, target.isCurrent, captureCurrency)
+			: { ...target, mutationDispatched: false, outcome: 'not-sent' };
+	}
+
+	private async getIssueRelationshipConnection(
+		options: Pick<IssueRelationshipsOptions, 'providerId' | 'connectionId' | 'expectedLogin'>,
+		isHostSessionCurrent?: () => boolean,
+	) {
+		if (options.providerId !== GitCloudHostIntegrationId.GitHub) {
+			return { ok: false, reason: 'unsupported' } as const;
+		}
+
+		const selectionCurrent = await this.configuredIntegrationService.captureConfiguredConnection(
+			options.providerId,
+			options.connectionId,
+		);
+		const target = await this.getGitHubWriteConnection(options, 'issue');
+		if (this._disposed) return { ok: false, reason: 'no-connection' } as const;
+		if (!target.ok) return target;
+		if (!selectionCurrent?.()) return { ok: false, reason: 'no-connection' } as const;
+		if (target.integration.id !== GitCloudHostIntegrationId.GitHub) {
+			return { ok: false, reason: 'unsupported' } as const;
+		}
+
+		return {
+			ok: true,
+			integration: target.integration,
+			isCurrent: () => selectionCurrent() && (isHostSessionCurrent == null || isHostSessionCurrent()),
+		} as const;
+	}
+
 	async writeIssue(options: IssueWriteOptions): Promise<IssueWriteResult> {
 		if (options?.action !== 'create' && options?.action !== 'edit' && options?.action !== 'set-state') {
 			return { ok: false, reason: 'invalid-input' };
@@ -2128,10 +2212,20 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 	}
 
 	private async onSubscriptionChanged() {
-		// When the account goes away, disconnect all connected cloud integrations. Mirrors the host's
-		// historical `account == null` check (the host forwards `onDidChange` without a payload).
+		const mark = this.configuredIntegrationService.beginCloudSync();
 		if ((await this.ctx.account.getAccount()) == null) {
-			void this.syncCloudIntegrations(false);
+			try {
+				await this.retireCloudAccount(mark);
+			} catch (ex) {
+				Logger.error(ex, 'IntegrationService.onSubscriptionChanged');
+			}
+		}
+	}
+
+	private async retireCloudAccount(mark: number): Promise<void> {
+		const logout = await this.configuredIntegrationService.retireCloudAccount(mark);
+		if (!this._disposed && logout?.isCurrent()) {
+			this.ctx.hooks?.connection?.onConnectedChanged?.({ integrationIds: [] });
 		}
 	}
 
@@ -2326,82 +2420,113 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		return primaryByDomain;
 	}
 
+	private cloudSyncQueue: Promise<void> = Promise.resolve();
+
+	private syncCloudIntegrations(forceConnect: boolean): Promise<Set<IntegrationIds> | undefined> {
+		return this.queueCloudSync(forceConnect, this.configuredIntegrationService.lastCloudLogout);
+	}
+
 	@gate()
+	private queueCloudSync(forceConnect: boolean, lastLogout: number): Promise<Set<IntegrationIds> | undefined> {
+		const result = this.cloudSyncQueue.then(() =>
+			this.configuredIntegrationService.lastCloudLogout === lastLogout
+				? this.syncCloudIntegrationsCore(forceConnect)
+				: undefined,
+		);
+		this.cloudSyncQueue = result.then(
+			() => {},
+			() => {},
+		);
+		return result;
+	}
+
 	@trace()
-	private async syncCloudIntegrations(forceConnect: boolean): Promise<Set<IntegrationIds> | undefined> {
+	private async syncCloudIntegrationsCore(forceConnect: boolean): Promise<Set<IntegrationIds> | undefined> {
 		const scope = getScopedLogger();
 		const connectedIntegrations = new Set<IntegrationIds>();
 		const domainsById = new Map<IntegrationIds, Set<string>>();
 		const connectionsById = new Map<IntegrationIds, CloudIntegrationConnection[]>();
 
-		const loggedIn = (await this.ctx.account.getAccount()) != null;
-		if (loggedIn) {
-			const connections = await this.authenticationService.cloudIntegrations.getConnections();
-			if (connections == null) return;
+		const listMark = this.configuredIntegrationService.beginCloudSync();
+		const account = await this.ctx.account.getAccount();
+		if (this._disposed) return;
+		if (account == null) {
+			await this.retireCloudAccount(listMark);
+			return connectedIntegrations;
+		}
 
-			for (const p of connections) {
-				const integrationId = toIntegrationId[p.provider];
-				// GKDev includes some integrations like "google" that we don't support
-				if (integrationId == null) continue;
+		const connections = await this.authenticationService.cloudIntegrations.getConnections();
+		if (connections == null) return;
 
-				connectedIntegrations.add(integrationId);
+		for (const p of connections) {
+			const integrationId = toIntegrationId[p.provider];
+			if (integrationId == null) continue;
 
-				const list = connectionsById.get(integrationId);
-				if (list != null) {
-					list.push(p);
-				} else {
-					connectionsById.set(integrationId, [p]);
-				}
+			connectedIntegrations.add(integrationId);
 
-				if (p.domain?.length > 0) {
-					const host = hostFromDomain(p.domain);
-					if (host != null) {
-						let domains = domainsById.get(integrationId);
-						if (domains == null) {
-							domains = new Set<string>();
-							domainsById.set(integrationId, domains);
-						}
-						domains.add(host);
-					} else {
-						scope?.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`);
+			const list = connectionsById.get(integrationId);
+			if (list != null) {
+				list.push(p);
+			} else {
+				connectionsById.set(integrationId, [p]);
+			}
+
+			if (p.domain?.length > 0) {
+				const host = hostFromDomain(p.domain);
+				if (host != null) {
+					let domains = domainsById.get(integrationId);
+					if (domains == null) {
+						domains = new Set<string>();
+						domainsById.set(integrationId, domains);
 					}
+					domains.add(host);
+				} else {
+					scope?.warn(`Invalid domain for ${integrationId} integration: ${p.domain}. Ignoring.`);
 				}
 			}
 		}
 
-		// Concurrent, not serial: each `syncCloudConnection` is a cloud round trip (a forced sync deletes the
-		// stored session and refetches it), so a serial loop pays the SUM of every provider's latency on a
-		// path that gates EVERY provider read. `reconcileCloudConnections` below is already `Promise.all`.
-		//
-		// Safe because every shared mutable path is already serialized, which is why this can be a plain
-		// fan-out rather than needing per-provider grouping:
-		// - `ensureProvider` is `@gate()`d on `providerId`, so the two integrations a multi-host
-		//   self-managed id yields (one per domain, see `getSupportedCloudIntegrations`) share one
-		//   in-flight construction instead of racing to `providers.set`.
-		// - `ensureSession` is `@gate()`d per integration instance.
-		// - `addOrUpdateConfigured`/`removeConfigured` mutate `configured` in a synchronous critical
-		//   section (no `await` between read and `set`), and `storeConfigured` has its own write queue.
-		// - Secrets and the `connected:` workspace flags are keyed by integration id + domain.
+		if ((await this.ctx.account.getAccount())?.id !== account.id || this._disposed) return;
+
+		const authority = await this.configuredIntegrationService.acceptCloudSync(listMark, connectionsById);
+		const currentConnections = () =>
+			new Set(
+				this.configuredIntegrationService.getConfigured(undefined, { cloud: true }).map(c => c.integrationId),
+			);
+		if (authority == null) return currentConnections();
+
 		const integrations: Integration[] = [];
 		for await (const integration of this.getSupportedCloudIntegrations(domainsById)) {
 			integrations.push(integration);
 		}
+		if (!authority.isCurrent()) return currentConnections();
+
 		await Promise.all(
 			integrations.map(integration =>
-				integration.syncCloudConnection(
+				integration.syncListedCloudConnection(
 					this.getCloudConnectionState(integration, connectedIntegrations, domainsById),
 					forceConnect,
+					authority,
 				),
 			),
 		);
+		if (!authority.isCurrent()) return currentConnections();
 
 		// Persist every account when the backend advertises per-connection identity (multi-account). This
 		// is a strict no-op for backends that return a single, id-less connection per provider.
 		await Promise.all(
 			Array.from(connectionsById, ([integrationId, connections]) =>
-				this.reconcileCloudConnections(integrationId, connections, forceConnect),
+				this.reconcileCloudConnections(integrationId, connections, forceConnect, authority),
 			),
 		);
+
+		if (!authority.isCurrent()) return currentConnections();
+
+		for (const integration of integrations) {
+			if (this.configuredIntegrationService.hasNewCloudConnection(integration.id, integration.domain, listMark)) {
+				connectedIntegrations.add(integration.id);
+			}
+		}
 
 		this.ctx.hooks?.connection?.onConnectedChanged?.({
 			integrationIds: [...connectedIntegrations.values()],
@@ -2429,6 +2554,7 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		id: IntegrationIds,
 		connections: CloudIntegrationConnection[],
 		forceConnect: boolean,
+		authority: CloudIntegrationSync,
 	): Promise<void> {
 		const scope = getScopedLogger();
 
@@ -2452,6 +2578,8 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		const existingById = new Map(
 			this.configuredIntegrationService.getConfigured(id, { cloud: true }).map(c => [c.id, c]),
 		);
+		const liveIds = new Set(identified.map(c => c.id));
+		const pruneCandidates = [...existingById.values()].filter(c => !liveIds.has(c.id));
 		// Hosts whose connection was re-pointed to a different address this cycle. Fetching and storing the new
 		// session is not enough on its own: a warm integration holds its own `_session`, so it would keep
 		// addressing the old path until something unrelated made it re-resolve.
@@ -2577,6 +2705,7 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 						id,
 						connection.id,
 						async () => {
+							const acquisitionMark = this.configuredIntegrationService.getStoredWriteMark();
 							const prepared = await fetchConnection();
 							if (prepared == null) return undefined;
 
@@ -2585,6 +2714,8 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 								prepared.providerSession,
 								{
 									signOutMark: signOutMark,
+									acquisitionMark: acquisitionMark,
+									sync: authority,
 									resource: prepared.resource,
 								},
 							);
@@ -2603,12 +2734,14 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		// The remote work above is independent, but session persistence remains ordered because storage
 		// implementations may update a shared configured-connections collection with read-modify-write.
 		for (const prepared of preparedConnections) {
+			if (!authority.isCurrent()) return;
 			if (prepared == null) continue;
 
 			if (
 				prepared.kind === 'fetched' &&
 				!(await this.configuredIntegrationService.storeSession(id, prepared.providerSession, {
 					signOutMark: signOutMark,
+					sync: authority,
 					resource: prepared.resource,
 				}))
 			) {
@@ -2634,23 +2767,27 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		// Scope deletes to cloud so a local PAT sharing the id survives.
 		const prunedDomains = new Set<string | undefined>();
 		if ([...syncEligibleIds].every(connectionId => syncedIds.has(connectionId))) {
-			const liveIds = new Set(identified.map(c => c.id));
-			for (const descriptor of this.configuredIntegrationService.getConfigured(id, { cloud: true })) {
-				if (!liveIds.has(descriptor.id)) {
+			for (const descriptor of pruneCandidates) {
+				const removed = await this.configuredIntegrationService.deleteStoredSessions(
+					id,
+					{ connectionId: descriptor.id, domain: descriptor.domain ?? '', cloud: true, scopes: [] },
+					true,
+					{ unobservedSince: authority.mark, sync: authority },
+				);
+				if (removed) {
 					prunedDomains.add(isSelfManagedHostIntegrationId(id) ? descriptor.domain : undefined);
-					await this.configuredIntegrationService.deleteConnection(id, descriptor.id, true);
 				}
 			}
 		}
 
-		// Apply the backend's primary selection, then refresh any warm model only when the effective primary
-		// actually changed (vs the pre-reconcile value captured above). switchConnection() drops the in-memory
-		// session and fires change events, so calling it on every check-in (when the primary is unchanged)
-		// causes needless churn for multi-account providers. Self-managed providers can have one primary per
-		// host, so apply and refresh by host scope rather than by provider id alone.
-		for (const connectionId of syncedPrimaryIdsByDomain.values()) {
-			await this.configuredIntegrationService.setPrimaryConnection(id, connectionId);
+		for (const [domain, connectionId] of syncedPrimaryIdsByDomain) {
+			await this.configuredIntegrationService.setPrimaryConnection(id, connectionId, {
+				sync: authority,
+				domain: domain,
+			});
 		}
+		if (!authority.isCurrent()) return;
+
 		const primaryAfter = this.getCloudPrimaryConnectionIdsByDomain(id);
 		const domains = new Set<string | undefined>(primaryBefore.keys());
 		for (const domain of primaryAfter.keys()) {

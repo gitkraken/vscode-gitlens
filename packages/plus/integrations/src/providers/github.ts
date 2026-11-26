@@ -1,3 +1,4 @@
+import type { GitHubIssueRelationshipOptions } from '@gitkraken/provider-apis/providers';
 import { aliasedQueryChunkSize } from '@gitlens/git-github/api/aliasedQuery.js';
 import type { GitHubApi } from '@gitlens/git-github/api/github.js';
 import type { GitHubIssueMutation, IssueWriteResult } from '@gitlens/git-github/api/issueWrites.js';
@@ -53,12 +54,15 @@ import { getGitHubNoReplyAddressParts } from '@gitlens/git/remotes/github.js';
 import type { PullRequestUrlIdentity } from '@gitlens/git/utils/pullRequest.utils.js';
 import { parseGitRemoteUrl } from '@gitlens/git/utils/remote.utils.js';
 import { chunk } from '@gitlens/utils/array.js';
+import { isCancellationError } from '@gitlens/utils/cancellation.js';
+import { uuid } from '@gitlens/utils/crypto.js';
 import type { Emitter } from '@gitlens/utils/event.js';
 import { batch, mapBounded, mapSettledBounded } from '@gitlens/utils/promise.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
 import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
-import type { ProviderAuthenticationSession } from '../authentication/models.js';
-import { getSessionIdentity, toTokenWithInfo } from '../authentication/models.js';
+import type { ProviderAuthenticationSession, RelationshipSessionGuard } from '../authentication/models.js';
+import { getSessionIdentity, isSameAuthenticationSession, toTokenWithInfo } from '../authentication/models.js';
+import { ObservedAuthenticationProvider } from '../authentication/observedAuthenticationProvider.js';
 import type { ProviderRefusal } from '../collectionMetadata.js';
 import { toCollectionScopeFailure } from '../collectionMetadata.js';
 import { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -74,6 +78,15 @@ import type {
 	SearchMyIssuesOptions,
 } from '../models/integration.js';
 import type {
+	CaptureRelationshipCurrency,
+	IssueRelationshipConnection,
+	IssueRelationshipFailure,
+	IssueRelationshipsOptions,
+	IssueRelationshipsResult,
+	IssueRelationshipWriteOptions,
+	IssueRelationshipWriteResult,
+} from '../models/issueRelationships.js';
+import type {
 	IntegrationCacheDescriptor,
 	SearchMyPullRequestsOptions,
 	SearchPullRequestsOptions,
@@ -86,7 +99,7 @@ import type {
 } from '../reads/etag.js';
 import { pullRequestCheckRunsEtag } from '../reads/etag.js';
 import type { ProviderWarningCause } from '../results.js';
-import { areDomainsOnSameHostname, isWebRemoteScheme } from '../utils/domain.utils.js';
+import { areDomainsOnSameHostname, isWebRemoteScheme, matchesInstallationOrigin } from '../utils/domain.utils.js';
 import { getGitHubEnterprisePullRequestWriteOrigin } from '../utils/integration.utils.js';
 import type { GitHubIntegrationIds } from './github/github.utils.js';
 import { getGitHubPullRequestIdentityFromMaybeUrl } from './github/github.utils.js';
@@ -1870,6 +1883,18 @@ abstract class GitHubIntegrationBase<ID extends GitHubIntegrationIds> extends Gi
 	}
 }
 
+function isSelectedRelationshipSession(
+	session: ProviderAuthenticationSession | undefined,
+	connectionId: string,
+): session is ProviderAuthenticationSession {
+	return (
+		session?.id === connectionId &&
+		Boolean(session.accessToken) &&
+		matchesInstallationOrigin(session.domain, 'https://github.com') &&
+		(session.baseUrl == null || matchesInstallationOrigin(session.baseUrl, 'https://github.com'))
+	);
+}
+
 export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegrationId.GitHub> {
 	readonly authProvider = authProvider;
 	readonly id = GitCloudHostIntegrationId.GitHub;
@@ -1877,6 +1902,210 @@ export class GitHubIntegration extends GitHubIntegrationBase<GitCloudHostIntegra
 	readonly name: string = 'GitHub';
 	get domain(): string {
 		return metadata.domain;
+	}
+
+	private readonly relationshipCredentials = new Map<
+		string,
+		{ proof: string; session: ProviderAuthenticationSession; guard: RelationshipSessionGuard }
+	>();
+
+	override dispose(): void {
+		this.relationshipCredentials.clear();
+		super.dispose();
+	}
+
+	getIssueRelationships(
+		options: IssueRelationshipsOptions,
+		isHostSessionCurrent?: () => boolean,
+		captureCurrency?: CaptureRelationshipCurrency,
+	): Promise<IssueRelationshipsResult> {
+		return this.withRelationshipSession(
+			options,
+			false,
+			isHostSessionCurrent,
+			captureCurrency,
+			async (api, credentials, proof) => {
+				const result = await api.getIssueRelationships(options, credentials);
+				return result.ok ? { ...result, connectionProof: proof } : result;
+			},
+		);
+	}
+
+	writeIssueRelationship(
+		options: IssueRelationshipWriteOptions,
+		isHostSessionCurrent?: () => boolean,
+		captureCurrency?: CaptureRelationshipCurrency,
+	): Promise<IssueRelationshipWriteResult> {
+		return this.withRelationshipSession(options, true, isHostSessionCurrent, captureCurrency, (api, credentials) =>
+			api.writeIssueRelationship(options, credentials),
+		);
+	}
+
+	private async withRelationshipSession<T extends IssueRelationshipsResult | IssueRelationshipWriteResult>(
+		options: IssueRelationshipConnection,
+		write: boolean,
+		isHostSessionCurrent: (() => boolean) | undefined,
+		captureCurrency: CaptureRelationshipCurrency | undefined,
+		run: (
+			api: ProvidersApi['githubRelationships'],
+			credentials: GitHubIssueRelationshipOptions,
+			proof: string,
+		) => Promise<T>,
+	): Promise<T | IssueRelationshipFailure> {
+		const notSent = write ? ({ mutationDispatched: false, outcome: 'not-sent' } as const) : {};
+		const disconnected = { ok: false, reason: 'no-connection', ...notSent } as const;
+		const { connectionId, expectedLogin } = options;
+		const credential = await this.getRelationshipCredential(options).catch((ex: unknown) =>
+			isCancellationError(ex) ? undefined : issueWriteFailure(ex),
+		);
+		if (credential == null) return disconnected;
+		if ('reason' in credential) return { ...credential, ...notSent };
+
+		const isCurrent = () =>
+			credential.guard.isCurrent() &&
+			(isHostSessionCurrent == null || isHostSessionCurrent()) &&
+			this.isIntegrationAccessEnabled() &&
+			this.relationshipCredentials.get(connectionId) === credential;
+		const isSessionCurrent = async () => isCurrent() && (await credential.guard.verify()) && isCurrent();
+		let unauthorized = false;
+		const onUnauthorized = () => {
+			unauthorized = true;
+		};
+		const token = credential.session.accessToken;
+		let sdkStarted = false;
+		let result: T | IssueRelationshipFailure;
+		try {
+			const api = (await this.getProvidersApi()).githubRelationships;
+			if (!(await isSessionCurrent()) || !isCurrent()) return disconnected;
+
+			captureCurrency?.(isCurrent);
+			const viewerFailure =
+				expectedLogin === undefined
+					? undefined
+					: await this.checkRelationshipLogin(credential.session, expectedLogin, isCurrent, onUnauthorized);
+
+			if (viewerFailure != null) {
+				result = { ok: false, reason: viewerFailure, ...notSent };
+			} else if ((expectedLogin === undefined || (await isSessionCurrent())) && isCurrent()) {
+				sdkStarted = true;
+				result = await run(
+					api,
+					{
+						token: token,
+						isSessionCurrent: isSessionCurrent,
+						isSessionCurrentNow: isCurrent,
+						onUnauthorized: onUnauthorized,
+					},
+					credential.proof,
+				);
+			} else {
+				result = disconnected;
+			}
+		} catch (ex) {
+			result =
+				sdkStarted && write
+					? { ok: false, reason: 'unknown', outcome: 'unconfirmed' }
+					: { ...issueWriteFailure(ex), ...notSent };
+		}
+
+		const verified = await isSessionCurrent().catch((ex: unknown) =>
+			isCancellationError(ex) ? false : issueWriteFailure(ex),
+		);
+		const current = isCurrent();
+		if (verified !== true || !current) {
+			const lookupFailure = current && typeof verified === 'object' ? verified : undefined;
+			if (lookupFailure != null && !result.ok) {
+				return unauthorized && !write ? { ...result, reason: 'no-connection' } : result;
+			}
+			if (!write || !sdkStarted) return lookupFailure != null ? { ...lookupFailure, ...notSent } : disconnected;
+			if (!result.ok) {
+				return result.mutationDispatched === false ? { ...result, reason: 'no-connection' } : result;
+			}
+
+			return {
+				ok: false,
+				reason: lookupFailure?.reason ?? 'unknown',
+				outcome: 'unconfirmed',
+				...('previousParent' in result &&
+					result.previousParent != null &&
+					({ phase: 'attach', detached: true } as const)),
+			};
+		}
+
+		if (unauthorized) {
+			this.handleConnectionAuthenticationRejection(connectionId, true, token);
+			if (!result.ok) return { ...result, reason: 'no-connection' };
+		}
+		return result;
+	}
+
+	private async checkRelationshipLogin(
+		session: ProviderAuthenticationSession,
+		expectedLogin: string,
+		isCurrent: () => boolean,
+		onUnauthorized: () => void,
+	): Promise<IssueRelationshipFailure['reason'] | undefined> {
+		const github = await this.authenticationService.apis.github;
+		if (github == null) return 'unsupported';
+		if (!isCurrent()) return 'no-connection';
+
+		const login = await github.getWriteViewer(this, toTokenWithInfo(this.id, session), undefined, onUnauthorized);
+		if (!login) return 'unknown';
+		return login.toLowerCase() === expectedLogin.toLowerCase() ? undefined : 'no-connection';
+	}
+
+	private async getRelationshipCredential({ connectionId, expectedConnectionProof }: IssueRelationshipConnection) {
+		const selectionCurrent = await this.authenticationService.captureConfiguredConnection(this.id, connectionId);
+		if (!selectionCurrent?.()) return undefined;
+
+		const cached = this.relationshipCredentials.get(connectionId);
+		if (expectedConnectionProof != null && cached?.proof !== expectedConnectionProof) return undefined;
+
+		const provider = await this.authenticationService.get(this.id);
+		const descriptor = { ...this.authProviderDescriptor, connectionId: connectionId, cloud: true };
+		const observe =
+			provider instanceof ObservedAuthenticationProvider
+				? provider.captureRelationshipSession(descriptor)
+				: undefined;
+		let session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+		if (!isSelectedRelationshipSession(session, connectionId)) return undefined;
+
+		if (
+			cached?.guard.isCurrent() &&
+			isSameAuthenticationSession(cached.session, session) &&
+			(await cached.guard.verify())
+		) {
+			return cached;
+		}
+		if (expectedConnectionProof != null) return undefined;
+
+		let observed = observe?.(session);
+		if (observed?.isRetired() && provider instanceof ObservedAuthenticationProvider) {
+			const accountId = session.account.id;
+			const capture = provider.captureRelationshipSession(descriptor);
+			session = await this.resolveReadSessionOrThrow(connectionId, undefined);
+			if (!isSelectedRelationshipSession(session, connectionId) || session.account.id !== accountId) {
+				return undefined;
+			}
+
+			observed = capture(session);
+		}
+		const guard =
+			observed == null
+				? await this.authenticationService.trackStoredRelationshipSession(this.id, session)
+				: { isCurrent: () => selectionCurrent() && observed.isCurrent(), verify: observed.verify };
+		if (!selectionCurrent() || !guard?.isCurrent()) return undefined;
+
+		const latest = this.relationshipCredentials.get(connectionId);
+		if (latest !== cached) {
+			return latest?.guard.isCurrent() && isSameAuthenticationSession(latest.session, session)
+				? latest
+				: undefined;
+		}
+
+		const credential = { proof: uuid(), session: session, guard: guard };
+		this.relationshipCredentials.set(connectionId, credential);
+		return credential;
 	}
 
 	protected override apiBaseUrlFor(_session: ProviderAuthenticationSession): string | undefined {

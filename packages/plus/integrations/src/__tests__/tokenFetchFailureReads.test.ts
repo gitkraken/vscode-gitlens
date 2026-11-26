@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { AuthenticationError, AuthenticationErrorReason, RequestRateLimitError } from '@gitlens/git/errors.js';
 import { CancellationError } from '@gitlens/utils/cancellation.js';
+import { defer } from '@gitlens/utils/promise.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import type { IntegrationIds } from '../constants.js';
@@ -989,6 +990,52 @@ suite('per-connection reads when the GK API cannot hand back the token (kepler#3
 		);
 		configured.dispose();
 	});
+
+	for (const change of ['disposal', 'replacement', 'disposal and replacement']) {
+		test(`a pending cloud refresh cannot publish after ${change}`, async () => {
+			const { runtime } = createRuntime(() => 200);
+			await seedConnection(runtime, { expired: false });
+			const first = createIntegrationManager(runtime);
+			const integration = await first.get(gitHub.integrationId);
+			assert.ok(integration && (await integration.isConnected()));
+			const entered = defer<void>();
+			const release = defer<void>();
+			runtime.account.fetchGkApi = async () => {
+				entered.fulfill();
+				await release.promise;
+				return tokenResponse('late-refresh');
+			};
+			const pending = integration.syncCloudConnection('connected', true);
+			await entered.promise;
+			if (change.includes('disposal')) {
+				first.dispose();
+			}
+			const second = createIntegrationManager(runtime);
+			const configured = new ConfiguredIntegrationService(runtime);
+			const expected = change === 'disposal' ? 'token-stored' : 'successor';
+			if (change.includes('replacement')) {
+				await configured.storeSession(gitHub.integrationId, {
+					...primarySessionFor(gitHub),
+					accessToken: expected,
+				});
+			}
+			release.fulfill();
+			if (change.includes('disposal')) {
+				await assert.rejects(pending, CancellationError);
+			} else {
+				await pending;
+			}
+			const successor = await second.get(gitHub.integrationId);
+			assert.equal((await successor?.getSession('integrations'))?.accessToken, expected);
+			assert.equal(
+				(await configured.peekStoredSession(gitHub.integrationId, tokenId, true, gitHub.domain))?.accessToken,
+				expected,
+			);
+			first.dispose();
+			second.dispose();
+			configured.dispose();
+		});
+	}
 
 	test('a connection removed while its token is fetched is not stored back', async () => {
 		const { runtime } = createRuntime(() => 200, false, gitHubEnterprise);

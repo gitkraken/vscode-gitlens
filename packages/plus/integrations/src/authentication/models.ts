@@ -51,6 +51,25 @@ export type SessionPublication = {
 	readonly retireAll?: boolean;
 };
 
+export type RelationshipSessionGuard = {
+	isCurrent: () => boolean;
+	verify: () => Promise<boolean>;
+};
+
+export function sessionExpiry(value: Date | string | undefined): number {
+	if (value == null) return Infinity;
+
+	const time = new Date(value).getTime();
+	return Number.isNaN(time) ? 0 : time;
+}
+
+export function isSameAuthenticationSession(
+	first: ProviderAuthenticationSession,
+	second: ProviderAuthenticationSession,
+): boolean {
+	return getSessionIdentity(first) === getSessionIdentity(second) && first.account?.id === second.account?.id;
+}
+
 export function getSessionIdentity(
 	session:
 		| Partial<

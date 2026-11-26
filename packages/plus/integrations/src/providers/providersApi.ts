@@ -5,6 +5,7 @@ import type {
 	AzureWorkItemHtmlField,
 	AzureWorkItemTypeStates,
 	CollectionMetadata,
+	GitHub,
 	GitPullRequestState,
 	GraphQLError,
 	GraphQLErrors,
@@ -367,6 +368,7 @@ export interface AsanaTaskPageOptions {
 export class ProvidersApi implements Disposable {
 	private readonly providers: Providers;
 	private readonly request: ProviderRequestFunction;
+	readonly githubRelationships: Pick<GitHub, 'getIssueRelationships' | 'writeIssueRelationship'>;
 	private azureRestApi: AzureDevOps;
 	private readonly disposable: Disposable | undefined;
 	constructor(
@@ -377,6 +379,7 @@ export class ProvidersApi implements Disposable {
 		const http = authenticationService.ctx.http;
 		this.request = createProviderApiRequest((input, init) => http.fetch(input, init), http.userAgent);
 		const providerApis = makeProviderAPIs({ request: this.request });
+		this.githubRelationships = providerApis.github;
 		this.azureRestApi = providerApis.azureDevOps;
 		this.providers = {
 			[GitCloudHostIntegrationId.GitHub]: {

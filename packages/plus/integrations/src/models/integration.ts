@@ -17,6 +17,8 @@ import { Logger } from '@gitlens/utils/logger.js';
 import type { ScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { getScopedLogger } from '@gitlens/utils/logger.scoped.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
+import { CloudIntegrationAuthenticationProvider } from '../authentication/cloudIntegrationAuthenticationProvider.js';
+import type { CloudIntegrationSync } from '../authentication/cloudIntegrationObservations.js';
 import type {
 	IntegrationAuthenticationProviderDescriptor,
 	IntegrationAuthenticationSessionDescriptor,
@@ -329,6 +331,13 @@ export abstract class IntegrationBase<
 			: undefined;
 	}
 
+	protected isIntegrationAccessEnabled(): boolean {
+		return (
+			this.ctx.config.isIntegrationsEnabled?.() !== false &&
+			this.ctx.storage.getWorkspace(this.connectedKey) !== false
+		);
+	}
+
 	private isSessionForIntegrationHost(session: ProviderAuthenticationSession): boolean {
 		if (!isSelfManagedHostIntegrationId(this.id)) return true;
 
@@ -355,12 +364,7 @@ export abstract class IntegrationBase<
 		scope: ScopedLogger | undefined,
 		source?: Sources,
 	): Promise<ProviderAuthenticationSession | ReadSessionFailure | undefined> {
-		if (
-			this.ctx.config.isIntegrationsEnabled?.() === false ||
-			this.ctx.storage.getWorkspace(this.connectedKey) === false
-		) {
-			return undefined;
-		}
+		if (!this.isIntegrationAccessEnabled()) return undefined;
 
 		// A truthy connectionId targets a specific account; an empty string is not a real target, so it falls
 		// through to the primary path below.
@@ -468,25 +472,28 @@ export abstract class IntegrationBase<
 	private async disconnectLocked(
 		options: { silent?: boolean; currentSessionOnly?: boolean } | undefined,
 		signOut: boolean,
-	): Promise<void> {
-		if (options?.currentSessionOnly && this._session === null) return;
+		authority?: CloudIntegrationSync,
+	): Promise<boolean> {
+		if (options?.currentSessionOnly && this._session === null) return false;
 
 		const connected = this._session != null;
 
-		if (signOut) {
-			// Disconnecting a provider signs out of ALL its connected accounts (multi-account), not just the
-			// primary — otherwise secondary connections' secrets/config would be orphaned. Removing a single
-			// account is done via IntegrationService.deleteConnection instead. Pass this instance's descriptor
-			// so self-managed disconnects stay scoped to this host: those group every host under one provider
-			// id, so an unscoped clear would sign the user out of unrelated hosts. deleteAllSessions derives an
-			// undefined domain for cloud providers, so they still clear every account as intended.
+		if (authority != null) {
+			const cleared = await this.authenticationService.clearAbsentCloudScope(
+				this.authProvider.id,
+				this.authProviderDescriptor,
+				authority,
+			);
+			if (
+				!cleared ||
+				!this.authenticationService.isCloudListCurrent(this.authProvider.id, this.domain, authority)
+			) {
+				this._session = undefined;
+				this.invalidateDiscoveryCaches();
+				return false;
+			}
+		} else if (signOut) {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			// Awaited, not fire-and-forget: a caller that awaits `disconnect()` has to be able to rely on the
-			// secrets and descriptors actually being gone when it resumes. Left floating, the only thing that
-			// ever made this land in time was incidental scheduling slack — `syncCloudIntegrations` used to
-			// await each provider in turn, so a later iteration's suspension let the previous provider's delete
-			// finish. Syncing providers concurrently removes that slack and the clear was observably still
-			// pending when the sync returned.
 			await authProvider.deleteAllSessions(this.authProviderDescriptor);
 		}
 
@@ -508,6 +515,7 @@ export abstract class IntegrationBase<
 		}
 
 		await this.providerOnDisconnect?.();
+		return true;
 	}
 
 	protected providerOnDisconnect?(): void | Promise<void>;
@@ -647,6 +655,16 @@ export abstract class IntegrationBase<
 		this.invalidateDiscoveryCaches();
 	}
 
+	onCloudConnectionRetired(connectionId: string, retained = false): void {
+		const wasConnected = this._session?.cloud === true && this._session.id === connectionId;
+		this.onSessionPublishing({ previousSessionId: connectionId, connectionId: connectionId, cloud: true });
+		if (!wasConnected || retained) return;
+
+		this._onDidChange.fire();
+		this.didChangeConnection.fire({ integration: this, key: this.key, reason: 'disconnected' });
+		void this.providerOnDisconnect?.();
+	}
+
 	onSessionsRemoving(connectionId?: string, cloud?: boolean): void {
 		this.invalidatePublishedSession(
 			{
@@ -767,16 +785,23 @@ export abstract class IntegrationBase<
 		return this.runSessionTransition(() => this.syncCloudConnectionLocked(state, forceSync));
 	}
 
+	syncListedCloudConnection(
+		state: 'connected' | 'disconnected',
+		forceSync: boolean,
+		authority: CloudIntegrationSync,
+	): Promise<Error | undefined> {
+		return this.runSessionTransition(() => this.syncCloudConnectionLocked(state, forceSync, 'explicit', authority));
+	}
+
 	private async syncCloudConnectionLocked(
 		state: 'connected' | 'disconnected',
 		forceSync: boolean,
 		reason: 'explicit' | 'expired' = 'explicit',
+		authority?: CloudIntegrationSync,
 	): Promise<Error | undefined> {
 		const scope = getScopedLogger();
-		// Initially the condition on `this._session.cloud` has been added here: https://github.com/gitkraken/vscode-gitlens/commit/e95e70c430bd162924cc3bd5c1e8ab90e6293449#diff-4213141a45cccaab7aa2e40028b155a87eb913b07388485831403e60ce5555e4R237
-		// I'm not sure about reasons, but it seems we want to replace it with the cloud session if it's connected.
-		// Gradually we'll stop having non-cloud sessions.
-		// However this is needed to be tested with PATs, e.g. with a GitLab PAT.
+		if (authority?.isCurrent() === false) return undefined;
+
 		if (this._session?.cloud === false && state !== 'connected') {
 			if (this.id !== GitCloudHostIntegrationId.GitHub && !this.skippedNonCloudReported) {
 				this.ctx.hooks?.session?.onRefreshSkipped?.({
@@ -827,7 +852,11 @@ export abstract class IntegrationBase<
 				let refetchFailed = false;
 				const signOutMark = resyncing ? this.authenticationService.getSignOutMark() : undefined;
 				try {
-					newSession = await this.resolveSessionLocked({ sync: forceSync, refetch: resyncing });
+					newSession = await this.resolveSessionLocked({
+						sync: forceSync,
+						refetch: resyncing,
+						authority: authority,
+					});
 				} catch (ex) {
 					refetchFailed = true;
 					if (!isCancellationError(ex)) {
@@ -852,16 +881,20 @@ export abstract class IntegrationBase<
 				// token is really gone is cleanly disconnected (#5497) while a healthy one survives a blip (#5569).
 				if (resyncing && newSession == null && !refetchFailed) {
 					const authProvider = await this.authenticationService.get(this.authProvider.id);
-					await authProvider.deleteSession(this.authProviderDescriptor, {
-						preserveConfigured: false,
-						signOutMark: signOutMark,
-					});
+					if (authority?.isCurrent() === false) return undefined;
+
+					const options = { preserveConfigured: false, signOutMark: signOutMark };
+					if (authProvider instanceof CloudIntegrationAuthenticationProvider) {
+						await authProvider.deleteSession(this.authProviderDescriptor, { ...options, sync: authority });
+					} else {
+						await authProvider.deleteSession(this.authProviderDescriptor, options);
+					}
 				}
 
 				break;
 			}
 			case 'disconnected':
-				await this.disconnectLocked({ silent: true }, true);
+				if (!(await this.disconnectLocked({ silent: true }, true, authority))) return undefined;
 				break;
 		}
 		this._resyncs++;
@@ -1333,6 +1366,7 @@ export abstract class IntegrationBase<
 	private async resolveSessionLocked(options: {
 		createIfNeeded?: boolean;
 		sync?: boolean;
+		authority?: CloudIntegrationSync;
 		refetch?: boolean;
 		source?: Sources;
 	}): Promise<ProviderAuthenticationSession | undefined> {
@@ -1362,12 +1396,16 @@ export abstract class IntegrationBase<
 		let session: ProviderAuthenticationSession | undefined | null;
 		try {
 			const authProvider = await this.authenticationService.get(this.authProvider.id);
-			session = await authProvider.getSession(
-				this.authProviderDescriptor,
-				sync
-					? { sync: sync, refetch: refetch, source: source }
-					: { createIfNeeded: createIfNeeded, source: source },
-			);
+			if (options.authority?.isCurrent() === false) throw new CancellationError();
+
+			const request = sync
+				? { sync: sync, refetch: refetch, source: source }
+				: { createIfNeeded: createIfNeeded, source: source };
+			session =
+				authProvider instanceof CloudIntegrationAuthenticationProvider
+					? await authProvider.getSession(this.authProviderDescriptor, request, options.authority)
+					: await authProvider.getSession(this.authProviderDescriptor, request);
+			if (options.authority?.isCurrent() === false) throw new CancellationError();
 
 			if (session?.expiresAt != null && session.expiresAt < new Date()) {
 				session = null;
@@ -1427,6 +1465,7 @@ export abstract class IntegrationBase<
 			const publishedGeneration = this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud);
 			await this.ctx.storage.storeWorkspace(this.connectedKey, true);
 			if (
+				options.authority?.isCurrent() === false ||
 				this._session !== session ||
 				publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
 			) {
@@ -1436,6 +1475,7 @@ export abstract class IntegrationBase<
 
 			queueMicrotask(() => {
 				if (
+					options.authority?.isCurrent() === false ||
 					this._session !== session ||
 					publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
 				) {
@@ -1445,6 +1485,7 @@ export abstract class IntegrationBase<
 				this._onDidChange.fire();
 				this.didChangeConnection?.fire({ integration: this, key: this.key, reason: 'connected' });
 				if (
+					options.authority?.isCurrent() === false ||
 					this._session !== session ||
 					publishedGeneration !== this.getSessionDiscoveryGeneration(session.id, undefined, session.cloud)
 				) {

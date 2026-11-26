@@ -96,7 +96,11 @@ function setup() {
 			options: GetSessionOptions,
 			target: IntegrationAuthenticationSessionDescriptor = descriptor,
 		) => (await auth.get(id)).getSession(target, options),
-		reconcile: (listed = connection) => service['reconcileCloudConnections'](id, [listed], true),
+		reconcile: async (listed = connection) => {
+			const sync = await configured.acceptCloudSync(configured.beginCloudSync(), new Map([[id, [listed]]]));
+			assert.ok(sync);
+			await service['reconcileCloudConnections'](id, [listed], true, sync);
+		},
 		stored: async () => (await configured.peekStoredSession(id, connectionId, true, 'server.test'))?.accessToken,
 		dispose: () => service.dispose(),
 	};
@@ -338,6 +342,24 @@ suite('Azure DevOps Server credential acquisition ordering', () => {
 			fixture.dispose();
 		}
 	});
+
+	for (const cloud of [true, undefined]) {
+		test(`a removed cloud connection cannot reopen the connect flow (requested variant: ${String(cloud)})`, async () => {
+			const fixture = setup();
+			try {
+				const connecting = fixture.getSession({ createIfNeeded: true }, { ...descriptor, cloud: cloud });
+				await settle();
+				assert.equal(fixture.fetches.length, 1);
+				await fixture.configured.deleteConnection(id, connectionId, true);
+				await answer(fixture, 'fetched-before-removal');
+				assert.equal(await connecting, undefined);
+				assert.equal(fixture.connects(), 0);
+				assert.equal(await fixture.stored(), undefined);
+			} finally {
+				fixture.dispose();
+			}
+		});
+	}
 
 	test('a reconciliation keeps a stored address that a domainless token does not confirm', async () => {
 		const fixture = setup();
