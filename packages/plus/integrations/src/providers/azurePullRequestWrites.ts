@@ -156,22 +156,27 @@ function getCompletionRefFailure(
 	) {
 		return 'source-changed';
 	}
-	if (
-		pullRequest.targetRef !== options.expectedTargetRef ||
-		!sameAzureIdentifier(pullRequest.targetSha, options.expectedTargetSha)
-	) {
-		return 'target-changed';
-	}
+	if (pullRequest.targetRef !== options.expectedTargetRef) return 'target-changed';
+
 	return undefined;
 }
 
 function getCompletionStateFailure(raw: AzurePullRequest): FailureReason | undefined {
 	if (raw.forkSource != null) return 'unsupported';
 	if (raw.isDraft) return 'policy-blocked';
-	if (raw.status !== 'active' || raw.mergeStatus === 'conflicts' || raw.mergeStatus === 'queued') return 'conflict';
-	if (raw.mergeStatus === 'failure') return 'unknown';
+	if (raw.status !== 'active' || raw.mergeStatus === 'queued') return 'conflict';
 
 	return undefined;
+}
+
+function getMergePreviewFailure(raw: AzurePullRequest, targetSha: string): FailureReason | undefined {
+	if (raw.mergeStatus !== 'conflicts' && raw.mergeStatus !== 'failure') return undefined;
+
+	const previewTargetSha = raw.lastMergeTargetCommit?.commitId;
+	if (!isCommitId(previewTargetSha)) return 'unknown';
+	if (!sameAzureIdentifier(previewTargetSha, targetSha)) return undefined;
+
+	return raw.mergeStatus === 'conflicts' ? 'conflict' : 'unknown';
 }
 
 function getReportedMergeFailure(mergeStatus: AzurePullRequest['mergeStatus']): FailureReason | undefined {
@@ -271,15 +276,16 @@ export class AzurePullRequestWriter {
 
 		const { raw, pullRequest } = await this.readPullRequest(number);
 		const state = raw.status;
+		const { capability, targetSha } = await this.getCompletionTarget(raw, pullRequest);
 		return {
 			ok: true,
 			accountId: this.accountId,
-			pullRequest: pullRequest,
+			pullRequest: targetSha === undefined ? pullRequest : { ...pullRequest, targetSha: targetSha },
 			capabilities: {
 				edit: state === 'active' || state === 'abandoned',
 				abandon: state === 'active',
 				reactivate: state === 'abandoned',
-				complete: await this.getCompletionCapability(raw, pullRequest),
+				complete: capability,
 			},
 		};
 	}
@@ -319,16 +325,28 @@ export class AzurePullRequestWriter {
 		raw: AzurePullRequest,
 		pullRequest: AzureWrittenPullRequest,
 	): Promise<AzurePullRequestWriteResult> {
-		const refFailure = getCompletionRefFailure(options, pullRequest);
-		if (refFailure != null) return { ok: false, reason: refFailure };
+		const failure = getCompletionRefFailure(options, pullRequest) ?? getCompletionStateFailure(raw);
+		if (failure != null) return { ok: false, reason: failure };
 
-		const capability = await this.getCompletionCapability(raw, pullRequest, options.strategy);
-		if (capability.kind === 'unavailable') return { ok: false, reason: capability.reason };
+		const strategies = await this.getAllowedStrategies(options.expectedTargetRef);
+		if (!strategies.includes(options.strategy)) return { ok: false, reason: 'policy-blocked' };
+
+		const [source, target] = await this.readCompletionRefs(pullRequest);
+		if (!sameAzureIdentifier(source, options.expectedSourceSha)) return { ok: false, reason: 'source-changed' };
+		if (!sameAzureIdentifier(target, options.expectedTargetSha)) return { ok: false, reason: 'target-changed' };
 
 		const latest = await this.readPullRequest(options.number);
 		const latestFailure =
 			getCompletionRefFailure(options, latest.pullRequest) ?? getCompletionStateFailure(latest.raw);
 		if (latestFailure != null) return { ok: false, reason: latestFailure };
+
+		const latestTarget = await this.readRef(options.expectedTargetRef);
+		if (!sameAzureIdentifier(latestTarget, options.expectedTargetSha)) {
+			return { ok: false, reason: 'target-changed' };
+		}
+
+		const previewFailure = getMergePreviewFailure(latest.raw, options.expectedTargetSha);
+		if (previewFailure != null) return { ok: false, reason: previewFailure };
 
 		return this.save(options, {
 			status: 'completed',
@@ -337,36 +355,41 @@ export class AzurePullRequestWriter {
 		});
 	}
 
-	private async getCompletionCapability(
+	private async getCompletionTarget(
 		raw: AzurePullRequest,
 		pullRequest: AzureWrittenPullRequest,
-		strategy?: AzurePullRequestMergeStrategy,
-	): Promise<CompletionCapability> {
+	): Promise<{ capability: CompletionCapability; targetSha?: string }> {
 		const stateFailure = getCompletionStateFailure(raw);
-		if (stateFailure != null) return { kind: 'unavailable', reason: stateFailure };
-		if (!pullRequest.sourceSha || !pullRequest.targetSha) return { kind: 'unavailable', reason: 'unknown' };
+		if (stateFailure != null) return { capability: { kind: 'unavailable', reason: stateFailure } };
+		if (!pullRequest.sourceSha) return { capability: { kind: 'unavailable', reason: 'unknown' } };
 
 		try {
 			const strategies = await this.getAllowedStrategies(pullRequest.targetRef);
-			if (!strategies.length || (strategy != null && !strategies.includes(strategy))) {
-				return { kind: 'unavailable', reason: 'policy-blocked' };
-			}
+			if (!strategies.length) return { capability: { kind: 'unavailable', reason: 'policy-blocked' } };
 
-			const [source, target] = await Promise.all([
-				this.readRef(pullRequest.sourceRef),
-				this.readRef(pullRequest.targetRef),
-			]);
+			const [source, targetSha] = await this.readCompletionRefs(pullRequest);
 			if (!sameAzureIdentifier(source, pullRequest.sourceSha)) {
-				return { kind: 'unavailable', reason: 'source-changed' };
+				return { capability: { kind: 'unavailable', reason: 'source-changed' }, targetSha: targetSha };
 			}
-			if (!sameAzureIdentifier(target, pullRequest.targetSha)) {
-				return { kind: 'unavailable', reason: 'target-changed' };
-			}
+			if (targetSha === undefined) return { capability: { kind: 'unavailable', reason: 'target-changed' } };
 
-			return { kind: 'available', strategies: strategies };
+			const previewFailure = getMergePreviewFailure(raw, targetSha);
+			return {
+				capability:
+					previewFailure === undefined
+						? { kind: 'available', strategies: strategies }
+						: { kind: 'unavailable', reason: previewFailure },
+				targetSha: targetSha,
+			};
 		} catch (ex) {
-			return { kind: 'unavailable', reason: toAzurePullRequestWriteFailure(ex).reason };
+			return { capability: { kind: 'unavailable', reason: toAzurePullRequestWriteFailure(ex).reason } };
 		}
+	}
+
+	private readCompletionRefs(
+		pullRequest: AzureWrittenPullRequest,
+	): Promise<[string | undefined, string | undefined]> {
+		return Promise.all([this.readRef(pullRequest.sourceRef), this.readRef(pullRequest.targetRef)]);
 	}
 
 	private async getAllowedStrategies(ref: string): Promise<AzurePullRequestMergeStrategy[]> {

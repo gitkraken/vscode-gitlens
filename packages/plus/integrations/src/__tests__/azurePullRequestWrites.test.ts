@@ -83,6 +83,7 @@ async function setup(auth: ProviderAuthenticationSession['type'] = 'oauth') {
 	const fixture = {
 		manager: createIntegrationManager(runtime),
 		current: { ...pr },
+		targetTip: targetSha,
 		calls: calls,
 		respond: undefined as ((call: Call) => Response | undefined | Promise<Response | undefined>) | undefined,
 		mutations: () => calls.filter(call => call.method !== 'GET'),
@@ -136,7 +137,7 @@ async function setup(auth: ProviderAuthenticationSession['type'] = 'oauth') {
 					value:
 						url.searchParams.get('filter') === sourceRef.slice(5)
 							? [{ name: sourceRef, objectId: sourceSha }]
-							: [{ name: targetRef, objectId: targetSha }],
+							: [{ name: targetRef, objectId: fixture.targetTip }],
 				});
 			case `POST ${repoPath}/pullrequests`:
 				return Response.json({ ...pr, ...call.body, pullRequestId: 43 }, { status: 201 });
@@ -284,6 +285,86 @@ suite('IntegrationManager Azure DevOps Services pull request writes', () => {
 				completionOptions: { mergeStrategy: 'squash', bypassPolicy: false },
 				lastMergeSourceCommit: { commitId: sourceSha },
 			});
+			assert.equal(fixture.mutations().length, 1);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('approves and completes against a live target tip ahead of the Azure preview', async () => {
+		const fixture = await setup();
+		try {
+			fixture.targetTip = 'c'.repeat(40);
+			const resolved = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(resolved.ok);
+			assert.equal(resolved.capabilities.complete.kind, 'available');
+			assert.equal(resolved.pullRequest.targetSha, fixture.targetTip);
+
+			const result = await fixture.manager.writeAzurePullRequest({
+				...complete,
+				expectedTargetSha: fixture.targetTip,
+			});
+			assert.ok(result.ok && result.status === 'completed');
+			assert.deepEqual(
+				fixture.mutations().map(call => call.body),
+				[
+					{
+						status: 'completed',
+						completionOptions: { mergeStrategy: 'squash', bypassPolicy: false },
+						lastMergeSourceCommit: { commitId: sourceSha },
+					},
+				],
+			);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('checks the live approved target even when it moves during the final PR read', async () => {
+		const fixture = await setup();
+		try {
+			let prReads = 0;
+			fixture.respond = ({ method, url }) => {
+				if (method === 'GET' && url.pathname.endsWith('/pullrequests/42') && ++prReads === 2) {
+					fixture.targetTip = 'c'.repeat(40);
+				}
+				return undefined;
+			};
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(complete), {
+				ok: false,
+				reason: 'target-changed',
+			});
+			assert.equal(fixture.mutations().length, 0);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('blocks current preview conflicts and queued merges while deferring stale previews to Azure', async () => {
+		const fixture = await setup();
+		try {
+			fixture.current = { ...pr, mergeStatus: 'conflicts' };
+			const current = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(current.ok);
+			assert.deepEqual(current.capabilities.complete, { kind: 'unavailable', reason: 'conflict' });
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(complete), { ok: false, reason: 'conflict' });
+			assert.equal(fixture.mutations().length, 0);
+
+			fixture.targetTip = 'c'.repeat(40);
+			const stale = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(stale.ok);
+			assert.equal(stale.capabilities.complete.kind, 'available');
+			assert.equal(stale.pullRequest.targetSha, fixture.targetTip);
+
+			const approved = { ...complete, expectedTargetSha: fixture.targetTip };
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(approved), { ok: false, reason: 'conflict' });
+			assert.equal(fixture.mutations().length, 1);
+
+			fixture.current = { ...pr, mergeStatus: 'queued' };
+			const queued = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(queued.ok);
+			assert.deepEqual(queued.capabilities.complete, { kind: 'unavailable', reason: 'conflict' });
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(approved), { ok: false, reason: 'conflict' });
 			assert.equal(fixture.mutations().length, 1);
 		} finally {
 			fixture.dispose();

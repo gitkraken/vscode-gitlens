@@ -1077,11 +1077,16 @@ policies at dispatch. Draft and fork PRs are unavailable for completion through 
 Azure requires a ready PR. The completion contract carries the source ref in the selected repository,
 which cannot identify a fork repository.
 
-Keep both fully qualified refs and SHAs from the resolved snapshot for completion approval. Core
-reads the pull request and its branch tips again, and sends Azure the approved source commit in
-`lastMergeSourceCommit`. A final pull request read after policy and branch tip checks catches retargeting
-during those reads. The target ref and commit checks are preflight reads. Azure's update API
-provides no atomic target or PR revision comparison, so the target may move after the check.
+Keep both fully qualified refs and SHAs from a resolved target with completion available. In that
+snapshot, `targetSha` is the exact live target ref tip. Azure's `lastMergeTargetCommit` describes its
+last merge preview and can remain behind the branch tip. Core checks the preview's source commit against
+the live source tip and sends Azure the approved SHA in `lastMergeSourceCommit`.
+
+Before dispatch Core checks the strategy and live refs, rereads the PR for retargeting, and checks the
+approved target tip again. A conflict from the current preview blocks completion. If the preview targets
+an older tip, Azure evaluates the current merge on dispatch. A queued merge remains unavailable for
+completion. Azure's update API provides no atomic target or PR revision comparison, so the target may
+move after the preflight reads.
 Completion explicitly requests the selected merge strategy with policy bypass disabled.
 See the [Azure DevOps update API](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-7.1)
 and [scoped policy configurations API](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/policy-configurations/get?view=azure-devops-rest-7.1).
