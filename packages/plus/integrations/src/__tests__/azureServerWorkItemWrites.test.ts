@@ -4,6 +4,7 @@ import { Emitter } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { IntegrationAuthenticationProvider } from '../authentication/integrationAuthenticationProvider.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
+import { ObservedAuthenticationProvider } from '../authentication/observedAuthenticationProvider.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type {
 	AzureServerWorkItemWriteScope,
@@ -623,28 +624,26 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 		}
 	});
 
-	test('does not send an edit or delete whose host credential changes after its last check', async () => {
+	test('sends an edit or delete on a host credential only while its issuance holds', async () => {
 		const descriptor = { domain: 'server.test', scopes: [], connectionId: 'connection', cloud: true };
-		const run = async (
-			action: 'edit' | 'delete',
-			change?: (provider: IntegrationAuthenticationProvider, setToken: (token: string) => void) => Promise<void>,
-			finalCheck?: number,
-		) => {
+		type Host = { token: string; cloud: boolean; account: string };
+		type Change = (provider: IntegrationAuthenticationProvider, host: Host) => Promise<unknown>;
+		const run = async (action: 'edit' | 'delete', change?: Change, atCheck?: number) => {
 			const server = createServer();
-			let token = 'me-token';
+			const host: Host = { token: 'me-token', cloud: true, account: 'me' };
 			server.runtime.hooks!.createAuthenticationProvider = async () => ({
 				onDidChange: new Emitter<void>().event,
 				getSession: async ({ connectionId }) =>
-					connectionId === 'connection'
+					connectionId === 'connection' || connectionId === 'connection-b'
 						? {
-								id: 'connection',
-								accessToken: token,
-								account: { id: 'me', label: 'me' },
+								id: connectionId,
+								accessToken: connectionId === 'connection' ? host.token : 'b-token',
+								account: { id: host.account, label: host.account },
 								scopes: [],
-								cloud: true,
+								cloud: connectionId === 'connection' ? host.cloud : true,
 								type: 'pat',
-								domain: 'server.test',
-								baseUrl: baseUrl,
+								domain: connectionId === 'connection' ? 'server.test' : 'other.test',
+								baseUrl: connectionId === 'connection' ? baseUrl : 'https://other.test/tfs',
 							}
 						: undefined,
 				deleteSession: async () => {},
@@ -658,18 +657,18 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				const provider = await service['authenticationService'].get(providerId);
 				const integration = (await service.getIntegrationForRead(providerId, scope.connectionId))!;
 				const resolve = integration['resolveReadSessionOrThrow'].bind(integration);
+				integration['resolveReadSessionOrThrow'] = async (...args) => {
+					const current = await resolve(...args);
+					if (++checks === atCheck) {
+						await change!(provider, host);
+					}
+					return current;
+				};
 				const address = {
 					...scope,
 					workItemId: item.id,
 					expectedRevision: item.rev,
 					expectedAccountId: collection.identity,
-				};
-				integration['resolveReadSessionOrThrow'] = async (...args) => {
-					const current = await resolve(...args);
-					if (++checks === finalCheck) {
-						await change!(provider, value => (token = value));
-					}
-					return current;
 				};
 				result =
 					action === 'edit'
@@ -680,32 +679,56 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 							})
 						: await manager.deleteWorkItem(address);
 			});
-			return { checks: checks, result: result, mutations: server.mutations().length };
+			return { checks: checks, result: result as { ok: boolean }, mutations: server.mutations().length };
 		};
 
-		const changes = {
-			replace: async (provider: IntegrationAuthenticationProvider, setToken: (token: string) => void) => {
-				setToken('other-token');
-				await provider.getSession(descriptor);
-			},
-			'replace and return': async (
-				provider: IntegrationAuthenticationProvider,
-				setToken: (token: string) => void,
-			) => {
-				setToken('other-token');
-				await provider.getSession(descriptor);
-				setToken('me-token');
-				await provider.getSession(descriptor);
-			},
-			remove: (provider: IntegrationAuthenticationProvider) => provider.deleteSession(descriptor),
+		const replace: Change = async (provider, host) => {
+			host.token = 'other-token';
+			await provider.getSession(descriptor);
 		};
+		const replaceAndReturn: Change = async (provider, host) => {
+			await replace(provider, host);
+			host.token = 'me-token';
+			await provider.getSession(descriptor);
+		};
+		const refused: Record<string, Change> = {
+			replace: replace,
+			'replace and return': replaceAndReturn,
+			remove: provider => provider.deleteSession(descriptor),
+			'alternate observed variants': async (provider, host) => {
+				for (const cloud of [false, true, false]) {
+					host.cloud = cloud;
+					await provider.getSession(descriptor);
+				}
+			},
+			'change account': async (provider, host) => {
+				host.account = 'someone-else';
+				await provider.getSession(descriptor);
+			},
+		};
+		const otherConnection: Change = provider =>
+			provider.getSession({ domain: 'other.test', scopes: [], connectionId: 'connection-b', cloud: true });
+
 		for (const action of ['edit', 'delete'] as const) {
 			const normal = await run(action);
-			assert.equal((normal.result as { ok: boolean }).ok, true, `${action}: ${JSON.stringify(normal.result)}`);
+			assert.equal(normal.result.ok, true, `${action}: ${JSON.stringify(normal.result)}`);
 			assert.equal(normal.mutations, 1, action);
+			const finalCheck = normal.checks;
 
-			for (const [name, change] of Object.entries(changes)) {
-				const changed = await run(action, change, normal.checks);
+			const survived = await run(action, otherConnection, finalCheck);
+			assert.equal(survived.result.ok, true, `${action} other connection: ${JSON.stringify(survived.result)}`);
+			assert.equal(survived.mutations, 1, `${action} other connection`);
+
+			const cases: [string, Change, number][] = [
+				...Object.entries(refused).map(([name, change]): [string, Change, number] => [
+					name,
+					change,
+					finalCheck,
+				]),
+				['replace and return before capture', replaceAndReturn, 1],
+			];
+			for (const [name, change, atCheck] of cases) {
+				const changed = await run(action, change, atCheck);
 				assert.deepEqual(
 					changed.result,
 					{ ok: false, reason: 'no-connection', mutationDispatched: false },
@@ -714,6 +737,34 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				assert.equal(changed.mutations, 0, `${action} ${name}`);
 			}
 		}
+	});
+
+	test('refuses a write fence for a session the observed provider did not issue', async () => {
+		const descriptor = { domain: 'server.test', scopes: [], connectionId: 'connection', cloud: true };
+		const observed = new ObservedAuthenticationProvider(
+			{
+				onDidChange: new Emitter<void>().event,
+				getSession: async () => ({
+					id: 'connection',
+					accessToken: 'me-token',
+					account: { id: 'me', label: 'me' },
+					scopes: [],
+					cloud: true,
+					type: 'pat',
+					domain: 'server.test',
+				}),
+				deleteSession: async () => {},
+				deleteAllSessions: async () => {},
+				dispose: () => {},
+			},
+			true,
+			() => {},
+		);
+		const issued = (await observed.getSession(descriptor))!;
+		assert.equal(observed.trackSession(issued)(), false);
+		assert.equal(observed.trackSession({ ...issued })(), true);
+		observed.dispose();
+		assert.equal(observed.trackSession(issued)(), true);
 	});
 
 	test('reports a denied delete permission and a refused write without retrying', async () => {

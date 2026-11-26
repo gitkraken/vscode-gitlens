@@ -1317,7 +1317,7 @@ export class ProvidersApi implements Disposable {
 		const request: ProviderRequestFunction = o =>
 			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
 				// KEEP: no await between this check and the fetch, so a retirement cannot land in between.
-				o.method != null && o.method !== 'GET' && isSessionCurrent.isRetired?.() === true
+				o.method != null && o.method !== 'GET' && isSessionCurrent.isRetired()
 					? Promise.reject(new WorkItemWriteNotDispatchedError())
 					: this.request(o),
 			);

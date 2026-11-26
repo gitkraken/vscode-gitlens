@@ -26,7 +26,7 @@ import type { ProviderAuthenticationSession } from './models.js';
 import { getSessionIdentity } from './models.js';
 import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
-export type TrackedSession = (() => Promise<boolean>) & { readonly isRetired?: () => boolean };
+export type TrackedSession = (() => Promise<boolean>) & { readonly isRetired: () => boolean };
 
 export class IntegrationAuthenticationService implements Disposable {
 	private readonly providers = new Map<IntegrationIds, IntegrationAuthenticationProvider>();
@@ -88,10 +88,6 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.configuredIntegrationService.getSignOutMark();
 	}
 
-	usesHostAuthenticationProvider(id: IntegrationIds): boolean {
-		return this.providers.get(id) instanceof ObservedAuthenticationProvider;
-	}
-
 	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): TrackedSession {
 		const store = this.configuredIntegrationService;
 		const mark = store.getStoredWriteMark();
@@ -112,9 +108,15 @@ export class IntegrationAuthenticationService implements Disposable {
 		return Object.assign(isCurrent, { isRetired: () => store.isStoredWriteRetiredSince(id, session, mark) });
 	}
 
-	trackObservedSession(id: IntegrationIds, session: ProviderAuthenticationSession): (() => boolean) | undefined {
+	trackIssuedSession(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession,
+		isHostSessionCurrent: () => Promise<boolean>,
+	): TrackedSession {
 		const provider = this.providers.get(id);
-		return provider instanceof ObservedAuthenticationProvider ? provider.trackSession(session) : undefined;
+		return provider instanceof ObservedAuthenticationProvider
+			? Object.assign(isHostSessionCurrent, { isRetired: provider.trackSession(session) })
+			: this.trackStoredSession(id, session);
 	}
 
 	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */

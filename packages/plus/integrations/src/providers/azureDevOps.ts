@@ -322,20 +322,14 @@ export abstract class AzureDevOpsIntegrationBase<
 	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string;
 
 	protected trackWriteSession(session: ProviderAuthenticationSession): TrackedSession {
-		if (!this.authenticationService.usesHostAuthenticationProvider(this.id)) {
-			return this.authenticationService.trackStoredSession(this.id, session);
-		}
-
-		const isCurrent = async () => {
+		return this.authenticationService.trackIssuedSession(this.id, session, async () => {
 			const current = await this.resolveReadSessionOrThrow(session.id, undefined);
 			return (
 				current != null &&
 				getSessionIdentity(current) === getSessionIdentity(session) &&
 				current.account?.id === session.account?.id
 			);
-		};
-		const isRetired = this.authenticationService.trackObservedSession(this.id, session);
-		return isRetired != null ? Object.assign(isCurrent, { isRetired: isRetired }) : isCurrent;
+		});
 	}
 
 	protected getApiOptions(

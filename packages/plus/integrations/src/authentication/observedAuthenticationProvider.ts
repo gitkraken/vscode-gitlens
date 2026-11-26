@@ -20,6 +20,12 @@ type Observation = {
 	connectionId?: string;
 };
 
+type Issuance = {
+	mark: number;
+	connections: string[];
+	descriptor: IntegrationAuthenticationSessionDescriptor;
+};
+
 type Retirement = {
 	descriptors: Set<string>;
 	actuals: Set<string>;
@@ -39,6 +45,10 @@ function actualKey(domain: string, id: string, cloud: boolean | undefined): stri
 	return JSON.stringify([domainKey(domain), id, cloud]);
 }
 
+function connectionKey(domain: string, id: string): string {
+	return JSON.stringify([domainKey(domain), id]);
+}
+
 export class ObservedAuthenticationProvider implements IntegrationAuthenticationProvider {
 	private readonly observations = new Map<string, Observation>();
 	private readonly credentials = new Map<string, Observation>();
@@ -46,7 +56,8 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 	private readonly actualRetirements = new Map<string, number>();
 	private readonly hostRetirements = new Map<string, number>();
 	private readonly activeRetirements = new Set<Retirement>();
-	private readonly credentialChanges = new Map<string, number>();
+	private readonly connectionWitnesses = new Map<string, { mark: number; witness: string | undefined }>();
+	private readonly issuances = new WeakMap<ProviderAuthenticationSession, Issuance>();
 	private sequence = 0;
 	private globalRetirement = 0;
 	private disposed = false;
@@ -135,10 +146,6 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 				);
 			}
 
-			if (sessionKey != null && credential?.identity !== identity) {
-				this.credentialChanges.set(sessionKey, ++this.sequence);
-			}
-
 			const observation: Observation = {
 				request: request,
 				identity: identity,
@@ -155,19 +162,31 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			}
 		}
 
+		const connections = [
+			...(descriptor.connectionId ? [connectionKey(descriptor.domain, descriptor.connectionId)] : []),
+			...(source != null ? [connectionKey(source.domain || descriptor.domain, source.id)] : []),
+		];
+		const witness = source == null ? undefined : JSON.stringify([identity, source.account?.id]);
+		for (const key of connections) {
+			if (this.connectionWitnesses.get(key)?.witness !== witness) {
+				this.connectionWitnesses.set(key, { mark: ++this.sequence, witness: witness });
+			}
+		}
+		if (session != null) {
+			this.issuances.set(session, { mark: this.sequence, connections: connections, descriptor: descriptor });
+		}
+
 		return session;
 	}
 
+	/** KEEP: fails closed for a session this provider did not issue, since its changes cannot be proven absent. */
 	trackSession(session: ProviderAuthenticationSession): () => boolean {
-		const mark = this.sequence;
-		const key = actualKey(session.domain, session.id, session.cloud);
-		const descriptor = {
-			domain: session.domain,
-			connectionId: session.id,
-			cloud: session.cloud,
-			scopes: [...session.scopes],
-		};
-		return () => (this.credentialChanges.get(key) ?? 0) > mark || this.isRetired(mark, descriptor, session);
+		const issuance = this.issuances.get(session);
+		if (issuance == null) return () => true;
+
+		return () =>
+			issuance.connections.some(key => (this.connectionWitnesses.get(key)?.mark ?? 0) > issuance.mark) ||
+			this.isRetired(issuance.mark, issuance.descriptor, session);
 	}
 
 	async deleteSession(
