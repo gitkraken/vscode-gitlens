@@ -2,7 +2,10 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { CloudIntegrationService } from '../authentication/cloudIntegrationService.js';
 import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
-import type { IntegrationAuthenticationSessionDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type {
+	GetSessionOptions,
+	IntegrationAuthenticationSessionDescriptor,
+} from '../authentication/integrationAuthenticationProvider.js';
 import { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
 import type { CloudIntegrationConnection } from '../authentication/models.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
@@ -38,7 +41,11 @@ const hostBToken = { tokenId: 'connection-b', domain: 'https://other.test/tfs' }
 const implicitA: IntegrationAuthenticationSessionDescriptor = { domain: 'server.test', scopes: [], cloud: true };
 const unconfigured: IntegrationAuthenticationSessionDescriptor = { domain: 'third.test', scopes: [], cloud: true };
 
-type TokenFetch = { path: string; answer: (token: string, overrides?: Record<string, unknown>) => void };
+type TokenFetch = {
+	path: string;
+	answer: (token: string, overrides?: Record<string, unknown>) => void;
+	answerNone: () => void;
+};
 
 /** Every provider-token fetch waits for the test to answer it, so the test chooses the order fetches finish in. */
 function setup() {
@@ -49,6 +56,7 @@ function setup() {
 		new Promise(resolve =>
 			fetches.push({
 				path: path,
+				answerNone: () => resolve(Response.json({ data: null })),
 				answer: (token, overrides) =>
 					resolve(
 						Response.json({
@@ -76,11 +84,17 @@ function setup() {
 		new CloudIntegrationService(runtime),
 	);
 	service = new IntegrationService(auth, configured, runtime);
+	let connects = 0;
+	auth.connectCloudIntegrations = () => {
+		connects++;
+		return Promise.resolve(false);
+	};
 	return {
 		fetches: fetches,
+		connects: () => connects,
 		configured: configured,
 		getSession: async (
-			options: { refreshRejectedToken?: boolean; sync?: boolean },
+			options: GetSessionOptions,
 			target: IntegrationAuthenticationSessionDescriptor = descriptor,
 		) => (await auth.get(id)).getSession(target, options),
 		reconcile: () => service['reconcileCloudConnections'](id, [connection], true),
@@ -98,11 +112,21 @@ async function settle(): Promise<void> {
 type Fixture = ReturnType<typeof setup>;
 
 /** Answers the oldest unanswered token fetch, waiting for one to start. */
-async function answer(fixture: Fixture, token: string, overrides?: Record<string, unknown>): Promise<void> {
+async function answer(
+	fixture: Fixture,
+	token: string,
+	overrides?: Record<string, unknown>,
+	none?: boolean,
+): Promise<void> {
 	while (fixture.fetches.length === 0) {
 		await new Promise(resolve => setTimeout(resolve, 0));
 	}
-	fixture.fetches.shift()!.answer(token, overrides);
+	const fetch = fixture.fetches.shift()!;
+	if (none) {
+		fetch.answerNone();
+	} else {
+		fetch.answer(token, overrides);
+	}
 }
 
 /** A rejected-token refresh reads the token, then refreshes it: two fetches. */
@@ -289,6 +313,31 @@ suite('Azure DevOps Server credential acquisition ordering', () => {
 
 			await answerFor(fixture, hostB.connectionId, 'b-token', hostBToken);
 			assert.equal((await laterB)?.accessToken, 'b-token');
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('a sign-out during a connecting resolution does not start an interactive connect', async () => {
+		const fixture = setup();
+		try {
+			const connecting = fixture.getSession({ createIfNeeded: true });
+			await settle();
+			assert.equal(fixture.fetches.length, 1);
+			await fixture.configured.deleteStoredSessions(id, descriptor, true, {
+				signOut: true,
+				preserveConfigured: true,
+			});
+
+			await answer(fixture, 'fetched-before-sign-out');
+			assert.equal(await connecting, undefined);
+			assert.equal(fixture.connects(), 0);
+			assert.equal(await fixture.stored(), undefined);
+
+			const missing = fixture.getSession({ createIfNeeded: true });
+			await answer(fixture, '', undefined, true);
+			assert.equal(await missing, undefined);
+			assert.equal(fixture.connects(), 1, 'a credential the backend does not have still connects');
 		} finally {
 			fixture.dispose();
 		}

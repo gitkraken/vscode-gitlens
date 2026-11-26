@@ -114,9 +114,19 @@ abstract class IntegrationAuthenticationProviderBase<
 					signOutMark,
 				),
 		);
-		return session == null && options?.createIfNeeded && !options.forceNewSession
-			? this.connectNewSession(descriptor, options)
-			: session;
+		if (session != null || !options?.createIfNeeded || options.forceNewSession) return session;
+		// KEEP: a sign-out or replacement since the mark refused the fetched credential; it is not a missing one.
+		if (
+			this.configuredIntegrationService.isSessionRetiredSince(
+				this.authProviderId,
+				{ id: connectionId ?? '', domain: descriptor.domain },
+				signOutMark,
+			)
+		) {
+			return undefined;
+		}
+
+		return this.connectNewSession(descriptor, options);
 	}
 
 	private getImplicitCloudConnectionId(
