@@ -86,6 +86,7 @@ async function setup(auth: ProviderAuthenticationSession['type'] = 'oauth') {
 		calls: calls,
 		respond: undefined as ((call: Call) => Response | undefined | Promise<Response | undefined>) | undefined,
 		mutations: () => calls.filter(call => call.method !== 'GET'),
+		cacheInvalidations: () => runtime.deletePullRequestsCalls,
 		rotate: () => configured.storeSession(providerId, { ...selected, accessToken: 'rotated-token' }),
 		dispose: () => {
 			fixture.manager.dispose();
@@ -176,6 +177,33 @@ suite('IntegrationManager Azure DevOps Services pull request writes', () => {
 				targetRefName: targetRef,
 				title: 'New',
 			});
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('invalidates cached PR reads after confirmed and uncertain writes', async () => {
+		const fixture = await setup();
+		try {
+			const before = fixture.cacheInvalidations();
+			const result = await fixture.manager.writeAzurePullRequest(create);
+			assert.ok(result.ok);
+			assert.equal(fixture.cacheInvalidations(), before + 1);
+
+			fixture.respond = ({ method }) => {
+				if (method === 'POST') throw new Error('connection reset');
+
+				return undefined;
+			};
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(create), {
+				ok: false,
+				reason: 'outcome-unknown',
+			});
+			assert.equal(fixture.cacheInvalidations(), before + 2);
+
+			const rejected = await fixture.manager.writeAzurePullRequest({ ...create, expectedAccountId: 'wrong' });
+			assert.deepEqual(rejected, { ok: false, reason: 'no-connection' });
+			assert.equal(fixture.cacheInvalidations(), before + 2);
 		} finally {
 			fixture.dispose();
 		}
@@ -293,6 +321,45 @@ suite('IntegrationManager Azure DevOps Services pull request writes', () => {
 		}
 	});
 
+	test('stops completion when the PR is retargeted during policy reads', async () => {
+		const fixture = await setup();
+		try {
+			fixture.respond = ({ url }) => {
+				if (url.pathname.endsWith('/policy/configurations')) {
+					fixture.current = { ...pr, targetRefName: 'refs/heads/other' };
+				}
+				return undefined;
+			};
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(complete), {
+				ok: false,
+				reason: 'target-changed',
+			});
+			assert.equal(fixture.mutations().length, 0);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('stops completion when the final PR read fails', async () => {
+		const fixture = await setup();
+		try {
+			let preflightStarted = false;
+			fixture.respond = ({ method, url }) => {
+				if (url.pathname.endsWith('/policy/configurations')) {
+					preflightStarted = true;
+				}
+				if (preflightStarted && method === 'GET' && url.pathname.endsWith('/pullrequests/42')) {
+					return Response.json({}, { status: 503 });
+				}
+				return undefined;
+			};
+			assert.deepEqual(await fixture.manager.writeAzurePullRequest(complete), { ok: false, reason: 'unknown' });
+			assert.equal(fixture.mutations().length, 0);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
 	test('rejects missing sessions, different accounts, invalid coordinates and mismatched provider targets', async () => {
 		const fixture = await setup();
 		try {
@@ -366,6 +433,9 @@ suite('IntegrationManager Azure DevOps Services pull request writes', () => {
 				[200, {}, 'outcome-unknown'],
 				[200, pr, 'outcome-unknown'],
 				[200, { ...pr, mergeStatus: 'rejectedByPolicy' }, 'policy-blocked'],
+				[200, { ...pr, status: 'completed', mergeStatus: 'rejectedByPolicy' }, 'policy-blocked'],
+				[200, { ...pr, status: 'completed', mergeStatus: 'notSet' }, 'outcome-unknown'],
+				[200, { ...pr, status: 'abandoned', mergeStatus: 'queued' }, 'outcome-unknown'],
 				[400, { message: 'Required reviewers have not been approved' }, 'policy-blocked'],
 				[409, { message: 'The source branch has changed' }, 'source-changed'],
 			];
@@ -410,6 +480,55 @@ suite('IntegrationManager Azure DevOps Services pull request writes', () => {
 			const resolved = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
 			assert.ok(resolved.ok && resolved.pullRequest.state === 'completed');
 			assert.equal(fixture.mutations().length, cases.length + 2);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('does not confirm completion when the merge status failed or has not settled', async () => {
+		const fixture = await setup();
+		try {
+			const cases = [
+				['rejectedByPolicy', 'policy-blocked'],
+				['conflicts', 'conflict'],
+				['failure', 'unknown'],
+				['notSet', 'unknown'],
+			];
+			for (const [mergeStatus, reason] of cases) {
+				fixture.current = { ...pr, status: 'completed', mergeStatus: mergeStatus };
+				assert.deepEqual(await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 }), {
+					ok: false,
+					reason: reason,
+				});
+			}
+
+			fixture.current = { ...pr, mergeStatus: 'rejectedByPolicy' };
+			const active = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(active.ok && active.pullRequest.state === 'active');
+			assert.equal(active.capabilities.complete.kind, 'available');
+			assert.equal(fixture.mutations().length, 0);
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('publishes completed on an edit receipt only when the merge succeeded', async () => {
+		const fixture = await setup();
+		try {
+			const edit = { ...address, number: 42, action: 'edit', title: 'Edited' } as const;
+			for (const mergeStatus of ['notSet', 'rejectedByPolicy', 'succeeded']) {
+				fixture.respond = ({ method }) =>
+					method === 'PATCH'
+						? Response.json({ ...pr, title: edit.title, status: 'completed', mergeStatus: mergeStatus })
+						: undefined;
+				const result = await fixture.manager.writeAzurePullRequest(edit);
+				if (mergeStatus === 'succeeded') {
+					assert.ok(result.ok && result.status === 'updated' && result.pullRequest.state === 'completed');
+				} else {
+					assert.deepEqual(result, { ok: false, reason: 'outcome-unknown' });
+				}
+			}
+			assert.equal(fixture.mutations().length, 3);
 		} finally {
 			fixture.dispose();
 		}

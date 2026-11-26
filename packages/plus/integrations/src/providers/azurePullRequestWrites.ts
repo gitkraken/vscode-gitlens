@@ -3,6 +3,7 @@ import type {
 	AzurePullRequestCreateCapabilityResult,
 	AzurePullRequestMergeStrategy,
 	AzurePullRequestRepository,
+	AzurePullRequestWriteFailure,
 	AzurePullRequestWriteOptions,
 	AzurePullRequestWriteResult,
 	AzurePullRequestWriteTargetResult,
@@ -40,6 +41,11 @@ type MergePolicy = {
 };
 
 type CompletionCapability = Extract<AzurePullRequestWriteTargetResult, { ok: true }>['capabilities']['complete'];
+type CompletionOptions = Extract<AzurePullRequestWriteOptions, { action: 'complete' }>;
+type FailureReason = AzurePullRequestWriteFailure['reason'];
+type PullRequestSnapshot = Omit<AzureWrittenPullRequest, 'state'> & {
+	state: AzureWrittenPullRequest['state'] | undefined;
+};
 type WriteStatus = Extract<AzurePullRequestWriteResult, { ok: true }>['status'];
 
 function isPathSegment(value: unknown): value is string {
@@ -138,6 +144,47 @@ function allowsStrategy(policy: MergePolicy, strategy: AzurePullRequestMergeStra
 		(strategy === 'squash' && settings.useSquashMerge === true) ||
 		(strategy === 'noFastForward' && settings.useSquashMerge === false)
 	);
+}
+
+function getCompletionRefFailure(
+	options: CompletionOptions,
+	pullRequest: AzureWrittenPullRequest,
+): FailureReason | undefined {
+	if (
+		pullRequest.sourceRef !== options.expectedSourceRef ||
+		!sameAzureIdentifier(pullRequest.sourceSha, options.expectedSourceSha)
+	) {
+		return 'source-changed';
+	}
+	if (
+		pullRequest.targetRef !== options.expectedTargetRef ||
+		!sameAzureIdentifier(pullRequest.targetSha, options.expectedTargetSha)
+	) {
+		return 'target-changed';
+	}
+	return undefined;
+}
+
+function getCompletionStateFailure(raw: AzurePullRequest): FailureReason | undefined {
+	if (raw.forkSource != null) return 'unsupported';
+	if (raw.isDraft) return 'policy-blocked';
+	if (raw.status !== 'active' || raw.mergeStatus === 'conflicts' || raw.mergeStatus === 'queued') return 'conflict';
+	if (raw.mergeStatus === 'failure') return 'unknown';
+
+	return undefined;
+}
+
+function getReportedMergeFailure(mergeStatus: AzurePullRequest['mergeStatus']): FailureReason | undefined {
+	switch (mergeStatus) {
+		case 'rejectedByPolicy':
+			return 'policy-blocked';
+		case 'conflicts':
+			return 'conflict';
+		case 'failure':
+			return 'unknown';
+		default:
+			return undefined;
+	}
 }
 
 export class AzurePullRequestWriter {
@@ -268,31 +315,25 @@ export class AzurePullRequestWriter {
 	}
 
 	private async complete(
-		options: Extract<AzurePullRequestWriteOptions, { action: 'complete' }>,
+		options: CompletionOptions,
 		raw: AzurePullRequest,
 		pullRequest: AzureWrittenPullRequest,
 	): Promise<AzurePullRequestWriteResult> {
-		const { expectedSourceRef, expectedTargetRef, expectedSourceSha, expectedTargetSha } = options;
-		if (
-			pullRequest.sourceRef !== expectedSourceRef ||
-			!sameAzureIdentifier(pullRequest.sourceSha, expectedSourceSha)
-		) {
-			return { ok: false, reason: 'source-changed' };
-		}
-		if (
-			pullRequest.targetRef !== expectedTargetRef ||
-			!sameAzureIdentifier(pullRequest.targetSha, expectedTargetSha)
-		) {
-			return { ok: false, reason: 'target-changed' };
-		}
+		const refFailure = getCompletionRefFailure(options, pullRequest);
+		if (refFailure != null) return { ok: false, reason: refFailure };
 
 		const capability = await this.getCompletionCapability(raw, pullRequest, options.strategy);
 		if (capability.kind === 'unavailable') return { ok: false, reason: capability.reason };
 
+		const latest = await this.readPullRequest(options.number);
+		const latestFailure =
+			getCompletionRefFailure(options, latest.pullRequest) ?? getCompletionStateFailure(latest.raw);
+		if (latestFailure != null) return { ok: false, reason: latestFailure };
+
 		return this.save(options, {
 			status: 'completed',
 			completionOptions: { mergeStrategy: options.strategy, bypassPolicy: false },
-			lastMergeSourceCommit: { commitId: pullRequest.sourceSha },
+			lastMergeSourceCommit: { commitId: options.expectedSourceSha },
 		});
 	}
 
@@ -301,14 +342,9 @@ export class AzurePullRequestWriter {
 		pullRequest: AzureWrittenPullRequest,
 		strategy?: AzurePullRequestMergeStrategy,
 	): Promise<CompletionCapability> {
-		if (raw.forkSource != null) return { kind: 'unavailable', reason: 'unsupported' };
-		if (raw.isDraft) return { kind: 'unavailable', reason: 'policy-blocked' };
-		if (pullRequest.state !== 'active' || raw.mergeStatus === 'conflicts' || raw.mergeStatus === 'queued') {
-			return { kind: 'unavailable', reason: 'conflict' };
-		}
-		if (raw.mergeStatus === 'failure' || !pullRequest.sourceSha || !pullRequest.targetSha) {
-			return { kind: 'unavailable', reason: 'unknown' };
-		}
+		const stateFailure = getCompletionStateFailure(raw);
+		if (stateFailure != null) return { kind: 'unavailable', reason: stateFailure };
+		if (!pullRequest.sourceSha || !pullRequest.targetSha) return { kind: 'unavailable', reason: 'unknown' };
 
 		try {
 			const strategies = await this.getAllowedStrategies(pullRequest.targetRef);
@@ -389,14 +425,19 @@ export class AzurePullRequestWriter {
 			headers: this.headers,
 			redirect: 'error',
 		});
-		return { raw: raw, pullRequest: this.toPullRequest(raw, number) };
+		const snapshot = this.toPullRequestSnapshot(raw, number);
+		const { state } = snapshot;
+		if (state === undefined) {
+			throw new AzurePullRequestWriteError(getReportedMergeFailure(raw.mergeStatus) ?? 'unknown');
+		}
+		return { raw: raw, pullRequest: { ...snapshot, state: state } };
 	}
 
 	private pullRequestUrl(number?: number): string {
 		return `${this.repoUrl}/pullrequests${number === undefined ? '' : `/${number}`}?api-version=7.1`;
 	}
 
-	private toPullRequest(raw: AzurePullRequest, number?: number): AzureWrittenPullRequest {
+	private toPullRequestSnapshot(raw: AzurePullRequest, number?: number): PullRequestSnapshot {
 		if (
 			!sameAzureIdentifier(raw?.repository?.id, this.repository.repositoryId) ||
 			!sameAzureIdentifier(raw.repository.project?.id, this.repository.projectId) ||
@@ -418,6 +459,10 @@ export class AzurePullRequestWriter {
 
 		const sourceSha = raw.lastMergeSourceCommit?.commitId;
 		const targetSha = raw.lastMergeTargetCommit?.commitId;
+		let state: PullRequestSnapshot['state'] = raw.status;
+		if (state === 'completed' && raw.mergeStatus !== 'succeeded') {
+			state = raw.mergeStatus === 'queued' ? 'active' : undefined;
+		}
 		return {
 			repository: this.repository,
 			number: raw.pullRequestId,
@@ -435,7 +480,7 @@ export class AzurePullRequestWriter {
 			),
 			title: raw.title,
 			description: raw.description ?? '',
-			state: raw.status === 'completed' && raw.mergeStatus === 'queued' ? 'active' : raw.status,
+			state: state,
 			sourceRef: raw.sourceRefName,
 			targetRef: raw.targetRefName,
 			sourceSha: isCommitId(sourceSha) ? sourceSha : undefined,
@@ -461,22 +506,22 @@ export class AzurePullRequestWriter {
 			return toAzurePullRequestWriteFailure(ex, { complete: options.action === 'complete' });
 		}
 
-		let pullRequest: AzureWrittenPullRequest;
+		let snapshot: PullRequestSnapshot;
 		try {
-			pullRequest = this.toPullRequest(raw, number);
+			snapshot = this.toPullRequestSnapshot(raw, number);
 		} catch {
 			return { ok: false, reason: 'outcome-unknown' };
 		}
 
-		return this.getReceipt(options, raw, pullRequest);
+		return this.getReceipt(options, raw, snapshot);
 	}
 
 	private getReceipt(
 		options: AzurePullRequestWriteOptions,
 		raw: AzurePullRequest,
-		pullRequest: AzureWrittenPullRequest,
+		snapshot: PullRequestSnapshot,
 	): AzurePullRequestWriteResult {
-		const { state, sourceRef, targetRef } = pullRequest;
+		const { state, sourceRef, targetRef } = snapshot;
 		let status: WriteStatus | undefined;
 		switch (options.action) {
 			case 'create':
@@ -486,8 +531,8 @@ export class AzurePullRequestWriter {
 				break;
 			case 'edit':
 				if (
-					(options.title === undefined || pullRequest.title === options.title) &&
-					(options.description === undefined || pullRequest.description === options.description)
+					(options.title === undefined || snapshot.title === options.title) &&
+					(options.description === undefined || snapshot.description === options.description)
 				) {
 					status = 'updated';
 				}
@@ -502,22 +547,23 @@ export class AzurePullRequestWriter {
 					status = 'reactivated';
 				}
 				break;
-			case 'complete':
+			case 'complete': {
 				if (sourceRef !== options.expectedSourceRef || targetRef !== options.expectedTargetRef) break;
-				if (raw.mergeStatus === 'rejectedByPolicy') return { ok: false, reason: 'policy-blocked' };
-				if (raw.mergeStatus === 'conflicts') return { ok: false, reason: 'conflict' };
-				if (raw.mergeStatus === 'failure') return { ok: false, reason: 'unknown' };
 
-				if (raw.mergeStatus === 'queued') {
+				const failure = getReportedMergeFailure(raw.mergeStatus);
+				if (failure != null) return { ok: false, reason: failure };
+
+				if (state === 'active' && raw.mergeStatus === 'queued') {
 					status = 'pending';
 				} else if (state === 'completed') {
 					status = 'completed';
 				}
 				break;
+			}
 		}
 
-		return status === undefined
+		return status === undefined || state === undefined
 			? { ok: false, reason: 'outcome-unknown' }
-			: { ok: true, status: status, pullRequest: pullRequest };
+			: { ok: true, status: status, pullRequest: { ...snapshot, state: state } };
 	}
 }

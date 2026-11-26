@@ -1652,7 +1652,7 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		const input = { ...options };
 		if (!isAzurePullRequestWrite(input)) return { ok: false, reason: 'invalid-input' };
 
-		return this.withAzurePullRequestWriter(
+		const result = await this.withAzurePullRequestWriter(
 			{
 				connectionId: input.connectionId,
 				organization: input.organization,
@@ -1662,6 +1662,10 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 			},
 			writer => writer.write(input),
 		);
+		if (result.ok || result.reason === 'outcome-unknown') {
+			this.ctx.cache.deletePullRequests();
+		}
+		return result;
 	}
 
 	private async withAzurePullRequestWriter<T>(

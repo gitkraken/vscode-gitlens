@@ -1079,7 +1079,8 @@ which cannot identify a fork repository.
 
 Keep both fully qualified refs and SHAs from the resolved snapshot for completion approval. Core
 reads the pull request and its branch tips again, and sends Azure the approved source commit in
-`lastMergeSourceCommit`. The target ref and commit checks are preflight reads. Azure's update API
+`lastMergeSourceCommit`. A final pull request read after policy and branch tip checks catches retargeting
+during those reads. The target ref and commit checks are preflight reads. Azure's update API
 provides no atomic target or PR revision comparison, so the target may move after the check.
 Completion explicitly requests the selected merge strategy with policy bypass disabled.
 See the [Azure DevOps update API](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-7.1)
@@ -1087,10 +1088,10 @@ and [scoped policy configurations API](https://learn.microsoft.com/en-us/rest/ap
 
 `forbidden` includes write-scope and permission rejections. `policy-blocked`, `invalid-input`,
 `conflict`, `source-changed`, and `target-changed` distinguish provider and preflight failures.
-`completed` confirms Azure reported the PR completed. `pending` acknowledges a queued completion.
+`completed` confirms Azure reported the PR completed and the merge succeeded. `pending` acknowledges a queued completion.
 The typed target read reports the PR as active while Azure still reports the merge queued, even if Azure
-sets its PR status to completed. Use the typed read to reconcile pending completion before publishing a
-merged state.
+sets its PR status to completed. A completed PR status with a failed or unconfirmed merge reports a
+failure. Use the typed read to reconcile pending completion before publishing a merged state.
 `outcome-unknown` means Core dispatched a write and could not confirm the result. For pending or
 uncertain writes, reconcile with a read before attempting another write. Core sends each mutation once.
 
