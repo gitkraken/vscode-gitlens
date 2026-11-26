@@ -77,6 +77,15 @@ import type {
 	PullRequestWriteOptions,
 	PullRequestWriteTargetOptions,
 } from './manager.js';
+import type {
+	AzurePullRequestCreateCapabilityOptions,
+	AzurePullRequestCreateCapabilityResult,
+	AzurePullRequestWriteFailure,
+	AzurePullRequestWriteOptions,
+	AzurePullRequestWriteResult,
+	AzurePullRequestWriteTargetOptions,
+	AzurePullRequestWriteTargetResult,
+} from './models/azurePullRequestWrites.js';
 import type { GitHostIntegration } from './models/gitHostIntegration.js';
 import type { Integration, IntegrationBase, IntegrationById } from './models/integration.js';
 import type { IssuesIntegration } from './models/issuesIntegration.js';
@@ -111,6 +120,9 @@ import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { AzureDevOpsIntegration } from './providers/azureDevOps.js';
+import { toAzurePullRequestWriteFailure } from './providers/azurePullRequestWriteErrors.js';
+import type { AzurePullRequestWriter } from './providers/azurePullRequestWrites.js';
+import { isAzurePullRequestScope, isAzurePullRequestWrite } from './providers/azurePullRequestWrites.js';
 import { isWorkItemWriteScope, toWorkItemWriteFailure } from './providers/azureWorkItemWriteErrors.js';
 import type { AzureWorkItemWriter } from './providers/azureWorkItemWrites.js';
 import type { GitHubEnterpriseIntegration, GitHubIntegration } from './providers/github.js';
@@ -1621,6 +1633,50 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		forceSync?: boolean;
 	}): Promise<ProviderBroadenResult<IssueShape>> {
 		return broadenIssues(this, options);
+	}
+
+	getAzurePullRequestCreateCapability(
+		options: AzurePullRequestCreateCapabilityOptions,
+	): Promise<AzurePullRequestCreateCapabilityResult> {
+		return this.withAzurePullRequestWriter({ ...options }, writer => writer.getCreateCapability());
+	}
+
+	resolveAzurePullRequestWriteTarget(
+		options: AzurePullRequestWriteTargetOptions,
+	): Promise<AzurePullRequestWriteTargetResult> {
+		const { number, ...scope } = options;
+		return this.withAzurePullRequestWriter(scope, writer => writer.resolveTarget(number));
+	}
+
+	async writeAzurePullRequest(options: AzurePullRequestWriteOptions): Promise<AzurePullRequestWriteResult> {
+		const input = { ...options };
+		if (!isAzurePullRequestWrite(input)) return { ok: false, reason: 'invalid-input' };
+
+		return this.withAzurePullRequestWriter(
+			{
+				connectionId: input.connectionId,
+				organization: input.organization,
+				project: input.projectId,
+				repository: input.repositoryId,
+				expectedAccountId: input.expectedAccountId,
+			},
+			writer => writer.write(input),
+		);
+	}
+
+	private async withAzurePullRequestWriter<T>(
+		scope: AzurePullRequestCreateCapabilityOptions,
+		run: (writer: AzurePullRequestWriter) => T | Promise<T>,
+	): Promise<T | AzurePullRequestWriteFailure> {
+		if (!isAzurePullRequestScope(scope)) return { ok: false, reason: 'invalid-input' };
+
+		try {
+			const integration = await this.get(GitCloudHostIntegrationId.AzureDevOps);
+			const writer = await integration.getPullRequestWriter(scope);
+			return writer == null ? { ok: false, reason: 'no-connection' } : await run(writer);
+		} catch (ex) {
+			return toAzurePullRequestWriteFailure(ex);
+		}
 	}
 
 	getWorkItemCreateOptions(options: WorkItemCreateOptions): Promise<WorkItemCreateOptionsResult> {

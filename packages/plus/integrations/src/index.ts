@@ -261,6 +261,18 @@ export type {
 	IssueTrackerWriteTargetResult,
 } from './models/issueTrackerWrites.js';
 export type {
+	AzurePullRequestCreateCapabilityOptions,
+	AzurePullRequestCreateCapabilityResult,
+	AzurePullRequestMergeStrategy,
+	AzurePullRequestRepository,
+	AzurePullRequestWriteFailure,
+	AzurePullRequestWriteOptions,
+	AzurePullRequestWriteResult,
+	AzurePullRequestWriteTargetOptions,
+	AzurePullRequestWriteTargetResult,
+	AzureWrittenPullRequest,
+} from './models/azurePullRequestWrites.js';
+export type {
 	WorkItemAddress,
 	WorkItemCreateOptions,
 	WorkItemCreateOptionsResult,

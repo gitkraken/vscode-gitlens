@@ -444,7 +444,11 @@ function getAzureRepositoryWebUrl(baseUrl: string, owner: string, projectName: s
 	return `${trimTrailingSlashes(baseUrl)}/${repoPath}`;
 }
 
-export function getAzurePullRequestWebUrl(pr: AzurePullRequest, baseUrl: string, owner: string): string {
+export function getAzurePullRequestWebUrl(
+	pr: Pick<AzurePullRequest, 'repository' | 'pullRequestId'>,
+	baseUrl: string,
+	owner: string,
+): string {
 	const repoUrl = getAzureRepositoryWebUrl(baseUrl, owner, pr.repository.project.name, pr.repository.name);
 	return `${repoUrl}/pullrequest/${pr.pullRequestId}`;
 }
