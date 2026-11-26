@@ -183,7 +183,6 @@ suite('installKepler — Linux AppImage', () => {
 	});
 });
 
-// Real processes stand in for PowerShell, so each failure arrives as `run` reports it
 suite('getPowerShellFailureCode', () => {
 	suiteSetup(function () {
 		if (process.platform === 'win32') {

@@ -335,7 +335,6 @@ export function getPowerShellFailureCode(ex: unknown): string | undefined {
 	if (!(ex instanceof RunError) || ex instanceof CancelledRunError) return undefined;
 
 	if (typeof ex.code === 'number') {
-		// SEE: PowerShell's `ErrorCategory` enum names, such as `ObjectNotFound` or `PermissionDenied`
 		const category = /^error:([A-Za-z]{1,40})\s*$/m.exec(ex.stderr)?.[1];
 		return `exit:${ex.code}:${category ?? 'other'}`;
 	}
