@@ -22,7 +22,7 @@ type Observation = {
 
 type Issuance = {
 	mark: number;
-	connections: string[];
+	claims: string[];
 	descriptor: IntegrationAuthenticationSessionDescriptor;
 };
 
@@ -45,10 +45,6 @@ function actualKey(domain: string, id: string, cloud: boolean | undefined): stri
 	return JSON.stringify([domainKey(domain), id, cloud]);
 }
 
-function connectionKey(domain: string, id: string): string {
-	return JSON.stringify([domainKey(domain), id]);
-}
-
 export class ObservedAuthenticationProvider implements IntegrationAuthenticationProvider {
 	private readonly observations = new Map<string, Observation>();
 	private readonly credentials = new Map<string, Observation>();
@@ -56,7 +52,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 	private readonly actualRetirements = new Map<string, number>();
 	private readonly hostRetirements = new Map<string, number>();
 	private readonly activeRetirements = new Set<Retirement>();
-	private readonly connectionWitnesses = new Map<string, { mark: number; witness: string | undefined }>();
+	private readonly claimWitnesses = new Map<string, { mark: number; witness: string | undefined }>();
 	private readonly issuances = new WeakMap<ProviderAuthenticationSession, Issuance>();
 	private sequence = 0;
 	private globalRetirement = 0;
@@ -132,7 +128,21 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 						protocol: source.protocol,
 						appKey: source.appKey,
 					};
+		const claims = [
+			`descriptor:${descriptorKey(descriptor.domain, descriptor.connectionId, descriptor.cloud)}`,
+			...(sessionKey != null ? [`actual:${sessionKey}`] : []),
+		];
+		const witness = source == null ? undefined : JSON.stringify([identity, source.account?.id]);
 		if (latest == null || latest.request <= request) {
+			for (const claim of claims) {
+				if (this.claimWitnesses.get(claim)?.witness !== witness) {
+					this.claimWitnesses.set(claim, { mark: ++this.sequence, witness: witness });
+				}
+			}
+			if (session != null) {
+				this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
+			}
+
 			if (previous == null || previous.identity !== identity || credential?.identity !== identity) {
 				this.publish(
 					{
@@ -160,20 +170,8 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 			if (sessionKey != null) {
 				this.credentials.set(sessionKey, observation);
 			}
-		}
-
-		const connections = [
-			...(descriptor.connectionId ? [connectionKey(descriptor.domain, descriptor.connectionId)] : []),
-			...(source != null ? [connectionKey(source.domain || descriptor.domain, source.id)] : []),
-		];
-		const witness = source == null ? undefined : JSON.stringify([identity, source.account?.id]);
-		for (const key of connections) {
-			if (this.connectionWitnesses.get(key)?.witness !== witness) {
-				this.connectionWitnesses.set(key, { mark: ++this.sequence, witness: witness });
-			}
-		}
-		if (session != null) {
-			this.issuances.set(session, { mark: this.sequence, connections: connections, descriptor: descriptor });
+		} else if (session != null && claims.every(claim => this.claimWitnesses.get(claim)?.witness === witness)) {
+			this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
 		}
 
 		return session;
@@ -185,7 +183,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		if (issuance == null) return () => true;
 
 		return () =>
-			issuance.connections.some(key => (this.connectionWitnesses.get(key)?.mark ?? 0) > issuance.mark) ||
+			issuance.claims.some(claim => (this.claimWitnesses.get(claim)?.mark ?? 0) > issuance.mark) ||
 			this.isRetired(issuance.mark, issuance.descriptor, session);
 	}
 

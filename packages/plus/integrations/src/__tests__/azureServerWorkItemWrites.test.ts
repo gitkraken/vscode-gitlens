@@ -2,7 +2,11 @@ import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import { Emitter } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
-import type { IntegrationAuthenticationProvider } from '../authentication/integrationAuthenticationProvider.js';
+import type {
+	IntegrationAuthenticationProvider,
+	IntegrationAuthenticationSessionDescriptor,
+} from '../authentication/integrationAuthenticationProvider.js';
+import type { ProviderAuthenticationSession } from '../authentication/models.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { ObservedAuthenticationProvider } from '../authentication/observedAuthenticationProvider.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
@@ -739,32 +743,72 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 		}
 	});
 
-	test('refuses a write fence for a session the observed provider did not issue', async () => {
-		const descriptor = { domain: 'server.test', scopes: [], connectionId: 'connection', cloud: true };
-		const observed = new ObservedAuthenticationProvider(
+	test('witnesses an observed issuance per selector and actual credential, before it publishes', async () => {
+		const selected = { domain: 'server.test', scopes: [], connectionId: 'connection', cloud: true };
+		const local = { ...selected, cloud: false };
+		const session = (token: string, cloud = true, account = 'me') => ({
+			id: 'connection',
+			accessToken: token,
+			account: { id: account, label: account },
+			scopes: [],
+			cloud: cloud,
+			type: 'pat' as const,
+			domain: 'server.test',
+		});
+		let respond = (descriptor: IntegrationAuthenticationSessionDescriptor) =>
+			Promise.resolve<ProviderAuthenticationSession | undefined>(
+				descriptor.cloud === false ? session('local-token', false) : session('me-token'),
+			);
+		const fencesAtPublish: boolean[] = [];
+		const observed: ObservedAuthenticationProvider = new ObservedAuthenticationProvider(
 			{
 				onDidChange: new Emitter<void>().event,
-				getSession: async () => ({
-					id: 'connection',
-					accessToken: 'me-token',
-					account: { id: 'me', label: 'me' },
-					scopes: [],
-					cloud: true,
-					type: 'pat',
-					domain: 'server.test',
-				}),
+				getSession: descriptor => respond(descriptor),
 				deleteSession: async () => {},
 				deleteAllSessions: async () => {},
 				dispose: () => {},
 			},
 			true,
-			() => {},
+			publication => {
+				if (publication.session != null) {
+					fencesAtPublish.push(observed.trackSession(publication.session)());
+				}
+			},
 		);
-		const issued = (await observed.getSession(descriptor))!;
-		assert.equal(observed.trackSession(issued)(), false);
-		assert.equal(observed.trackSession({ ...issued })(), true);
-		observed.dispose();
-		assert.equal(observed.trackSession(issued)(), true);
+		try {
+			const issued = (await observed.getSession(selected))!;
+			const fence = observed.trackSession(issued);
+			assert.deepEqual(fencesAtPublish, [false], 'the issuance is witnessed before it publishes');
+			assert.equal(fence(), false);
+			assert.equal(observed.trackSession({ ...issued })(), true, 'a copy was not issued');
+
+			assert.equal((await observed.getSession(local))?.accessToken, 'local-token');
+			assert.equal(fence(), false, 'another selector variant with its own credential does not retire it');
+
+			let releaseOlder!: (value: ProviderAuthenticationSession) => void;
+			respond = () => new Promise(resolve => (releaseOlder = resolve));
+			const older = observed.getSession(selected);
+			respond = () => Promise.resolve(session('me-token'));
+			const newer = (await observed.getSession(selected))!;
+			releaseOlder(session('me-token', true, 'someone-else'));
+			const olderIssued = (await older)!;
+			assert.equal(fence(), false, 'an older output does not displace the proof');
+			assert.equal(observed.trackSession(newer)(), false);
+			assert.equal(observed.trackSession(olderIssued)(), true, 'an older output with another owner fails closed');
+
+			respond = () => Promise.resolve(session('me-token', false));
+			await observed.getSession(selected);
+			assert.equal(fence(), true, 'the same selector switching variant invalidates it');
+
+			const reissued = (await observed.getSession(local))!;
+			const localFence = observed.trackSession(reissued);
+			respond = () => Promise.resolve(undefined);
+			await observed.getSession(local);
+			assert.equal(localFence(), true, 'a negative source invalidates the selector');
+		} finally {
+			observed.dispose();
+		}
+		assert.equal(observed.trackSession({ ...session('me-token') })(), true);
 	});
 
 	test('reports a denied delete permission and a refused write without retrying', async () => {
