@@ -1,4 +1,6 @@
 import type {
+	AzureServerWorkItemWriteScope,
+	AzureServicesWorkItemWriteScope,
 	WorkItemAddress,
 	WorkItemCreateOptions,
 	WorkItemCreateOptionsResult,
@@ -12,10 +14,10 @@ import type {
 	WorkItemWriteOptions,
 	WorkItemWriteOptionsResult,
 	WorkItemWriteResult,
-	WorkItemWriteScope,
 	WorkItemWriteTargetOptions,
 	WorkItemWriteTargetResult,
 } from '../models/workItemWrites.js';
+import { decodeAzurePathSegment } from './azure/azure.utils.js';
 import { encodeAzurePathSegment } from './azure/models.js';
 import type {
 	AzureWorkItemFieldDefinition,
@@ -56,6 +58,12 @@ type WorkItemMetadata = {
 	catalog: readonly AzureWorkItemFieldDefinition[];
 };
 type Patch = { op: 'add' | 'test'; path: string; value: unknown } | { op: 'remove'; path: string };
+
+type AzureServerConnectionData = {
+	instanceId?: unknown;
+	webApplicationRelativeDirectory?: unknown;
+	authenticatedUser?: { id?: unknown };
+};
 
 const projectSecurityNamespaceId = '52d39943-cb85-4d7f-8fa8-c6baac873819';
 
@@ -191,11 +199,30 @@ function getFieldPatches(
 	return patch;
 }
 
+async function readProject(
+	request: ProviderRequestFunction,
+	headers: { Authorization: string },
+	collectionUrl: string,
+	projectId: string,
+	apiVersion: string,
+): Promise<{ id: string; name: string }> {
+	const { body: project } = await request<{ id?: unknown; name?: unknown }>({
+		url: `${collectionUrl}/_apis/projects/${projectId}?api-version=${apiVersion}`,
+		headers: headers,
+		redirect: 'error',
+	});
+	if (!sameAzureIdentifier(project?.id, projectId) || !isAzureIdentifier(project?.name)) {
+		throw new WorkItemWriteError('not-found');
+	}
+
+	return { id: project.id as string, name: project.name };
+}
+
 export class AzureWorkItemWriter {
 	static async connect(
 		request: ProviderRequestFunction,
 		credential: { accessToken: string; authorization: string },
-		options: WorkItemWriteScope,
+		options: AzureServicesWorkItemWriteScope,
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
 		const { body: profile } = await getAzureWriteProfile(request, credential.accessToken);
@@ -217,15 +244,7 @@ export class AzureWorkItemWriter {
 		if (organization == null) throw new WorkItemWriteError('not-found');
 
 		const organizationUrl = `https://dev.azure.com/${encodeAzurePathSegment(organization.accountName)}`;
-		const { body: project } = await request<{ id: string; name: string }>({
-			url: `${organizationUrl}/_apis/projects/${options.projectId}?api-version=7.1`,
-			headers: headers,
-			redirect: 'error',
-		});
-		if (!sameAzureIdentifier(project?.id, options.projectId) || !isAzureIdentifier(project?.name)) {
-			throw new WorkItemWriteError('not-found');
-		}
-
+		const project = await readProject(request, headers, organizationUrl, options.projectId, '7.1');
 		return new AzureWorkItemWriter(
 			request,
 			headers,
@@ -234,9 +253,66 @@ export class AzureWorkItemWriter {
 				connectionId: options.connectionId,
 				accountId: accountId,
 				organization: { id: organization.accountId, name: organization.accountName },
-				project: { id: project.id, name: project.name },
+				project: project,
 			},
 			organizationUrl,
+			'7.1',
+			isSessionCurrent,
+		);
+	}
+
+	static async connectServer(
+		request: ProviderRequestFunction,
+		authorization: string,
+		options: AzureServerWorkItemWriteScope,
+		collectionUrl: string,
+		resolveApiVersion: () => Promise<string | undefined>,
+		isSessionCurrent: () => Promise<boolean>,
+	): Promise<AzureWorkItemWriter> {
+		const headers = { Authorization: authorization };
+		const { body: data } = await request<AzureServerConnectionData>({
+			url: `${collectionUrl}/_apis/connectionData`,
+			headers: headers,
+			redirect: 'error',
+		});
+		const accountId = data?.authenticatedUser?.id;
+		const segment =
+			typeof data?.webApplicationRelativeDirectory === 'string'
+				? data.webApplicationRelativeDirectory.split('/').findLast(Boolean)
+				: undefined;
+		const collectionName = segment != null ? decodeAzurePathSegment(segment) : undefined;
+		if (
+			!isAzureGuid(data?.instanceId) ||
+			!sameAzureIdentifier(data.instanceId, options.organizationId) ||
+			collectionName == null ||
+			!sameAzureIdentifier(collectionName, options.organizationName)
+		) {
+			throw new WorkItemWriteError('not-found');
+		}
+		if (
+			!isAzureIdentifier(accountId) ||
+			(options.expectedAccountId !== undefined && !sameAzureIdentifier(accountId, options.expectedAccountId))
+		) {
+			throw new WorkItemWriteError('no-connection');
+		}
+
+		const apiVersion = await resolveApiVersion();
+		if (apiVersion == null) throw new WorkItemWriteError('unsupported');
+
+		const project = await readProject(request, headers, collectionUrl, options.projectId, apiVersion);
+		return new AzureWorkItemWriter(
+			request,
+			headers,
+			{
+				providerId: options.providerId,
+				connectionId: options.connectionId,
+				baseUrl: options.baseUrl,
+				accountId: accountId,
+				organization: { id: data.instanceId, name: collectionName, url: collectionUrl },
+				project: project,
+			},
+			collectionUrl,
+			apiVersion,
 			isSessionCurrent,
 		);
 	}
@@ -248,6 +324,7 @@ export class AzureWorkItemWriter {
 		private readonly headers: { Authorization: string },
 		private readonly context: WorkItemWriteContext,
 		private readonly organizationUrl: string,
+		private readonly apiVersion: string,
 		private readonly isSessionCurrent: () => Promise<boolean>,
 	) {
 		this.projectUrl = `${organizationUrl}/${context.project.id}`;
@@ -490,7 +567,11 @@ export class AzureWorkItemWriter {
 		const states =
 			Array.isArray(type.states) && type.states.length !== 0
 				? type.states
-				: readValues(await this.read<{ value?: WorkItemState[] }>(`${path}/states`));
+				: readValues(
+						await this.read<{ value?: WorkItemState[] }>(`${path}/states`, {
+							'api-version': this.previewApiVersion,
+						}),
+					);
 		if (states.some(state => !isAzureIdentifier(state?.name) || !isAzureIdentifier(state.category))) {
 			throw new WorkItemWriteError('unknown');
 		}
@@ -551,12 +632,17 @@ export class AzureWorkItemWriter {
 		};
 	}
 
+	// SEE: learn.microsoft.com work-item-type-states/list: preview (`6.0-preview.1`) before Server 2022's 7.0.
+	private get previewApiVersion(): string {
+		return this.apiVersion === '7.1' ? this.apiVersion : `${this.apiVersion}-preview.1`;
+	}
+
 	private async assertSessionCurrent(): Promise<void> {
 		if (!(await this.isSessionCurrent())) throw new WorkItemWriteError('no-connection');
 	}
 
 	private url(path: string, params?: Record<string, string>, base = `${this.projectUrl}/_apis/wit`): string {
-		return `${base}${path}?${new URLSearchParams({ 'api-version': '7.1', ...params }).toString()}`;
+		return `${base}${path}?${new URLSearchParams({ 'api-version': this.apiVersion, ...params }).toString()}`;
 	}
 
 	private read<T>(path: string, params?: Record<string, string>): Promise<T> {

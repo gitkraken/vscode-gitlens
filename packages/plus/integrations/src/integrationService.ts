@@ -120,6 +120,7 @@ import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { AzureDevOpsIntegration } from './providers/azureDevOps.js';
+import type { AzureDevOpsServerIntegration } from './providers/azureDevOpsServer.js';
 import { toAzurePullRequestWriteFailure } from './providers/azurePullRequestWriteErrors.js';
 import type { AzurePullRequestWriter } from './providers/azurePullRequestWrites.js';
 import { isAzurePullRequestScope, isAzurePullRequestWrite } from './providers/azurePullRequestWrites.js';
@@ -1712,7 +1713,10 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		input: WorkItemWriteScope,
 		run: (writer: AzureWorkItemWriter) => Promise<T>,
 	): Promise<T | IssueTrackerWriteFailure> {
-		if (input.providerId !== GitCloudHostIntegrationId.AzureDevOps) {
+		if (
+			input.providerId !== GitCloudHostIntegrationId.AzureDevOps &&
+			input.providerId !== GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		) {
 			return { ok: false, reason: 'unsupported', mutationDispatched: false };
 		}
 		if (!isWorkItemWriteScope(input)) {
@@ -1720,8 +1724,20 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		}
 
 		try {
-			const integration = await this.get(input.providerId);
-			const writer = await integration.getWorkItemWriter(input);
+			let writer: AzureWorkItemWriter | undefined;
+			if (input.providerId === GitCloudHostIntegrationId.AzureDevOps) {
+				writer = await (await this.get(input.providerId)).getWorkItemWriter(input);
+			} else {
+				const integration = await this.getIntegrationForRead(
+					input.providerId,
+					input.connectionId,
+					input.domain,
+				);
+				writer =
+					integration?.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer
+						? await (integration as AzureDevOpsServerIntegration).getWorkItemWriter(input)
+						: undefined;
+			}
 			return writer == null
 				? { ok: false, reason: 'no-connection', mutationDispatched: false }
 				: await run(writer);

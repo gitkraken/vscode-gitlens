@@ -304,7 +304,7 @@ suite('IntegrationManager Azure DevOps Services work item writes', () => {
 	test('refuses unsupported providers before resolving a connection', async () => {
 		const fixture = await setup();
 		try {
-			const input = { ...scope, providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer };
+			const input = { ...scope, providerId: GitSelfManagedHostIntegrationId.BitbucketServer };
 			assert.deepEqual(await fixture.manager.getWorkItemCreateOptions(input as unknown as WorkItemWriteScope), {
 				ok: false,
 				reason: 'unsupported',

@@ -32,6 +32,7 @@ import type {
 	ProviderSearchCount,
 } from '../models/integration.js';
 import type { IntegrationKey } from '../models/publicIntegration.js';
+import type { AzureServerWorkItemWriteScope } from '../models/workItemWrites.js';
 import { getAzureRepositoryIdentity } from './azure/azure.utils.js';
 import type { AzureOrganizationDescriptor, AzureProjectDescriptor, AzureRepositoryDescriptor } from './azure/models.js';
 import type { AzurePullRequestSearchPosition } from './azure/search.js';
@@ -58,6 +59,8 @@ import {
 	toAzureReviewerReads,
 	uniqueAzureNames,
 } from './azureDevOps.js';
+import { isSameAzureRoute, WorkItemWriteError } from './azureWorkItemWriteErrors.js';
+import type { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { providersMetadata } from './metadata.js';
 import type {
 	ProviderApiCollectionResult,
@@ -1297,6 +1300,34 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this._latestPullRequestSearches.clear();
 		this._collectionNames.clear();
 		this._tokenCollections.clear();
+	}
+
+	async getWorkItemWriter(options: AzureServerWorkItemWriteScope): Promise<AzureWorkItemWriter | undefined> {
+		const session = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
+		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
+
+		const collection = options.organizationName;
+		const collectionUrl = this.collectionAddress(session, collection);
+		if (
+			!isSameAzureRoute(this.apiBaseUrlFor(session), options.baseUrl) ||
+			!isSameAzureRoute(collectionUrl, options.collectionUrl)
+		) {
+			throw new WorkItemWriteError('not-found');
+		}
+
+		const isSessionCurrent = this.trackWriteSession(session);
+		const api = await this.getProvidersApi();
+		return api.getAzureServerWorkItemWriter(
+			options,
+			session,
+			{
+				collectionBaseUrl: this.collectionApiBaseUrl(session, collection),
+				collectionUrl: collectionUrl,
+				collection: collection,
+			},
+			this.getIgnoreSSLErrors(),
+			isSessionCurrent,
+		);
 	}
 
 	protected override async _requestForCurrentUser(

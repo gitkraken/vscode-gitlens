@@ -34,7 +34,7 @@ import { RequestNotFoundError, toError } from '../errors.js';
 import type { AzurePullRequestCreateCapabilityOptions } from '../models/azurePullRequestWrites.js';
 import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type { WorkItemWriteScope } from '../models/workItemWrites.js';
+import type { AzureServerWorkItemWriteScope, AzureServicesWorkItemWriteScope } from '../models/workItemWrites.js';
 import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
 	azureIssueStateCategory,
@@ -187,6 +187,12 @@ function isAzureNotFoundResponse(ex: unknown, typeKeys: ReadonlySet<string>): bo
 /** The credential provider-apis sends Azure DevOps: a PAT as Basic (encoded here, as it does), anything else as a bearer. */
 function azureAuthorization(token: string, isPAT: boolean | undefined): string {
 	return isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}`;
+}
+
+// SEE: learn.microsoft.com REST "API and TFS version mapping": Server 2019 = 5.0, 2020 = 6.0, 2022 = 7.0, TFS 2018 = 4.x.
+function toAzureServerWorkItemApiVersion(negotiated: string | undefined): string | undefined {
+	const major = Number(/^(\d+)\.\d+/.exec(negotiated ?? '')?.[1]);
+	return major >= 5 ? `${Math.min(major, 7)}.0` : undefined;
 }
 
 const azureDevOpsBaseUrl = 'https://dev.azure.com';
@@ -1281,7 +1287,7 @@ export class ProvidersApi implements Disposable {
 	}
 
 	getAzureWorkItemWriter(
-		options: WorkItemWriteScope,
+		options: AzureServicesWorkItemWriteScope,
 		session: ProviderAuthenticationSession,
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
@@ -1292,6 +1298,34 @@ export class ProvidersApi implements Disposable {
 				authorization: azureAuthorization(session.accessToken, true),
 			},
 			options,
+			isSessionCurrent,
+		);
+	}
+
+	getAzureServerWorkItemWriter(
+		options: AzureServerWorkItemWriteScope,
+		session: ProviderAuthenticationSession,
+		route: { collectionBaseUrl: string; collectionUrl: string; collection: string },
+		ignoreSSLErrors: boolean | 'force',
+		isSessionCurrent: () => Promise<boolean>,
+	): Promise<AzureWorkItemWriter> {
+		const http = this.authenticationService.ctx.http;
+		const request: ProviderRequestFunction = o =>
+			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () => this.request(o));
+		return AzureWorkItemWriter.connectServer(
+			request,
+			azureAuthorization(session.accessToken, true),
+			options,
+			route.collectionUrl,
+			async () => {
+				const resource = await http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
+					this.azureRestApi.getRestApiResource(
+						{ namespace: route.collection, resource: 'workItems', version: '7.0' },
+						{ token: session.accessToken, isPAT: true, baseUrl: route.collectionBaseUrl },
+					),
+				);
+				return toAzureServerWorkItemApiVersion(resource?.apiVersion);
+			},
 			isSessionCurrent,
 		);
 	}

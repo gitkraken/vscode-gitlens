@@ -273,6 +273,8 @@ export type {
 	AzureWrittenPullRequest,
 } from './models/azurePullRequestWrites.js';
 export type {
+	AzureServerWorkItemWriteScope,
+	AzureServicesWorkItemWriteScope,
 	WorkItemAddress,
 	WorkItemCreateOptions,
 	WorkItemCreateOptionsResult,
