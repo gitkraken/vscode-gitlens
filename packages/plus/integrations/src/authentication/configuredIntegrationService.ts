@@ -8,6 +8,7 @@ import type {
 	StoredConfiguredIntegrationDescriptor,
 	StoredIntegrationConfigurations,
 } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { providersMetadata } from '../providers/metadata.js';
 import {
@@ -54,6 +55,21 @@ type IntegrationSessionChangeEvent = {
 };
 
 type StoredWriteRetirements = { epoch: number; scopes: Map<string, number> };
+
+function enqueue<T>(queues: Map<IntegrationIds, Promise<void>>, id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
+	const run = (queues.get(id) ?? Promise.resolve()).then(fn);
+	const settled = run.then(
+		() => undefined,
+		() => undefined,
+	);
+	queues.set(id, settled);
+	void settled.then(() => {
+		if (queues.get(id) === settled) {
+			queues.delete(id);
+		}
+	});
+	return run;
+}
 const storedWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], StoredWriteRetirements>();
 
 export class ConfiguredIntegrationService implements Disposable {
@@ -72,6 +88,8 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * miss a connection it cannot see yet, or be undone by the pending write (#5948).
 	 */
 	private readonly _locks = new Map<IntegrationIds, Promise<void>>();
+	/** Separate from {@link _locks}: an acquisition holds its slot across remote requests and its own storage calls. */
+	private readonly _acquisitions = new Map<IntegrationIds, Promise<void>>();
 	/** Monotonic across providers; see {@link getSignOutMark}. */
 	private _signOutEpoch = 0;
 	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
@@ -314,18 +332,21 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	private withLock<T>(id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
-		const run = (this._locks.get(id) ?? Promise.resolve()).then(fn);
-		const settled = run.then(
-			() => undefined,
-			() => undefined,
-		);
-		this._locks.set(id, settled);
-		void settled.then(() => {
-			if (this._locks.get(id) === settled) {
-				this._locks.delete(id);
-			}
-		});
-		return run;
+		return enqueue(this._locks, id, fn);
+	}
+
+	/**
+	 * Whether a credential's stored read, fetch and publication for `id` run one at a time (see
+	 * {@link withCredentialAcquisition}). Only Azure DevOps Server, whose work item writes authorize against the
+	 * stored credential, so a slower, older fetch must never be published over a newer one.
+	 */
+	serializesCredentialAcquisition(id: IntegrationIds): boolean {
+		return id === GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+	}
+
+	/** Not reentrant: `fn` must not wait on another acquisition for the same provider. */
+	withCredentialAcquisition<T>(id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
+		return this.serializesCredentialAcquisition(id) ? enqueue(this._acquisitions, id, fn) : fn();
 	}
 
 	/**
@@ -391,13 +412,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	storeSession(
 		id: IntegrationIds,
 		session: ProviderAuthenticationSession,
-		options?: {
-			signOutMark?: number;
-			resource?: ConnectionResource;
-			expectedStoredAccessToken?: string;
-			/** Taken before the token was fetched: refuses a store a newer credential for the connection overtook. */
-			storedWriteMark?: number;
-		},
+		options?: { signOutMark?: number; resource?: ConnectionResource; expectedStoredAccessToken?: string },
 	): Promise<boolean> {
 		return this.withLock(id, async () => {
 			if (options?.signOutMark != null && this.isSessionRetiredSince(id, session, options.signOutMark)) {
@@ -412,18 +427,8 @@ export class ConfiguredIntegrationService implements Disposable {
 				return false;
 			}
 
-			const changed = getSessionIdentity(previous) !== getSessionIdentity(session);
-			if (
-				changed &&
-				previous != null &&
-				options?.storedWriteMark != null &&
-				this.isStoredWriteRetiredSince(id, session, options.storedWriteMark)
-			) {
-				return false;
-			}
-
-			if (changed) {
-				if (previous != null || options?.storedWriteMark != null) {
+			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
+				if (previous != null) {
 					this.retireStoredWrites(`${id}|connection:${session.id}`);
 				}
 

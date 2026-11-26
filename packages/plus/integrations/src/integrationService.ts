@@ -2505,9 +2505,20 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					repointedDomains.add(host);
 				}
 
-				try {
+				const fetchConnection = async () => {
 					const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
 					if (session == null) return undefined;
+					if (
+						this.configuredIntegrationService.serializesCredentialAcquisition(id) &&
+						((session.id != null && session.id !== connection.id) ||
+							(Boolean(session.domain?.trim()) &&
+								!sameConfiguredBaseUrl(session.domain, connection.domain)))
+					) {
+						scope?.warn(
+							`Skipping connection '${connection.id}' for ${id}: token issued for another connection`,
+						);
+						return undefined;
+					}
 
 					let providerSession = toProviderSession(id, connection, session, host, cached?.baseUrl);
 
@@ -2536,6 +2547,29 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 						providerSession: providerSession,
 						resource: resource,
 					};
+				};
+
+				try {
+					if (!this.configuredIntegrationService.serializesCredentialAcquisition(id)) {
+						return await fetchConnection();
+					}
+
+					// Fetched and published in the same acquisition as the auth provider's, so neither publishes a token
+					// older than one the other already stored.
+					return await this.configuredIntegrationService.withCredentialAcquisition(id, async () => {
+						const prepared = await fetchConnection();
+						if (prepared == null) return undefined;
+
+						const stored = await this.configuredIntegrationService.storeSession(
+							id,
+							prepared.providerSession,
+							{
+								signOutMark: signOutMark,
+								resource: prepared.resource,
+							},
+						);
+						return stored ? { ...prepared, kind: 'published' as const } : undefined;
+					});
 				} catch (ex) {
 					scope?.warn(
 						`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,
