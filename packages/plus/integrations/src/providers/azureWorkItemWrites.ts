@@ -268,7 +268,7 @@ export class AzureWorkItemWriter {
 		options: AzureServerWorkItemWriteScope,
 		collectionUrl: string,
 		resolveApiVersion: () => Promise<string | undefined>,
-		resolveStatesApiVersion: (apiVersion: string) => Promise<string | undefined>,
+		resolveStatesApiVersion: () => Promise<string | undefined>,
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
 		const headers = { Authorization: authorization };
@@ -317,7 +317,7 @@ export class AzureWorkItemWriter {
 			collectionUrl,
 			apiVersion,
 			() =>
-				(statesApiVersion ??= resolveStatesApiVersion(apiVersion).then(version => {
+				(statesApiVersion ??= resolveStatesApiVersion().then(version => {
 					if (version == null) throw new WorkItemWriteError('unsupported');
 
 					return version;

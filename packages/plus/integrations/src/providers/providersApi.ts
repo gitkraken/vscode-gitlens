@@ -1327,7 +1327,7 @@ export class ProvidersApi implements Disposable {
 			options,
 			route.collectionUrl,
 			async () => toAzureServerWorkItemApiVersion(await negotiate('workItems', '7.0')),
-			apiVersion => negotiate('workItemTypeStates', apiVersion),
+			() => negotiate('workItemTypeStates', '7.1'),
 			isSessionCurrent,
 		);
 	}

@@ -416,6 +416,11 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				states: { maxVersion: '5.0', releasedVersion: '4.1', resourceVersion: 1 },
 				expected: '5.0-preview.1',
 			},
+			{
+				server: server2020,
+				states: { minVersion: '6.1', maxVersion: '6.1', releasedVersion: '0.0', resourceVersion: 1 },
+				expected: '6.1-preview.1',
+			},
 			{ server: server2020, states: undefined, expected: undefined },
 		] as const;
 		for (const { server: profile, states, expected } of cases) {
