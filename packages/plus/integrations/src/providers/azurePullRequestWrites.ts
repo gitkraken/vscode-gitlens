@@ -223,7 +223,7 @@ export class AzurePullRequestWriter {
 		if (!isAzurePositiveInt(number)) return { ok: false, reason: 'invalid-input' };
 
 		const { raw, pullRequest } = await this.readPullRequest(number);
-		const state = pullRequest.state;
+		const state = raw.status;
 		return {
 			ok: true,
 			accountId: this.accountId,
@@ -248,7 +248,7 @@ export class AzurePullRequestWriter {
 		}
 
 		const current = await this.readPullRequest(options.number);
-		const state = current.pullRequest.state;
+		const state = current.raw.status;
 		switch (options.action) {
 			case 'edit':
 				if (state === 'completed') return { ok: false, reason: 'conflict' };
@@ -435,7 +435,7 @@ export class AzurePullRequestWriter {
 			),
 			title: raw.title,
 			description: raw.description ?? '',
-			state: raw.status,
+			state: raw.status === 'completed' && raw.mergeStatus === 'queued' ? 'active' : raw.status,
 			sourceRef: raw.sourceRefName,
 			targetRef: raw.targetRefName,
 			sourceSha: isCommitId(sourceSha) ? sourceSha : undefined,

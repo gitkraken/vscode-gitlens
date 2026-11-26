@@ -1088,6 +1088,9 @@ and [scoped policy configurations API](https://learn.microsoft.com/en-us/rest/ap
 `forbidden` includes write-scope and permission rejections. `policy-blocked`, `invalid-input`,
 `conflict`, `source-changed`, and `target-changed` distinguish provider and preflight failures.
 `completed` confirms Azure reported the PR completed. `pending` acknowledges a queued completion.
+The typed target read reports the PR as active while Azure still reports the merge queued, even if Azure
+sets its PR status to completed. Use the typed read to reconcile pending completion before publishing a
+merged state.
 `outcome-unknown` means Core dispatched a write and could not confirm the result. For pending or
 uncertain writes, reconcile with a read before attempting another write. Core sends each mutation once.
 

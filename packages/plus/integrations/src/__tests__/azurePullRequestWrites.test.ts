@@ -387,11 +387,28 @@ suite('IntegrationManager Azure DevOps Services pull request writes', () => {
 			});
 			assert.equal(fixture.mutations().length, cases.length + 1);
 
-			fixture.respond = ({ method }) =>
-				method === 'PATCH' ? Response.json({ ...pr, mergeStatus: 'queued' }) : undefined;
+			fixture.respond = ({ method }) => {
+				if (method !== 'PATCH') return undefined;
+
+				fixture.current = { ...pr, status: 'completed', mergeStatus: 'queued' };
+				return Response.json(fixture.current);
+			};
 			const pending = await fixture.manager.writeAzurePullRequest(complete);
 			assert.ok(pending.ok && pending.status === 'pending');
 			assert.equal(pending.pullRequest.state, 'active');
+			const queued = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(queued.ok);
+			assert.equal(queued.pullRequest.state, 'active');
+			assert.deepEqual(queued.capabilities, {
+				edit: false,
+				abandon: false,
+				reactivate: false,
+				complete: { kind: 'unavailable', reason: 'conflict' },
+			});
+
+			fixture.current = { ...fixture.current, mergeStatus: 'succeeded' };
+			const resolved = await fixture.manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 });
+			assert.ok(resolved.ok && resolved.pullRequest.state === 'completed');
 			assert.equal(fixture.mutations().length, cases.length + 2);
 		} finally {
 			fixture.dispose();
