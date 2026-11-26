@@ -196,7 +196,7 @@ export async function installKepler(
 				});
 			}
 		} else {
-			await verifyAuthenticode(file);
+			await verifyAuthenticode(file, options?.signal);
 		}
 
 		throwIfCancelled(options?.signal);
@@ -413,7 +413,7 @@ function parseContentRange(value: string | null): { start: number; total: number
 }
 
 /** Windows publishes no SHA-512, so the setup's Authenticode signature is checked instead. */
-async function verifyAuthenticode(file: string): Promise<void> {
+async function verifyAuthenticode(file: string, signal: AbortSignal | undefined): Promise<void> {
 	let status: string;
 	try {
 		// The path goes through the environment, not the command line, so it needs no quoting
@@ -426,10 +426,16 @@ async function verifyAuthenticode(file: string): Promise<void> {
 				'(Get-AuthenticodeSignature -LiteralPath $env:GITLENS_KEPLER_SETUP).Status',
 			],
 			'utf8',
-			{ env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_SETUP: file }, timeout: authenticodeTimeout },
+			{
+				env: { ...getWindowsPowerShellEnv(), GITLENS_KEPLER_SETUP: file },
+				timeout: authenticodeTimeout,
+				cancellation: signal,
+			},
 		);
 		status = output.trim();
 	} catch (ex) {
+		if (signal?.aborted) throw new KeplerInstallError('cancelled', 'Cancelled', { cause: ex });
+
 		throw new KeplerInstallError('verify', 'Unable to check the setup signature', { cause: ex });
 	}
 
