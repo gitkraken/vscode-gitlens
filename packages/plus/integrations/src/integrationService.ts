@@ -2277,6 +2277,15 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		}
 	}
 
+	private isUnprovenRepoint(id: IntegrationIds, connection: CloudIntegrationConnection & { id: string }): boolean {
+		const current = this.configuredIntegrationService
+			.getConfigured(id, { cloud: true })
+			.find(c => c.id === connection.id)?.baseUrl;
+		return (
+			current != null && Boolean(connection.domain?.trim()) && !sameConfiguredBaseUrl(current, connection.domain)
+		);
+	}
+
 	private getConfiguredCloudConnection(id: IntegrationIds, connectionId: string): ConfiguredIntegrationDescriptor {
 		const connection = this.configuredIntegrationService
 			.getConfigured(id, { cloud: true })
@@ -2516,6 +2525,16 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					) {
 						scope?.warn(
 							`Skipping connection '${connection.id}' for ${id}: token issued for another connection`,
+						);
+						return undefined;
+					}
+					if (
+						this.configuredIntegrationService.serializesCredentialAcquisition(id) &&
+						!session.domain?.trim() &&
+						this.isUnprovenRepoint(id, connection)
+					) {
+						scope?.warn(
+							`Skipping connection '${connection.id}' for ${id}: token does not confirm its moved address`,
 						);
 						return undefined;
 					}

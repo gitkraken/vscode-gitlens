@@ -97,7 +97,7 @@ function setup() {
 			options: GetSessionOptions,
 			target: IntegrationAuthenticationSessionDescriptor = descriptor,
 		) => (await auth.get(id)).getSession(target, options),
-		reconcile: () => service['reconcileCloudConnections'](id, [connection], true),
+		reconcile: (listed = connection) => service['reconcileCloudConnections'](id, [listed], true),
 		stored: async () => (await configured.peekStoredSession(id, connectionId, true, 'server.test'))?.accessToken,
 		dispose: () => service.dispose(),
 	};
@@ -338,6 +338,27 @@ suite('Azure DevOps Server credential acquisition ordering', () => {
 			await answer(fixture, '', undefined, true);
 			assert.equal(await missing, undefined);
 			assert.equal(fixture.connects(), 1, 'a credential the backend does not have still connects');
+		} finally {
+			fixture.dispose();
+		}
+	});
+
+	test('a reconciliation keeps a stored address that a domainless token does not confirm', async () => {
+		const fixture = setup();
+		try {
+			await seed(fixture, 'stored-token');
+
+			const moved = fixture.reconcile({ ...connection, domain: 'https://server.test/moved' });
+			await answer(fixture, 'moved-token', { domain: '' });
+			await moved;
+			assert.equal(await fixture.stored(), 'stored-token');
+			assert.equal(fixture.configured.getConfiguredBaseUrl(id, connectionId), domain);
+
+			const same = fixture.reconcile();
+			await answer(fixture, 'same-address-token', { domain: '' });
+			await same;
+			assert.equal(await fixture.stored(), 'same-address-token');
+			assert.equal(fixture.configured.getConfiguredBaseUrl(id, connectionId), domain);
 		} finally {
 			fixture.dispose();
 		}
