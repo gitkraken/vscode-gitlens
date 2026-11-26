@@ -112,6 +112,11 @@ export class IntegrationAuthenticationService implements Disposable {
 		return Object.assign(isCurrent, { isRetired: () => store.isStoredWriteRetiredSince(id, session, mark) });
 	}
 
+	trackObservedSession(id: IntegrationIds, session: ProviderAuthenticationSession): (() => boolean) | undefined {
+		const provider = this.providers.get(id);
+		return provider instanceof ObservedAuthenticationProvider ? provider.trackSession(session) : undefined;
+	}
+
 	/** The id of the connection a descriptor naming none reads: the primary configured for its host. */
 	getPrimaryConnectionId(providerId: IntegrationIds, descriptor: IntegrationAuthenticationSessionDescriptor): string {
 		return this.configuredIntegrationService.resolveConnectionId(providerId, descriptor);

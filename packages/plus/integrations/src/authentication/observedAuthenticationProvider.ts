@@ -46,6 +46,7 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 	private readonly actualRetirements = new Map<string, number>();
 	private readonly hostRetirements = new Map<string, number>();
 	private readonly activeRetirements = new Set<Retirement>();
+	private readonly credentialChanges = new Map<string, number>();
 	private sequence = 0;
 	private globalRetirement = 0;
 	private disposed = false;
@@ -134,6 +135,10 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 				);
 			}
 
+			if (sessionKey != null && credential?.identity !== identity) {
+				this.credentialChanges.set(sessionKey, ++this.sequence);
+			}
+
 			const observation: Observation = {
 				request: request,
 				identity: identity,
@@ -151,6 +156,18 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		}
 
 		return session;
+	}
+
+	trackSession(session: ProviderAuthenticationSession): () => boolean {
+		const mark = this.sequence;
+		const key = actualKey(session.domain, session.id, session.cloud);
+		const descriptor = {
+			domain: session.domain,
+			connectionId: session.id,
+			cloud: session.cloud,
+			scopes: [...session.scopes],
+		};
+		return () => (this.credentialChanges.get(key) ?? 0) > mark || this.isRetired(mark, descriptor, session);
 	}
 
 	async deleteSession(

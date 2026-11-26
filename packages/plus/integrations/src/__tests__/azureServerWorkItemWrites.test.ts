@@ -1,6 +1,8 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
+import { Emitter } from '@gitlens/utils/event.js';
 import type { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
+import type { IntegrationAuthenticationProvider } from '../authentication/integrationAuthenticationProvider.js';
 import { toCloudIntegrationType } from '../authentication/models.js';
 import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type {
@@ -10,6 +12,7 @@ import type {
 	WorkItemWriteOptions,
 } from '../index.js';
 import { createIntegrationManager } from '../index.js';
+import type { IntegrationService } from '../integrationService.js';
 import { azureRestDiscoveryResponse } from '../providers/azure/__tests__/fixtures.js';
 import { isWorkItemWriteScope } from '../providers/azureWorkItemWriteErrors.js';
 import { createFakeRuntime } from './fakeRuntime.js';
@@ -617,6 +620,99 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				assert.deepEqual(result, { ok: false, reason: 'no-connection', mutationDispatched: false }, action);
 				assert.deepEqual(server.mutations(), [], action);
 			});
+		}
+	});
+
+	test('does not send an edit or delete whose host credential changes after its last check', async () => {
+		const descriptor = { domain: 'server.test', scopes: [], connectionId: 'connection', cloud: true };
+		const run = async (
+			action: 'edit' | 'delete',
+			change?: (provider: IntegrationAuthenticationProvider, setToken: (token: string) => void) => Promise<void>,
+			finalCheck?: number,
+		) => {
+			const server = createServer();
+			let token = 'me-token';
+			server.runtime.hooks!.createAuthenticationProvider = async () => ({
+				onDidChange: new Emitter<void>().event,
+				getSession: async ({ connectionId }) =>
+					connectionId === 'connection'
+						? {
+								id: 'connection',
+								accessToken: token,
+								account: { id: 'me', label: 'me' },
+								scopes: [],
+								cloud: true,
+								type: 'pat',
+								domain: 'server.test',
+								baseUrl: baseUrl,
+							}
+						: undefined,
+				deleteSession: async () => {},
+				deleteAllSessions: async () => {},
+				dispose: () => {},
+			});
+			let checks = 0;
+			let result: unknown;
+			await withManager(server, async (manager, scope) => {
+				const service = manager as unknown as IntegrationService;
+				const provider = await service['authenticationService'].get(providerId);
+				const integration = (await service.getIntegrationForRead(providerId, scope.connectionId))!;
+				const resolve = integration['resolveReadSessionOrThrow'].bind(integration);
+				const address = {
+					...scope,
+					workItemId: item.id,
+					expectedRevision: item.rev,
+					expectedAccountId: collection.identity,
+				};
+				integration['resolveReadSessionOrThrow'] = async (...args) => {
+					const current = await resolve(...args);
+					if (++checks === finalCheck) {
+						await change!(provider, value => (token = value));
+					}
+					return current;
+				};
+				result =
+					action === 'edit'
+						? await manager.writeWorkItem({
+								...address,
+								action: 'edit',
+								fields: { 'System.Title': 'Edited' },
+							})
+						: await manager.deleteWorkItem(address);
+			});
+			return { checks: checks, result: result, mutations: server.mutations().length };
+		};
+
+		const changes = {
+			replace: async (provider: IntegrationAuthenticationProvider, setToken: (token: string) => void) => {
+				setToken('other-token');
+				await provider.getSession(descriptor);
+			},
+			'replace and return': async (
+				provider: IntegrationAuthenticationProvider,
+				setToken: (token: string) => void,
+			) => {
+				setToken('other-token');
+				await provider.getSession(descriptor);
+				setToken('me-token');
+				await provider.getSession(descriptor);
+			},
+			remove: (provider: IntegrationAuthenticationProvider) => provider.deleteSession(descriptor),
+		};
+		for (const action of ['edit', 'delete'] as const) {
+			const normal = await run(action);
+			assert.equal((normal.result as { ok: boolean }).ok, true, `${action}: ${JSON.stringify(normal.result)}`);
+			assert.equal(normal.mutations, 1, action);
+
+			for (const [name, change] of Object.entries(changes)) {
+				const changed = await run(action, change, normal.checks);
+				assert.deepEqual(
+					changed.result,
+					{ ok: false, reason: 'no-connection', mutationDispatched: false },
+					`${action} ${name}`,
+				);
+				assert.equal(changed.mutations, 0, `${action} ${name}`);
+			}
 		}
 	});
 
