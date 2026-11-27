@@ -34,6 +34,7 @@ import { MarkdownContentProvider } from './documents/markdown.js';
 import { EventBus } from './eventBus.js';
 import type { FeatureFlagService } from './featureFlags/featureFlagService.js';
 import { ConfigCatFeatureFlagService } from './featureFlags/featureFlagService.js';
+import { CommitCreatedTelemetry } from './git/commitCreatedTelemetry.js';
 import { GitFileSystemProvider } from './git/fsProvider.js';
 import { GitHealthService } from './git/gitHealthService.js';
 import { GitOperationOriginTracker } from './git/gitOperationOriginTracker.js';
@@ -286,6 +287,7 @@ export class Container {
 			this._resourceUsage.register('git', () => this._git.getResourceUsage()),
 		);
 		this._disposables.push(new GitFileSystemProvider(this));
+		this._disposables.push(new CommitCreatedTelemetry(this));
 		this._disposables.push((this._virtualFs = new VirtualFileSystemService(this)));
 
 		this._disposables.push((this._deepLinks = new DeepLinkService(this)));
