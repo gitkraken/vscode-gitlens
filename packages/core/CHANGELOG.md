@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds Azure DevOps Server pull request creation, title/description edits, abandonment/reactivation and completion to `IntegrationManager`. Writes verify the selected installation, collection, project, repository and account; completion strategies follow the negotiated Server API and blocking policies (plus/integrations) ([#6268](https://github.com/gitkraken/vscode-gitlens/issues/6268))
+
 ## [0.53.0] - 2026-11-27
 
 ### Added

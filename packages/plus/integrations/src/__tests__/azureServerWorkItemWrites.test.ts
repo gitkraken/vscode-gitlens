@@ -122,6 +122,7 @@ function createServer(
 		calls.push(call);
 
 		if (method === 'OPTIONS') {
+			assert.equal(init?.redirect, 'error');
 			return (await respond?.(call)) ?? azureRestDiscoveryResponse(url, profile) ?? json({}, 404);
 		}
 

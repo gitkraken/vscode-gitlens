@@ -7,6 +7,8 @@ import type {
 	AzurePullRequestWriteOptions,
 	AzurePullRequestWriteResult,
 	AzurePullRequestWriteTargetResult,
+	AzureServerPullRequestWriteOptions,
+	AzureServerPullRequestWriteScope,
 	AzureWrittenPullRequest,
 } from '../models/azurePullRequestWrites.js';
 import type { AzurePullRequest, AzureRepository } from './azure/models.js';
@@ -18,8 +20,10 @@ import {
 	isAzureIdentifier,
 	isAzurePositiveInt,
 	sameAzureIdentifier,
+	verifyAzureServerCollection,
 } from './azure/writeIdentity.js';
 import { AzurePullRequestWriteError, toAzurePullRequestWriteFailure } from './azurePullRequestWriteErrors.js';
+import { isWorkItemWriteScope } from './azureWorkItemWriteErrors.js';
 import type { ProviderRequestFunction } from './models.js';
 
 const azureBaseUrl = 'https://dev.azure.com';
@@ -41,7 +45,8 @@ type MergePolicy = {
 };
 
 type CompletionCapability = Extract<AzurePullRequestWriteTargetResult, { ok: true }>['capabilities']['complete'];
-type CompletionOptions = Extract<AzurePullRequestWriteOptions, { action: 'complete' }>;
+type WriteOptions = AzurePullRequestWriteOptions | AzureServerPullRequestWriteOptions;
+type CompletionOptions = Extract<WriteOptions, { action: 'complete' }>;
 type FailureReason = AzurePullRequestWriteFailure['reason'];
 type PullRequestSnapshot = Omit<AzureWrittenPullRequest, 'state'> & {
 	state: AzureWrittenPullRequest['state'] | undefined;
@@ -69,8 +74,15 @@ function isCommitId(sha: unknown): sha is string {
 	return typeof sha === 'string' && /^(?!0{40}$)[0-9a-f]{40}$/i.test(sha);
 }
 
-export function isAzurePullRequestScope(options: AzurePullRequestCreateCapabilityOptions): boolean {
+export function isAzurePullRequestScope(
+	options: AzurePullRequestCreateCapabilityOptions | AzureServerPullRequestWriteScope,
+): boolean {
+	if (options.providerId === 'azure-devops-server') {
+		return isWorkItemWriteScope(options) && isPathSegment(options.repository);
+	}
+
 	return (
+		(options.providerId === undefined || options.providerId === 'azureDevOps') &&
 		isAzureIdentifier(options.connectionId) &&
 		typeof options.organization === 'string' &&
 		/^[a-z0-9][a-z0-9-]*$/i.test(options.organization) &&
@@ -88,8 +100,11 @@ function isDescription(description: unknown): boolean {
 	return description === undefined || (typeof description === 'string' && description.length <= 4000);
 }
 
-export function isAzurePullRequestWrite(options: AzurePullRequestWriteOptions): boolean {
+export function isAzurePullRequestWrite(options: WriteOptions): boolean {
 	if (
+		(options.providerId !== undefined &&
+			options.providerId !== 'azureDevOps' &&
+			options.providerId !== 'azure-devops-server') ||
 		!isAzureGuid(options.projectId) ||
 		!isAzureGuid(options.repositoryId) ||
 		!isAzureIdentifier(options.expectedAccountId)
@@ -253,6 +268,61 @@ export class AzurePullRequestWriter {
 		);
 	}
 
+	static async connectServer(
+		request: ProviderRequestFunction,
+		authorization: string,
+		options: AzureServerPullRequestWriteScope,
+		route: { collectionUrl: string; collectionBaseUrl: string },
+		resolveApiVersion: () => Promise<string | undefined>,
+		isSessionCurrent: () => Promise<boolean>,
+	): Promise<AzurePullRequestWriter> {
+		const headers = { Authorization: authorization };
+		const collection = await verifyAzureServerCollection(request, headers, route.collectionUrl, options);
+		if (typeof collection === 'string') throw new AzurePullRequestWriteError(collection);
+
+		const apiVersion = await resolveApiVersion();
+		if (apiVersion == null) throw new AzurePullRequestWriteError('unsupported');
+
+		const { body: repo } = await request<AzureRepository>({
+			url: `${route.collectionUrl}/${options.projectId}/_apis/git/repositories/${encodeAzurePathSegment(options.repository)}?api-version=${apiVersion}`,
+			headers: headers,
+			redirect: 'error',
+		});
+		if (
+			!isAzureGuid(repo?.id) ||
+			!sameAzureIdentifier(repo.project?.id, options.projectId) ||
+			!sameAzureIdentifier(isAzureGuid(options.repository) ? repo.id : repo.name, options.repository) ||
+			!isPathSegment(repo.name) ||
+			!isPathSegment(repo.project.name)
+		) {
+			throw new AzurePullRequestWriteError('not-found');
+		}
+		if (repo.isDisabled || repo.isInMaintenance) throw new AzurePullRequestWriteError('unsupported');
+
+		return new AzurePullRequestWriter(
+			request,
+			headers,
+			collection.accountId,
+			{
+				organization: collection.name,
+				projectId: repo.project.id,
+				projectName: repo.project.name,
+				repositoryId: repo.id,
+				repositoryName: repo.name,
+				server: {
+					providerId: options.providerId,
+					connectionId: options.connectionId,
+					baseUrl: options.baseUrl,
+					collectionUrl: route.collectionUrl,
+					organizationId: collection.id,
+				},
+			},
+			isSessionCurrent,
+			route.collectionBaseUrl,
+			apiVersion,
+		);
+	}
+
 	private readonly gitApiUrl: string;
 	private readonly repoUrl: string;
 
@@ -262,8 +332,10 @@ export class AzurePullRequestWriter {
 		private readonly accountId: string,
 		private readonly repository: AzurePullRequestRepository,
 		private readonly isSessionCurrent: () => Promise<boolean>,
+		private readonly baseUrl: string = azureBaseUrl,
+		private readonly apiVersion: string = '7.1',
 	) {
-		this.gitApiUrl = `${azureBaseUrl}/${repository.organization}/${repository.projectId}/_apis/git`;
+		this.gitApiUrl = `${baseUrl}/${encodeAzurePathSegment(repository.organization)}/${repository.projectId}/_apis/git`;
 		this.repoUrl = `${this.gitApiUrl}/repositories/${repository.repositoryId}`;
 	}
 
@@ -290,7 +362,7 @@ export class AzurePullRequestWriter {
 		};
 	}
 
-	async write(options: AzurePullRequestWriteOptions): Promise<AzurePullRequestWriteResult> {
+	async write(options: WriteOptions): Promise<AzurePullRequestWriteResult> {
 		if (options.action === 'create') {
 			return this.save(options, {
 				sourceRefName: options.sourceRef,
@@ -328,6 +400,8 @@ export class AzurePullRequestWriter {
 		const failure = getCompletionRefFailure(options, pullRequest) ?? getCompletionStateFailure(raw);
 		if (failure != null) return { ok: false, reason: failure };
 
+		if (!this.supportedStrategies.includes(options.strategy)) return { ok: false, reason: 'unsupported' };
+
 		const strategies = await this.getAllowedStrategies(options.expectedTargetRef);
 		if (!strategies.includes(options.strategy)) return { ok: false, reason: 'policy-blocked' };
 
@@ -350,7 +424,10 @@ export class AzurePullRequestWriter {
 
 		return this.save(options, {
 			status: 'completed',
-			completionOptions: { mergeStrategy: options.strategy, bypassPolicy: false },
+			completionOptions:
+				this.apiVersion === '5.0'
+					? { squashMerge: options.strategy === 'squash', bypassPolicy: false }
+					: { mergeStrategy: options.strategy, bypassPolicy: false },
 			lastMergeSourceCommit: { commitId: options.expectedSourceSha },
 		});
 	}
@@ -392,14 +469,18 @@ export class AzurePullRequestWriter {
 		return Promise.all([this.readRef(pullRequest.sourceRef), this.readRef(pullRequest.targetRef)]);
 	}
 
+	private get supportedStrategies(): AzurePullRequestMergeStrategy[] {
+		return this.apiVersion === '5.0' ? ['noFastForward', 'squash'] : mergeStrategies;
+	}
+
 	private async getAllowedStrategies(ref: string): Promise<AzurePullRequestMergeStrategy[]> {
 		const query = new URLSearchParams({
-			'api-version': '7.1',
+			'api-version': this.repository.server == null ? '7.1' : '5.0-preview.1',
 			repositoryId: this.repository.repositoryId,
 			refName: ref,
 			policyType: mergeStrategyPolicyId,
 		});
-		let strategies = mergeStrategies.slice();
+		let strategies = this.supportedStrategies.slice();
 		for await (const policies of this.readPages<MergePolicy>(`${this.gitApiUrl}/policy/configurations`, query)) {
 			for (const policy of policies) {
 				if (policy.isEnabled === true && policy.isDeleted !== true && policy.isBlocking === true) {
@@ -411,7 +492,7 @@ export class AzurePullRequestWriter {
 	}
 
 	private async readRef(ref: string): Promise<string | undefined> {
-		const query = new URLSearchParams({ 'api-version': '7.1', filter: ref.slice('refs/'.length) });
+		const query = new URLSearchParams({ 'api-version': this.apiVersion, filter: ref.slice('refs/'.length) });
 		for await (const refs of this.readPages<{ name: string; objectId: string }>(`${this.repoUrl}/refs`, query)) {
 			const match = refs.find(row => row.name === ref);
 			if (match != null) return isCommitId(match.objectId) ? match.objectId : undefined;
@@ -457,7 +538,7 @@ export class AzurePullRequestWriter {
 	}
 
 	private pullRequestUrl(number?: number): string {
-		return `${this.repoUrl}/pullrequests${number === undefined ? '' : `/${number}`}?api-version=7.1`;
+		return `${this.repoUrl}/pullrequests${number === undefined ? '' : `/${number}`}?api-version=${this.apiVersion}`;
 	}
 
 	private toPullRequestSnapshot(raw: AzurePullRequest, number?: number): PullRequestSnapshot {
@@ -498,7 +579,7 @@ export class AzurePullRequestWriter {
 						project: { id: this.repository.projectId, name: this.repository.projectName },
 					},
 				},
-				azureBaseUrl,
+				this.baseUrl,
 				this.repository.organization,
 			),
 			title: raw.title,
@@ -511,7 +592,7 @@ export class AzurePullRequestWriter {
 		};
 	}
 
-	private async save(options: AzurePullRequestWriteOptions, body: object): Promise<AzurePullRequestWriteResult> {
+	private async save(options: WriteOptions, body: object): Promise<AzurePullRequestWriteResult> {
 		if (!(await this.isSessionCurrent())) return { ok: false, reason: 'no-connection' };
 
 		const create = options.action === 'create';
@@ -540,7 +621,7 @@ export class AzurePullRequestWriter {
 	}
 
 	private getReceipt(
-		options: AzurePullRequestWriteOptions,
+		options: WriteOptions,
 		raw: AzurePullRequest,
 		snapshot: PullRequestSnapshot,
 	): AzurePullRequestWriteResult {

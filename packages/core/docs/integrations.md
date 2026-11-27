@@ -1161,6 +1161,75 @@ failure. Use the typed read to reconcile pending completion before publishing a 
 `outcome-unknown` means Core dispatched a write and could not confirm the result. For pending or
 uncertain writes, reconcile with a read before attempting another write. Core sends each mutation once.
 
+### Azure DevOps Server pull request writes
+
+The same three Azure PR methods accept an additive `AzureServerPullRequestWriteScope`, discriminated by
+`providerId: 'azure-devops-server'`. Existing Services inputs, including inputs without `providerId`,
+retain their behavior, and the existing option types keep their Services shape: Server inputs are typed
+`AzureServerPullRequestWriteScope`, `AzureServerPullRequestWriteTargetOptions` and
+`AzureServerPullRequestWriteOptions`. The Server scope reuses the installation and collection coordinates of
+`AzureServerWorkItemWriteScope` and adds `repository` (name or GUID):
+
+```ts
+const scope = {
+	providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+	connectionId,
+	baseUrl, // The selected connection's configured installation or collection URL.
+	collectionUrl, // The collection URL returned by listOrgs for that connection.
+	organizationId, // The collection's connectionData.instanceId.
+	organizationName, // The collection name, including spaces when present.
+	projectId, // A project GUID, never an ambiguous project name.
+	repository, // Name or GUID within that project.
+};
+const capability = await manager.getAzurePullRequestCreateCapability(scope);
+const target = await manager.resolveAzurePullRequestWriteTarget({ ...scope, number });
+```
+
+Use the existing action fields with `writeAzurePullRequest`, replacing `repository` with the canonical
+`repositoryId` and setting `expectedAccountId` to the resolved collection's authenticated user ID.
+Server receipts retain the existing repository fields and add `repository.server` with `providerId`,
+`connectionId`, `baseUrl`, `collectionUrl` and `organizationId`. `repository.organization` is the collection
+name. Keep these coordinates and the canonical project/repository GUIDs across confirmation. A repository
+URL, including a project-less clone URL, is not a write address: resolve its collection and project through
+the selected connection first. Duplicate names in other projects, collections or installations cannot
+substitute for the approved GUIDs.
+
+Core matches installation and collection URLs against the selected connection before using its PAT,
+then verifies collection `connectionData.instanceId`, collection name and authenticated user. It refuses
+Services hosts in Server scopes and sends requests only through that connection's collection address,
+with redirects disabled on identity, repository, PR, ref, policy and mutation requests. Both host-root
+installations and `/tfs` virtual directories are supported, including a connection configured at its
+collection URL. `domain` is only a fallback from trusted connection configuration, as for Server work
+items. Azure enforces code write permission at dispatch; capability discovery does not grant it.
+
+| Server release        | Negotiated PR REST API | Completion strategies before policy filtering      | Completion request           |
+| --------------------- | ---------------------- | -------------------------------------------------- | ---------------------------- |
+| TFS 2018              | 4.x                    | Unavailable                                        | No mutation                  |
+| Server 2019           | 5.0                    | `noFastForward`, `squash`                          | Legacy `squashMerge` boolean |
+| Server 2020           | 6.0                    | `noFastForward`, `squash`, `rebase`, `rebaseMerge` | Explicit `mergeStrategy`     |
+| Server 2022 and later | 7.0 (capped)           | `noFastForward`, `squash`, `rebase`, `rebaseMerge` | Explicit `mergeStrategy`     |
+
+PR resource discovery negotiates the instance's released API and refuses resources below 5.0 or
+preview-only PR contracts. Create, edit, abandon and reactivate use that same negotiated version.
+The [Microsoft version mapping](https://learn.microsoft.com/en-us/azure/devops/integrate/concepts/rest-api-versioning)
+identifies the Server releases. The [5.0 update contract](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-5.0)
+exposes `squashMerge`; the [6.0 update contract](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-6.0)
+and [7.0 update contract](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/pull-requests/update?view=azure-devops-rest-7.0)
+expose `mergeStrategy` and both rebase modes. The API deliberately does not infer rebase support from a
+Server 2019 update level while using the 5.0 contract.
+
+Server merge policies use the documented [scoped Git policy list API, 5.0-preview.1](https://learn.microsoft.com/en-us/rest/api/azure/devops/git/policy-configurations/list?view=azure-devops-rest-5.0),
+which accepts repository, target ref and policy type filters. Blocking policies intersect the available
+strategies, including legacy `useSquashMerge` settings. A policy read failure makes completion unavailable;
+it never enables all strategies. An unsupported version or unavailable PR resource prevents mutation.
+Provider validation, permission and policy failures remain typed failures, with no fallback write.
+
+The Services completion invariants described above also apply to Server: approved source/target refs and
+SHAs are rechecked (`expectedTargetSha` is the live target ref tip, even when the Server merge preview
+reports an older `lastMergeTargetCommit`), policies are never bypassed, queued completion remains `pending`, and uncertain
+results remain `outcome-unknown` without retries. Azure does not offer an atomic target-tip or PR-revision
+guard. Consumers must reconcile pending or uncertain results with reads before proposing another write.
+
 ### GitHub and GitHub Enterprise Server pull request writes
 
 Use `providerId: 'github'` and the `connectionId` that read the repository or pull request. Pass the

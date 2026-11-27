@@ -35,6 +35,9 @@ import type {
 	AzurePullRequestWriteResult,
 	AzurePullRequestWriteTargetOptions,
 	AzurePullRequestWriteTargetResult,
+	AzureServerPullRequestWriteOptions,
+	AzureServerPullRequestWriteScope,
+	AzureServerPullRequestWriteTargetOptions,
 } from './models/azurePullRequestWrites.js';
 import type {
 	CaptureRelationshipCurrency,
@@ -1268,12 +1271,14 @@ export interface IntegrationManager {
 		domain?: string;
 	}): Promise<ProviderPagedResult<IssueShape>>;
 	getAzurePullRequestCreateCapability(
-		options: AzurePullRequestCreateCapabilityOptions,
+		options: AzurePullRequestCreateCapabilityOptions | AzureServerPullRequestWriteScope,
 	): Promise<AzurePullRequestCreateCapabilityResult>;
 	resolveAzurePullRequestWriteTarget(
-		options: AzurePullRequestWriteTargetOptions,
+		options: AzurePullRequestWriteTargetOptions | AzureServerPullRequestWriteTargetOptions,
 	): Promise<AzurePullRequestWriteTargetResult>;
-	writeAzurePullRequest(options: AzurePullRequestWriteOptions): Promise<AzurePullRequestWriteResult>;
+	writeAzurePullRequest(
+		options: AzurePullRequestWriteOptions | AzureServerPullRequestWriteOptions,
+	): Promise<AzurePullRequestWriteResult>;
 
 	getWorkItemCreateOptions(options: WorkItemCreateOptions): Promise<WorkItemCreateOptionsResult>;
 	getWorkItemWriteOptions(options: WorkItemAddress): Promise<WorkItemWriteOptionsResult>;
