@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-27
+
 ### Added
 
-- Adds Azure DevOps Server pull request creation, title/description edits, abandonment/reactivation and completion to `IntegrationManager`. Writes verify the selected installation, collection, project, repository and account; completion strategies follow the negotiated Server API and blocking policies (plus/integrations) ([#6268](https://github.com/gitkraken/vscode-gitlens/issues/6268))
+- Adds Azure DevOps Server pull request creation, title and description edits, abandonment, reactivation, and completion to `IntegrationManager`. Writes verify the selected installation, collection, project, repository, and account. Completion strategies follow the negotiated Server API and blocking policies (plus/integrations) ([#6268](https://github.com/gitkraken/vscode-gitlens/issues/6268), [#6370](https://github.com/gitkraken/vscode-gitlens/pull/6370), [gitkraken/kepler#5434](https://github.com/gitkraken/kepler/issues/5434))
+
+### Fixed
+
+- Keeps Azure DevOps Server work item write discovery on the verified installation by refusing redirects (plus/integrations) ([#6370](https://github.com/gitkraken/vscode-gitlens/pull/6370))
 
 ## [0.53.0] - 2026-11-27
 
@@ -1488,7 +1494,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.53.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.54.0...HEAD
+[0.54.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.53.0...gitkraken:releases/core/v0.54.0
 [0.53.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.52.0...gitkraken:releases/core/v0.53.0
 [0.52.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.1...gitkraken:releases/core/v0.52.0
 [0.51.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.0...gitkraken:releases/core/v0.51.1
