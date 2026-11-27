@@ -251,6 +251,8 @@ export interface TelemetryEvents extends WebviewShowAbortedEvents, WebviewShownE
 	/** Sent when a VS Code command is executed by a GitLens provided action */
 	'command/core': CoreCommandEvent;
 
+	/** Sent when a new commit (or an amend) is observed on the checked-out branch of an open repository, whoever made it */
+	'commit/created': void;
 	/** Sent when a commit is signed */
 	'commit/signed': CommitSignedEvent;
 	/** Sent when commit signing fails */

@@ -1384,6 +1384,14 @@ or
 }
 ```
 
+### commit/created
+
+> Sent when a new commit (or an amend) is observed on the checked-out branch of an open repository, whoever made it
+
+```typescript
+void
+```
+
 ### commit/signed
 
 > Sent when a commit is signed
