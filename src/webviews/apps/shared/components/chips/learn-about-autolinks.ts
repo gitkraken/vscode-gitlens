@@ -35,6 +35,6 @@ export function renderLearnAboutAutolinks(opts: {
 		.popoverContent=${popoverContent}
 		truncate
 		overlay=${opts.hasIntegrationsConnected ? 'tooltip' : 'popover'}
-		>${opts.showLabel ? html`<span class="mq-hide-sm">${l10n.t(' No autolinks found')}</span>` : nothing}</gl-action-chip
+		>${opts.showLabel ? html`<span class="mq-hide-sm">${l10n.t('\u00a0No autolinks found')}</span>` : nothing}</gl-action-chip
 	>`;
 }

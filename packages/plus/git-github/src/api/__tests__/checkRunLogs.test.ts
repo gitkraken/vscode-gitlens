@@ -90,7 +90,7 @@ suite('GitHubApi check run logs', () => {
 
 	test('reads an Actions log through the API redirect and two ranged storage requests, without the token, keeping whole tail lines', async () => {
 		const big = encoder.encode(numberedLines(30000, '\r\n'));
-		const small = encoder.encode(`﻿first\r\nsecond\nthird\n`);
+		const small = encoder.encode(`\ufefffirst\r\nsecond\nthird\n`);
 		let blob = big;
 		const { api, requests } = serve(request =>
 			request.url.startsWith('https://api.github.com/') ? redirect() : ranged(blob, request.range),

@@ -220,20 +220,20 @@ export function remoteTooltip(r: GraphSidebarRemote): string {
 		if (r.connected != null) {
 			if (r.connected) {
 				tooltip += r.isDefault
-					? l10n.t('  ({provider} — _connected, default_)', { provider: r.providerName })
-					: l10n.t('  ({provider} — _connected_)', { provider: r.providerName });
+					? l10n.t(' \u00a0({provider} — _connected, default_)', { provider: r.providerName })
+					: l10n.t(' \u00a0({provider} — _connected_)', { provider: r.providerName });
 			} else {
 				tooltip += r.isDefault
-					? l10n.t('  ({provider} — _not connected, default_)', { provider: r.providerName })
-					: l10n.t('  ({provider} — _not connected_)', { provider: r.providerName });
+					? l10n.t(' \u00a0({provider} — _not connected, default_)', { provider: r.providerName })
+					: l10n.t(' \u00a0({provider} — _not connected_)', { provider: r.providerName });
 			}
 		} else {
 			tooltip += r.isDefault
-				? l10n.t('  ({provider}, default)', { provider: r.providerName })
-				: l10n.t('  ({0})', r.providerName);
+				? l10n.t(' \u00a0({provider}, default)', { provider: r.providerName })
+				: l10n.t(' \u00a0({0})', r.providerName);
 		}
 	} else if (r.isDefault) {
-		tooltip += l10n.t('  (_default_)');
+		tooltip += l10n.t(' \u00a0(_default_)');
 	}
 
 	if (r.url) {

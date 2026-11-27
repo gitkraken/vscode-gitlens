@@ -705,7 +705,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 			if (result?.error == null && !result?.items?.length) {
 				if (context.inSearch === 'mode') {
 					return {
-						title: l10n.t('Search For Pull Request  •  {title}', { title: context.title }),
+						title: l10n.t('Search For Pull Request \u00a0•\u00a0 {title}', { title: context.title }),
 						placeholder: l10n.t('Enter a term to search for a pull request to act on'),
 						items: [
 							{
@@ -753,7 +753,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 				};
 
 				return {
-					title: l10n.t('Search For Pull Request  •  {title}', { title: context.title }),
+					title: l10n.t('Search For Pull Request \u00a0•\u00a0 {title}', { title: context.title }),
 					placeholder: l10n.t('Enter a term to search for a pull request to act on'),
 					items: isFiltering
 						? [...(errorItem != null ? [errorItem] : []), ...items, offItem]
@@ -1299,7 +1299,7 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		}
 
 		const step = this.createConfirmStep(
-			l10n.t('Launchpad  •  Pull Request {pullRequest}', {
+			l10n.t('Launchpad \u00a0•\u00a0 Pull Request {pullRequest}', {
 				pullRequest: `${state.item.repository.owner.login}/${state.item.repository.name}#${state.item.id}`,
 			}),
 			getConfirmations(),
@@ -1374,8 +1374,8 @@ export class LaunchpadCommand extends QuickCommand<State> {
 		const hasConnectedIntegration = some(context.connectedIntegrations.values(), c => c);
 		const step = this.createConfirmStep(
 			hasConnectedIntegration
-				? l10n.t('{title}  •  Connect an Additional Integration', { title: this.title })
-				: l10n.t('{title}  •  Connect an Integration', { title: this.title }),
+				? l10n.t('{title} \u00a0•\u00a0 Connect an Additional Integration', { title: this.title })
+				: l10n.t('{title} \u00a0•\u00a0 Connect an Integration', { title: this.title }),
 			[
 				...(hasConnectedIntegration
 					? []
