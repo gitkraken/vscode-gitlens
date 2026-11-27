@@ -35,7 +35,10 @@ import {
 	IssuesSelfManagedHostIntegrationId,
 } from '../constants.js';
 import { RequestNotFoundError, toError } from '../errors.js';
-import type { AzurePullRequestCreateCapabilityOptions } from '../models/azurePullRequestWrites.js';
+import type {
+	AzurePullRequestCreateCapabilityOptions,
+	AzureServerPullRequestWriteScope,
+} from '../models/azurePullRequestWrites.js';
 import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
 import type { AzureServerWorkItemWriteScope, AzureServicesWorkItemWriteScope } from '../models/workItemWrites.js';
@@ -56,6 +59,7 @@ import {
 	requireAzureWorkItemStateCategories,
 	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
+import { AzurePullRequestWriteError } from './azurePullRequestWriteErrors.js';
 import { AzurePullRequestWriter } from './azurePullRequestWrites.js';
 import { WorkItemWriteNotDispatchedError } from './azureWorkItemWriteErrors.js';
 import { AzureWorkItemWriter } from './azureWorkItemWrites.js';
@@ -195,7 +199,7 @@ function azureAuthorization(token: string, isPAT: boolean | undefined): string {
 }
 
 // SEE: learn.microsoft.com REST "API and TFS version mapping": Server 2019 = 5.0, 2020 = 6.0, 2022 = 7.0, TFS 2018 = 4.x.
-function toAzureServerWorkItemApiVersion(negotiated: string | undefined): string | undefined {
+function toAzureServerApiVersion(negotiated: string | undefined): string | undefined {
 	const major = Number(/^(\d+)\.\d+/.exec(negotiated ?? '')?.[1]);
 	return major >= 5 ? `${Math.min(major, 7)}.0` : undefined;
 }
@@ -365,11 +369,19 @@ export interface AsanaTaskPageOptions {
 	sort?: IssueSorting;
 }
 
+export type AzureServerWriteConnection = {
+	session: ProviderAuthenticationSession;
+	route: { collectionBaseUrl: string; collectionUrl: string; collection: string };
+	ignoreSSLErrors: boolean | 'force';
+	isSessionCurrent: TrackedSession;
+};
+
 export class ProvidersApi implements Disposable {
 	private readonly providers: Providers;
 	private readonly request: ProviderRequestFunction;
 	readonly githubRelationships: Pick<GitHub, 'getIssueRelationships' | 'writeIssueRelationship'>;
 	private azureRestApi: AzureDevOps;
+	private azureServerDiscoveryApi: AzureDevOps;
 	private readonly disposable: Disposable | undefined;
 	constructor(
 		private readonly authenticationService: IntegrationAuthenticationService,
@@ -381,6 +393,7 @@ export class ProvidersApi implements Disposable {
 		const providerApis = makeProviderAPIs({ request: this.request });
 		this.githubRelationships = providerApis.github;
 		this.azureRestApi = providerApis.azureDevOps;
+		this.azureServerDiscoveryApi = this.createAzureServerDiscoveryApi();
 		this.providers = {
 			[GitCloudHostIntegrationId.GitHub]: {
 				...providersMetadata[GitCloudHostIntegrationId.GitHub],
@@ -582,6 +595,7 @@ export class ProvidersApi implements Disposable {
 			this.azureWorkItemTypeStates.clear();
 			this.azureWorkItemDescriptions.clear();
 			this.azureRestApi = new AzureDevOps({ request: this.request });
+			this.azureServerDiscoveryApi = this.createAzureServerDiscoveryApi();
 			this.providers[GitCloudHostIntegrationId.AzureDevOps] = createAzureProviderInfo(
 				GitCloudHostIntegrationId.AzureDevOps,
 				this.azureRestApi,
@@ -1293,6 +1307,31 @@ export class ProvidersApi implements Disposable {
 		);
 	}
 
+	getAzureServerPullRequestWriter(
+		options: AzureServerPullRequestWriteScope,
+		connection: AzureServerWriteConnection,
+	): Promise<AzurePullRequestWriter> {
+		const transport = this.getAzureServerWriteTransport(
+			connection,
+			() => new AzurePullRequestWriteError('no-connection'),
+		);
+		return AzurePullRequestWriter.connectServer(
+			transport.request,
+			azureAuthorization(connection.session.accessToken, true),
+			options,
+			connection.route,
+			async () => {
+				// KEEP: a preview answer is never a write contract; step down to the newest released major.
+				for (const requested of ['7.0', '6.0', '5.0']) {
+					const version = await transport.negotiate('pullRequests', requested);
+					if (!version?.includes('-preview')) return toAzureServerApiVersion(version);
+				}
+				return undefined;
+			},
+			connection.isSessionCurrent,
+		);
+	}
+
 	getAzureWorkItemWriter(
 		options: AzureServicesWorkItemWriteScope,
 		session: ProviderAuthenticationSession,
@@ -1311,37 +1350,55 @@ export class ProvidersApi implements Disposable {
 
 	getAzureServerWorkItemWriter(
 		options: AzureServerWorkItemWriteScope,
-		session: ProviderAuthenticationSession,
-		route: { collectionBaseUrl: string; collectionUrl: string; collection: string },
-		ignoreSSLErrors: boolean | 'force',
-		isSessionCurrent: TrackedSession,
+		connection: AzureServerWriteConnection,
 	): Promise<AzureWorkItemWriter> {
-		const http = this.authenticationService.ctx.http;
-		const request: ProviderRequestFunction = o =>
-			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
-				// KEEP: no await between this check and the fetch, so a retirement cannot land in between.
-				o.method != null && o.method !== 'GET' && isSessionCurrent.isRetired()
-					? Promise.reject(new WorkItemWriteNotDispatchedError())
-					: this.request(o),
-			);
-		const negotiate = async (resource: AzureDevOpsRestResource, version: string) =>
-			(
-				await http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
-					this.azureRestApi.getRestApiResource(
-						{ namespace: route.collection, resource: resource, version: version },
-						{ token: session.accessToken, isPAT: true, baseUrl: route.collectionBaseUrl },
-					),
-				)
-			)?.apiVersion;
+		const transport = this.getAzureServerWriteTransport(connection, () => new WorkItemWriteNotDispatchedError());
 		return AzureWorkItemWriter.connectServer(
-			request,
-			azureAuthorization(session.accessToken, true),
+			transport.request,
+			azureAuthorization(connection.session.accessToken, true),
 			options,
-			route.collectionUrl,
-			async () => toAzureServerWorkItemApiVersion(await negotiate('workItems', '7.0')),
-			() => negotiate('workItemTypeStates', '7.1'),
-			isSessionCurrent,
+			connection.route.collectionUrl,
+			async () => toAzureServerApiVersion(await transport.negotiate('workItems', '7.0')),
+			() => transport.negotiate('workItemTypeStates', '7.1'),
+			connection.isSessionCurrent,
 		);
+	}
+
+	private createAzureServerDiscoveryApi(): AzureDevOps {
+		const request: ProviderRequestFunction = o => this.request({ ...o, redirect: 'error' });
+		return new AzureDevOps({ request: request });
+	}
+
+	private getAzureServerWriteTransport(
+		connection: AzureServerWriteConnection,
+		notDispatched: () => Error,
+	): {
+		request: ProviderRequestFunction;
+		negotiate: (resource: AzureDevOpsRestResource, version: string) => Promise<string | undefined>;
+	} {
+		const http = this.authenticationService.ctx.http;
+		return {
+			request: o =>
+				http.wrapForForcedInsecureSSL(connection.ignoreSSLErrors, () =>
+					// KEEP: no await between this check and the fetch, so a retirement cannot land in between.
+					o.method != null && o.method !== 'GET' && connection.isSessionCurrent.isRetired()
+						? Promise.reject(notDispatched())
+						: this.request(o),
+				),
+			negotiate: async (resource, version) =>
+				(
+					await http.wrapForForcedInsecureSSL(connection.ignoreSSLErrors, () =>
+						this.azureServerDiscoveryApi.getRestApiResource(
+							{ namespace: connection.route.collection, resource: resource, version: version },
+							{
+								token: connection.session.accessToken,
+								isPAT: true,
+								baseUrl: connection.route.collectionBaseUrl,
+							},
+						),
+					)
+				)?.apiVersion,
+		};
 	}
 
 	async getJiraIssueWriter(options: IssueTrackerWriteConnection): Promise<JiraIssueWriter | undefined> {

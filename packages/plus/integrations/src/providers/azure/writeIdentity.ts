@@ -1,4 +1,5 @@
 import type { ProviderRequestFunction, ProviderRequestResponse } from '../models.js';
+import { decodeAzurePathSegment } from './azure.utils.js';
 
 const azureProfileApi = 'https://app.vssps.visualstudio.com/_apis';
 
@@ -46,4 +47,40 @@ export function isAzurePositiveInt(value: unknown): value is number {
 
 export function sameAzureIdentifier(actual: unknown, expected: string): boolean {
 	return typeof actual === 'string' && actual.toLowerCase() === expected.toLowerCase();
+}
+
+export async function verifyAzureServerCollection(
+	request: ProviderRequestFunction,
+	headers: Record<string, string>,
+	collectionUrl: string,
+	expected: { organizationId: string; organizationName: string; expectedAccountId?: string },
+): Promise<{ id: string; name: string; accountId: string } | 'not-found' | 'no-connection'> {
+	const { body: data } = await request<{
+		instanceId?: unknown;
+		webApplicationRelativeDirectory?: unknown;
+		authenticatedUser?: { id?: unknown };
+	}>({ url: `${collectionUrl}/_apis/connectionData`, headers: headers, redirect: 'error' });
+	const segment =
+		typeof data?.webApplicationRelativeDirectory === 'string'
+			? data.webApplicationRelativeDirectory.split('/').findLast(Boolean)
+			: undefined;
+	const name = segment != null ? decodeAzurePathSegment(segment) : undefined;
+	if (
+		!isAzureGuid(data?.instanceId) ||
+		!sameAzureIdentifier(data.instanceId, expected.organizationId) ||
+		name == null ||
+		!sameAzureIdentifier(name, expected.organizationName)
+	) {
+		return 'not-found';
+	}
+
+	const accountId = data.authenticatedUser?.id;
+	if (
+		!isAzureIdentifier(accountId) ||
+		(expected.expectedAccountId !== undefined && !sameAzureIdentifier(accountId, expected.expectedAccountId))
+	) {
+		return 'no-connection';
+	}
+
+	return { id: data.instanceId, name: name, accountId: accountId };
 }

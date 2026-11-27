@@ -1,7 +1,18 @@
+import type { GitCloudHostIntegrationId, GitSelfManagedHostIntegrationId } from '../constants.js';
+import type { AzureServerWorkItemWriteScope } from './workItemWrites.js';
+
 export type AzurePullRequestMergeStrategy = 'noFastForward' | 'squash' | 'rebase' | 'rebaseMerge';
 
 export type AzurePullRequestRepository = {
 	organization: string;
+	/** Present for Server receipts; collection identity is independent of its name. */
+	server?: {
+		providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+		connectionId: string;
+		baseUrl: string;
+		collectionUrl: string;
+		organizationId: string;
+	};
 	projectId: string;
 	projectName: string;
 	repositoryId: string;
@@ -39,6 +50,7 @@ export type AzurePullRequestWriteFailure = {
 };
 
 export type AzurePullRequestCreateCapabilityOptions = {
+	providerId?: GitCloudHostIntegrationId.AzureDevOps;
 	connectionId: string;
 	organization: string;
 	project: string;
@@ -46,11 +58,15 @@ export type AzurePullRequestCreateCapabilityOptions = {
 	expectedAccountId?: string;
 };
 
+export type AzureServerPullRequestWriteScope = AzureServerWorkItemWriteScope & { repository: string };
+
 export type AzurePullRequestCreateCapabilityResult =
 	| { ok: true; repository: AzurePullRequestRepository; accountId: string }
 	| AzurePullRequestWriteFailure;
 
 export type AzurePullRequestWriteTargetOptions = AzurePullRequestCreateCapabilityOptions & { number: number };
+
+export type AzureServerPullRequestWriteTargetOptions = AzureServerPullRequestWriteScope & { number: number };
 
 export type AzurePullRequestWriteTargetResult =
 	| {
@@ -68,13 +84,7 @@ export type AzurePullRequestWriteTargetResult =
 	  }
 	| AzurePullRequestWriteFailure;
 
-export type AzurePullRequestWriteOptions = {
-	connectionId: string;
-	expectedAccountId: string;
-	organization: string;
-	projectId: string;
-	repositoryId: string;
-} & (
+export type AzurePullRequestWriteAction =
 	| { action: 'create'; sourceRef: string; targetRef: string; title: string; description?: string }
 	| { action: 'edit'; number: number; title?: string; description?: string }
 	| { action: 'abandon' | 'reactivate'; number: number }
@@ -86,8 +96,21 @@ export type AzurePullRequestWriteOptions = {
 			expectedTargetRef: string;
 			expectedSourceSha: string;
 			expectedTargetSha: string;
-	  }
-);
+	  };
+
+export type AzurePullRequestWriteOptions = {
+	providerId?: GitCloudHostIntegrationId.AzureDevOps;
+	connectionId: string;
+	expectedAccountId: string;
+	organization: string;
+	projectId: string;
+	repositoryId: string;
+} & AzurePullRequestWriteAction;
+
+export type AzureServerPullRequestWriteOptions = Omit<AzureServerPullRequestWriteScope, 'repository'> & {
+	repositoryId: string;
+	expectedAccountId: string;
+} & AzurePullRequestWriteAction;
 
 export type AzurePullRequestWriteResult =
 	| {

@@ -17,6 +17,9 @@ import type { OpenAIProvider } from '@gitkraken/core-gitlens/plus/ai/providers/o
 import type { GitHubGitProviderInternal } from '@gitkraken/core-gitlens/plus/git-github/providers/githubProvider.js';
 import {
 	createIntegrationManager,
+	type AzurePullRequestCreateCapabilityOptions,
+	type AzurePullRequestWriteOptions,
+	type AzureServerPullRequestWriteScope,
 	type ConfigChangeEvent,
 	type GetAutolinkReferencesOptions,
 	GitCloudHostIntegrationId,
@@ -183,6 +186,61 @@ async function main(): Promise<void> {
 			void manager.listProjects({ domain: 'ghe.example.com' });
 		}
 		manager.dispose();
+	});
+
+	await check('consumer can use additive Azure Server PR scopes through the published API', async () => {
+		const manager = createIntegrationManager(buildRuntime());
+		const scope: AzureServerPullRequestWriteScope = {
+			providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer,
+			connectionId: 'missing',
+			baseUrl: 'https://server.test/tfs',
+			collectionUrl: 'https://server.test/tfs/DefaultCollection',
+			organizationId: 'fd62411b-0000-4000-8000-000000000001',
+			organizationName: 'DefaultCollection',
+			projectId: '12ba3e78-27d9-4ad4-82a2-4142734e75f0',
+			repository: 'repo',
+		};
+		const services: AzurePullRequestCreateCapabilityOptions = {
+			connectionId: 'missing',
+			organization: 'org',
+			project: 'project',
+			repository: 'repo',
+		};
+		const servicesWrite: AzurePullRequestWriteOptions = {
+			connectionId: services.connectionId,
+			organization: services.organization,
+			projectId: scope.projectId,
+			repositoryId: '58650c76-e42c-4377-9ddd-8c2fdecabaa5',
+			expectedAccountId: 'account',
+			action: 'abandon',
+			number: 42,
+		};
+		const organizationOf = (options: AzurePullRequestCreateCapabilityOptions | AzurePullRequestWriteOptions) =>
+			options.organization;
+		assert.equal(organizationOf(servicesWrite), organizationOf(services));
+		try {
+			assert.deepEqual(await manager.getAzurePullRequestCreateCapability(scope), {
+				ok: false,
+				reason: 'no-connection',
+			});
+			assert.deepEqual(await manager.resolveAzurePullRequestWriteTarget({ ...scope, number: 42 }), {
+				ok: false,
+				reason: 'no-connection',
+			});
+			assert.deepEqual(
+				await manager.writeAzurePullRequest({
+					...scope,
+					repositoryId: '58650c76-e42c-4377-9ddd-8c2fdecabaa5',
+					expectedAccountId: 'collection-user',
+					action: 'edit',
+					number: 42,
+					title: 'Updated',
+				}),
+				{ ok: false, reason: 'no-connection' },
+			);
+		} finally {
+			manager.dispose();
+		}
 	});
 
 	await check('manager exposes only neutral connection descriptors', () => {

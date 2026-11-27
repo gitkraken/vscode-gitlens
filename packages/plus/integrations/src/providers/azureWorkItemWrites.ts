@@ -17,7 +17,6 @@ import type {
 	WorkItemWriteTargetOptions,
 	WorkItemWriteTargetResult,
 } from '../models/workItemWrites.js';
-import { decodeAzurePathSegment } from './azure/azure.utils.js';
 import { encodeAzurePathSegment } from './azure/models.js';
 import type {
 	AzureWorkItemFieldDefinition,
@@ -39,6 +38,7 @@ import {
 	isAzureIdentifier,
 	isAzurePositiveInt,
 	sameAzureIdentifier,
+	verifyAzureServerCollection,
 } from './azure/writeIdentity.js';
 import {
 	toWorkItemWriteFailure,
@@ -62,12 +62,6 @@ type WorkItemMetadata = {
 	catalog: readonly AzureWorkItemFieldDefinition[];
 };
 type Patch = { op: 'add' | 'test'; path: string; value: unknown } | { op: 'remove'; path: string };
-
-type AzureServerConnectionData = {
-	instanceId?: unknown;
-	webApplicationRelativeDirectory?: unknown;
-	authenticatedUser?: { id?: unknown };
-};
 
 const projectSecurityNamespaceId = '52d39943-cb85-4d7f-8fa8-c6baac873819';
 
@@ -276,31 +270,8 @@ export class AzureWorkItemWriter {
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
 		const headers = { Authorization: authorization };
-		const { body: data } = await request<AzureServerConnectionData>({
-			url: `${collectionUrl}/_apis/connectionData`,
-			headers: headers,
-			redirect: 'error',
-		});
-		const accountId = data?.authenticatedUser?.id;
-		const segment =
-			typeof data?.webApplicationRelativeDirectory === 'string'
-				? data.webApplicationRelativeDirectory.split('/').findLast(Boolean)
-				: undefined;
-		const collectionName = segment != null ? decodeAzurePathSegment(segment) : undefined;
-		if (
-			!isAzureGuid(data?.instanceId) ||
-			!sameAzureIdentifier(data.instanceId, options.organizationId) ||
-			collectionName == null ||
-			!sameAzureIdentifier(collectionName, options.organizationName)
-		) {
-			throw new WorkItemWriteError('not-found');
-		}
-		if (
-			!isAzureIdentifier(accountId) ||
-			(options.expectedAccountId !== undefined && !sameAzureIdentifier(accountId, options.expectedAccountId))
-		) {
-			throw new WorkItemWriteError('no-connection');
-		}
+		const collection = await verifyAzureServerCollection(request, headers, collectionUrl, options);
+		if (typeof collection === 'string') throw new WorkItemWriteError(collection);
 
 		const apiVersion = await resolveApiVersion();
 		if (apiVersion == null) throw new WorkItemWriteError('unsupported');
@@ -314,8 +285,8 @@ export class AzureWorkItemWriter {
 				providerId: options.providerId,
 				connectionId: options.connectionId,
 				baseUrl: options.baseUrl,
-				accountId: accountId,
-				organization: { id: data.instanceId, name: collectionName, url: collectionUrl },
+				accountId: collection.accountId,
+				organization: { id: collection.id, name: collection.name, url: collectionUrl },
 				project: project,
 			},
 			collectionUrl,

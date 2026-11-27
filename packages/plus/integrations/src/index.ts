@@ -265,11 +265,15 @@ export type {
 	AzurePullRequestCreateCapabilityResult,
 	AzurePullRequestMergeStrategy,
 	AzurePullRequestRepository,
+	AzurePullRequestWriteAction,
 	AzurePullRequestWriteFailure,
 	AzurePullRequestWriteOptions,
 	AzurePullRequestWriteResult,
 	AzurePullRequestWriteTargetOptions,
 	AzurePullRequestWriteTargetResult,
+	AzureServerPullRequestWriteOptions,
+	AzureServerPullRequestWriteScope,
+	AzureServerPullRequestWriteTargetOptions,
 	AzureWrittenPullRequest,
 } from './models/azurePullRequestWrites.js';
 export type {

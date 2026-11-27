@@ -24,6 +24,7 @@ import {
 	RequestNotFoundError,
 } from '../errors.js';
 import type { IntegrationConnectionChangeEvent } from '../integrationService.js';
+import type { AzureServerPullRequestWriteScope } from '../models/azurePullRequestWrites.js';
 import type { RepositoryCoordinate } from '../models/gitHostIntegration.js';
 import type {
 	ProviderIssueSearchPage,
@@ -59,6 +60,8 @@ import {
 	toAzureReviewerReads,
 	uniqueAzureNames,
 } from './azureDevOps.js';
+import { AzurePullRequestWriteError } from './azurePullRequestWriteErrors.js';
+import type { AzurePullRequestWriter } from './azurePullRequestWrites.js';
 import { isSameAzureRoute, WorkItemWriteError } from './azureWorkItemWriteErrors.js';
 import type { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { providersMetadata } from './metadata.js';
@@ -76,7 +79,7 @@ import {
 	pullRequestNamesPeople,
 	toProviderPullRequestStates,
 } from './models.js';
-import type { ProvidersApi } from './providersApi.js';
+import type { AzureServerWriteConnection, ProvidersApi } from './providersApi.js';
 import { discoveryCacheTtl } from './utils/discoveryCache.js';
 import { providerFanOutConcurrency } from './utils/providerPaging.js';
 
@@ -1302,7 +1305,23 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 		this._tokenCollections.clear();
 	}
 
+	async getPullRequestWriter(options: AzureServerPullRequestWriteScope): Promise<AzurePullRequestWriter | undefined> {
+		const connection = await this.resolveWriteConnection(
+			options,
+			() => new AzurePullRequestWriteError('not-found'),
+		);
+		return connection && (await this.getProvidersApi()).getAzureServerPullRequestWriter(options, connection);
+	}
+
 	async getWorkItemWriter(options: AzureServerWorkItemWriteScope): Promise<AzureWorkItemWriter | undefined> {
+		const connection = await this.resolveWriteConnection(options, () => new WorkItemWriteError('not-found'));
+		return connection && (await this.getProvidersApi()).getAzureServerWorkItemWriter(options, connection);
+	}
+
+	private async resolveWriteConnection(
+		options: AzureServerWorkItemWriteScope,
+		notFound: () => Error,
+	): Promise<AzureServerWriteConnection | undefined> {
 		const session = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
 		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
 
@@ -1312,22 +1331,19 @@ export class AzureDevOpsServerIntegration extends AzureDevOpsIntegrationBase<Git
 			!isSameAzureRoute(this.apiBaseUrlFor(session), options.baseUrl) ||
 			!isSameAzureRoute(collectionUrl, options.collectionUrl)
 		) {
-			throw new WorkItemWriteError('not-found');
+			throw notFound();
 		}
 
-		const isSessionCurrent = this.trackWriteSession(session);
-		const api = await this.getProvidersApi();
-		return api.getAzureServerWorkItemWriter(
-			options,
-			session,
-			{
+		return {
+			session: session,
+			route: {
 				collectionBaseUrl: this.collectionApiBaseUrl(session, collection),
 				collectionUrl: collectionUrl,
 				collection: collection,
 			},
-			this.getIgnoreSSLErrors(),
-			isSessionCurrent,
-		);
+			ignoreSSLErrors: this.getIgnoreSSLErrors(),
+			isSessionCurrent: this.trackWriteSession(session),
+		};
 	}
 
 	protected override async _requestForCurrentUser(
