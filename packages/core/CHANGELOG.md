@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-27
+
 ### Added
 
 - Adds GitHub.com parent and sub-issue reads and writes to `IntegrationManager`. Hosts can page through direct children, read progress, and attach, detach or reorder issues using an explicit connection. Replacing a parent requires the approved previous parent and the credential proof from a relationship read (plus/integrations) ([#6294](https://github.com/gitkraken/vscode-gitlens/issues/6294))
@@ -1482,7 +1484,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 - Initial release. Bundles `@gitlens/utils`, `@gitlens/git`, `@gitlens/git-cli`, `@gitlens/ai`, and `@gitlens/git-github` into a single core npm package with subpath exports.
 
-[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.52.0...HEAD
+[unreleased]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.53.0...HEAD
+[0.53.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.52.0...gitkraken:releases/core/v0.53.0
 [0.52.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.1...gitkraken:releases/core/v0.52.0
 [0.51.1]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.51.0...gitkraken:releases/core/v0.51.1
 [0.51.0]: https://github.com/gitkraken/vscode-gitlens/compare/releases/core/v0.50.0...gitkraken:releases/core/v0.51.0
