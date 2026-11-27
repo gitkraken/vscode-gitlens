@@ -20,6 +20,12 @@ type Observation = {
 	connectionId?: string;
 };
 
+type Issuance = {
+	mark: number;
+	claims: string[];
+	descriptor: IntegrationAuthenticationSessionDescriptor;
+};
+
 type Retirement = {
 	descriptors: Set<string>;
 	actuals: Set<string>;
@@ -46,6 +52,8 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 	private readonly actualRetirements = new Map<string, number>();
 	private readonly hostRetirements = new Map<string, number>();
 	private readonly activeRetirements = new Set<Retirement>();
+	private readonly claimWitnesses = new Map<string, { mark: number; request: number; witness: string | undefined }>();
+	private readonly issuances = new WeakMap<ProviderAuthenticationSession, Issuance>();
 	private sequence = 0;
 	private globalRetirement = 0;
 	private disposed = false;
@@ -120,7 +128,29 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 						protocol: source.protocol,
 						appKey: source.appKey,
 					};
-		if (latest == null || latest.request <= request) {
+		const claims = [
+			`descriptor:${descriptorKey(descriptor.domain, descriptor.connectionId, descriptor.cloud)}`,
+			...(sessionKey != null ? [`actual:${sessionKey}`] : []),
+		];
+		const witness = source == null ? undefined : JSON.stringify([identity, source.account?.id]);
+		const accepted = latest == null || latest.request <= request;
+		if (accepted && claims.every(claim => (this.claimWitnesses.get(claim)?.request ?? 0) <= request)) {
+			for (const claim of claims) {
+				const current = this.claimWitnesses.get(claim);
+				this.claimWitnesses.set(claim, {
+					mark: current != null && current.witness === witness ? current.mark : ++this.sequence,
+					request: request,
+					witness: witness,
+				});
+			}
+			if (session != null) {
+				this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
+			}
+		} else if (session != null && claims.every(claim => this.claimWitnesses.get(claim)?.witness === witness)) {
+			this.issuances.set(session, { mark: this.sequence, claims: claims, descriptor: descriptor });
+		}
+
+		if (accepted) {
 			if (previous == null || previous.identity !== identity || credential?.identity !== identity) {
 				this.publish(
 					{
@@ -151,6 +181,16 @@ export class ObservedAuthenticationProvider implements IntegrationAuthentication
 		}
 
 		return session;
+	}
+
+	/** KEEP: fails closed for a session this provider did not issue, since its changes cannot be proven absent. */
+	trackSession(session: ProviderAuthenticationSession): () => boolean {
+		const issuance = this.issuances.get(session);
+		if (issuance == null) return () => true;
+
+		return () =>
+			issuance.claims.some(claim => (this.claimWitnesses.get(claim)?.mark ?? 0) > issuance.mark) ||
+			this.isRetired(issuance.mark, issuance.descriptor, session);
 	}
 
 	async deleteSession(

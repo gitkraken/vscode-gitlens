@@ -20,6 +20,7 @@ import { CancellationError, isCancellationError, raceWithTimeout } from '@gitlen
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
 import { PromiseCache } from '@gitlens/utils/promiseCache.js';
 import type { IntegrationAuthenticationProviderDescriptor } from '../authentication/integrationAuthenticationProvider.js';
+import type { TrackedSession } from '../authentication/integrationAuthenticationService.js';
 import type {
 	AuthenticationSessionLike as AuthenticationSession,
 	ProviderAuthenticationSession,
@@ -35,7 +36,7 @@ import type { AzurePullRequestCreateCapabilityOptions } from '../models/azurePul
 import { GitHostIntegration } from '../models/gitHostIntegration.js';
 import type { AccountWideIssuesResult, SearchMyIssuesOptions } from '../models/integration.js';
 import type { SearchMyPullRequestsOptions, SearchPullRequestsOptions } from '../models/publicIntegration.js';
-import type { WorkItemWriteScope } from '../models/workItemWrites.js';
+import type { AzureServicesWorkItemWriteScope } from '../models/workItemWrites.js';
 import type {
 	IssueEtagFields,
 	IssueEtagInclude,
@@ -319,6 +320,18 @@ export abstract class AzureDevOpsIntegrationBase<
 	TRepositoryDescriptor extends AzureRepositoryDescriptor = AzureRepositoryDescriptor,
 > extends GitHostIntegration<TIntegrationId, TRepositoryDescriptor> {
 	protected abstract apiBaseUrlFor(session: ProviderAuthenticationSession): string;
+
+	protected trackWriteSession(session: ProviderAuthenticationSession): TrackedSession {
+		return this.authenticationService.trackIssuedSession(this.id, session, async () => {
+			const current = await this.resolveReadSessionOrThrow(session.id, undefined);
+			return (
+				current != null &&
+				getSessionIdentity(current) === getSessionIdentity(session) &&
+				current.account?.id === session.account?.id
+			);
+		});
+	}
+
 	protected getApiOptions(
 		session: ProviderAuthenticationSession,
 		doNotConvertToPat: boolean = false,
@@ -2379,7 +2392,7 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 		return api.getAzurePullRequestWriter(options, session, isSessionCurrent);
 	}
 
-	async getWorkItemWriter(options: WorkItemWriteScope): Promise<AzureWorkItemWriter | undefined> {
+	async getWorkItemWriter(options: AzureServicesWorkItemWriteScope): Promise<AzureWorkItemWriter | undefined> {
 		const session = await this.resolveReadSessionOrThrow(options.connectionId, undefined);
 		if (session?.id !== options.connectionId || !session.accessToken) return undefined;
 		if (session.type === 'pat') throw new WorkItemWriteError('unsupported');
@@ -2387,18 +2400,5 @@ export class AzureDevOpsIntegration extends AzureDevOpsIntegrationBase<GitCloudH
 		const isSessionCurrent = this.trackWriteSession(session);
 		const api = await this.getProvidersApi();
 		return api.getAzureWorkItemWriter(options, session, isSessionCurrent);
-	}
-
-	private trackWriteSession(session: ProviderAuthenticationSession): () => Promise<boolean> {
-		return this.authenticationService.usesHostAuthenticationProvider(this.id)
-			? async () => {
-					const current = await this.resolveReadSessionOrThrow(session.id, undefined);
-					return (
-						current != null &&
-						getSessionIdentity(current) === getSessionIdentity(session) &&
-						current.account?.id === session.account?.id
-					);
-				}
-			: this.authenticationService.trackStoredSession(this.id, session);
 	}
 }

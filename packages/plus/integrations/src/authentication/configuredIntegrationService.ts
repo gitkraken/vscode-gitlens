@@ -8,6 +8,7 @@ import type {
 	StoredConfiguredIntegrationDescriptor,
 	StoredIntegrationConfigurations,
 } from '../constants.js';
+import { GitSelfManagedHostIntegrationId } from '../constants.js';
 import type { IntegrationServiceContext } from '../context.js';
 import { providersMetadata } from '../providers/metadata.js';
 import {
@@ -54,6 +55,8 @@ type IntegrationSessionChangeEvent = {
 };
 
 type StoredWriteRetirements = { epoch: number; scopes: Map<string, number> };
+type CredentialAcquisitions = { unscoped?: Promise<void>; connections: Map<string, Promise<void>> };
+
 const storedWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], StoredWriteRetirements>();
 
 export class ConfiguredIntegrationService implements Disposable {
@@ -72,6 +75,7 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * miss a connection it cannot see yet, or be undone by the pending write (#5948).
 	 */
 	private readonly _locks = new Map<IntegrationIds, Promise<void>>();
+	private readonly _acquisitions = new Map<IntegrationIds, CredentialAcquisitions>();
 	/** Monotonic across providers; see {@link getSignOutMark}. */
 	private _signOutEpoch = 0;
 	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
@@ -323,6 +327,61 @@ export class ConfiguredIntegrationService implements Disposable {
 		void settled.then(() => {
 			if (this._locks.get(id) === settled) {
 				this._locks.delete(id);
+			}
+		});
+		return run;
+	}
+
+	serializesCredentialAcquisition(id: IntegrationIds): boolean {
+		return id === GitSelfManagedHostIntegrationId.AzureDevOpsServer;
+	}
+
+	/**
+	 * KEEP: not reentrant. A `connectionId` acquisition waits for that connection's and every earlier unscoped one;
+	 * an unscoped acquisition waits for every earlier acquisition of `id`.
+	 */
+	withCredentialAcquisition<T>(
+		id: IntegrationIds,
+		connectionId: string | undefined,
+		fn: () => Promise<T>,
+	): Promise<T> {
+		if (!this.serializesCredentialAcquisition(id)) return fn();
+
+		let queue = this._acquisitions.get(id);
+		if (queue == null) {
+			queue = { connections: new Map() };
+			this._acquisitions.set(id, queue);
+		}
+
+		const predecessors = (
+			connectionId != null
+				? [queue.unscoped, queue.connections.get(connectionId)]
+				: [queue.unscoped, ...queue.connections.values()]
+		).filter(p => p != null);
+		const run = Promise.all(predecessors).then(() => fn());
+		const settled = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		if (connectionId != null) {
+			queue.connections.set(connectionId, settled);
+		} else {
+			queue.unscoped = settled;
+			queue.connections.clear();
+		}
+
+		const current = queue;
+		void settled.then(() => {
+			if (connectionId != null) {
+				if (current.connections.get(connectionId) === settled) {
+					current.connections.delete(connectionId);
+				}
+			} else if (current.unscoped === settled) {
+				current.unscoped = undefined;
+			}
+
+			if (current.unscoped == null && current.connections.size === 0 && this._acquisitions.get(id) === current) {
+				this._acquisitions.delete(id);
 			}
 		});
 		return run;

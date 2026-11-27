@@ -1,21 +1,69 @@
+import { GitCloudHostIntegrationId } from '../constants.js';
 import type { IssueTrackerWriteFailure } from '../models/issueTrackerWrites.js';
 import type { WorkItemWriteField, WorkItemWriteScope } from '../models/workItemWrites.js';
 import { isAzureGuid, isAzureIdentifier } from './azure/writeIdentity.js';
+import { isAzureCloudDomain } from './metadata.js';
 import {
 	AnonymousResponseError,
 	getProviderResponseBodyMessage,
 	UnexpectedHtmlResponseError,
 } from './providerErrors.js';
 
+function isServerUrl(value: unknown): value is string {
+	if (typeof value !== 'string') return false;
+
+	try {
+		const url = new URL(value);
+		const host = url.hostname.replace(/\.+$/, '').toLowerCase();
+		return (
+			(url.protocol === 'https:' || url.protocol === 'http:') &&
+			!url.username &&
+			!url.password &&
+			!isAzureCloudDomain(host) &&
+			!host.endsWith('.dev.azure.com')
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function isWorkItemWriteScope(options: WorkItemWriteScope): boolean {
+	if (
+		!isAzureIdentifier(options.connectionId) ||
+		!isAzureGuid(options.organizationId) ||
+		!isAzureGuid(options.projectId) ||
+		(options.expectedAccountId !== undefined && !isAzureIdentifier(options.expectedAccountId))
+	) {
+		return false;
+	}
+	if (options.providerId === GitCloudHostIntegrationId.AzureDevOps) {
+		return typeof options.organizationName === 'string' && /^[a-z0-9][a-z0-9-]*$/i.test(options.organizationName);
+	}
+
 	return (
-		isAzureIdentifier(options.connectionId) &&
-		isAzureGuid(options.organizationId) &&
-		typeof options.organizationName === 'string' &&
-		/^[a-z0-9][a-z0-9-]*$/i.test(options.organizationName) &&
-		isAzureGuid(options.projectId) &&
-		(options.expectedAccountId === undefined || isAzureIdentifier(options.expectedAccountId))
+		isAzureIdentifier(options.organizationName) &&
+		options.organizationName !== '.' &&
+		options.organizationName !== '..' &&
+		!/[/\\]/.test(options.organizationName) &&
+		(options.domain === undefined || isAzureIdentifier(options.domain)) &&
+		isServerUrl(options.baseUrl) &&
+		isServerUrl(options.collectionUrl)
 	);
+}
+
+export function isSameAzureRoute(actual: string, expected: string): boolean {
+	const normalize = (value: string) => {
+		const url = new URL(value);
+		if (url.search || url.hash) return undefined;
+
+		return `${url.protocol}//${url.host}${url.pathname.replace(/\/+$/, '')}`.toLowerCase();
+	};
+	try {
+		const left = normalize(actual);
+		return left != null && left === normalize(expected);
+	} catch {
+		return false;
+	}
 }
 
 export class WorkItemWriteError extends Error {
@@ -24,6 +72,12 @@ export class WorkItemWriteError extends Error {
 		readonly fieldErrors?: Readonly<Record<string, string>>,
 	) {
 		super(reason);
+	}
+}
+
+export class WorkItemWriteNotDispatchedError extends WorkItemWriteError {
+	constructor() {
+		super('no-connection');
 	}
 }
 

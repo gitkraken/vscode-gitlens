@@ -27,7 +27,7 @@ const maxSmallIntegerV8 = 2 ** 30 - 1; // Max number that can be stored in V8's 
  * What {@link IntegrationAuthenticationProviderBase.getSession} passes down once it has decided the stored
  * session can't be served as-is. `refreshIfExpired` is its own conclusion, not a caller's option.
  */
-type GetNewSessionOptions = GetSessionOptions & { refreshIfExpired?: boolean };
+type GetNewSessionOptions = GetSessionOptions & { refreshIfExpired?: boolean; skipConnect?: boolean };
 
 abstract class IntegrationAuthenticationProviderBase<
 	ID extends IntegrationIds = IntegrationIds,
@@ -96,10 +96,64 @@ abstract class IntegrationAuthenticationProviderBase<
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: GetSessionOptions,
 	): Promise<ProviderAuthenticationSession | undefined> {
+		// KEEP: taken before queueing, so a sign-out while this waits refuses its store.
+		const signOutMark = this.configuredIntegrationService.getSignOutMark();
+		if (!this.configuredIntegrationService.serializesCredentialAcquisition(this.authProviderId)) {
+			return this.acquireSession(descriptor, options, signOutMark);
+		}
+
+		const connectionId = descriptor.connectionId || this.getImplicitCloudConnectionId(descriptor, options);
+		// KEEP: connecting reaches this provider's own getSession again, so it runs after the queued acquisition.
+		const session = await this.configuredIntegrationService.withCredentialAcquisition(
+			this.authProviderId,
+			connectionId,
+			() =>
+				this.acquireSession(
+					connectionId != null ? { ...descriptor, connectionId: connectionId } : descriptor,
+					{ ...options, skipConnect: true },
+					signOutMark,
+				),
+		);
+		if (session != null || !options?.createIfNeeded || options.forceNewSession) return session;
+		// KEEP: a sign-out or replacement since the mark refused the fetched credential; it is not a missing one.
+		if (
+			this.configuredIntegrationService.isSessionRetiredSince(
+				this.authProviderId,
+				{ id: connectionId ?? '', domain: descriptor.domain },
+				signOutMark,
+			)
+		) {
+			return undefined;
+		}
+
+		return this.connectNewSession(descriptor, options);
+	}
+
+	private getImplicitCloudConnectionId(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options: GetSessionOptions | undefined,
+	): string | undefined {
+		const connectionId = this.configuredIntegrationService.getConfiguredConnectionId(
+			this.authProviderId,
+			descriptor.domain,
+			true,
+		);
+		const stored = this.configuredIntegrationService.resolveConnectionId(
+			this.authProviderId,
+			options?.sync ? { ...descriptor, cloud: true } : descriptor,
+		);
+		return connectionId === stored ? connectionId : undefined;
+	}
+
+	private async acquireSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options: (GetSessionOptions & { skipConnect?: boolean }) | undefined,
+		initialSignOutMark: number,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		let signOutMark = initialSignOutMark;
 		let session;
 		let previousToken;
 		let refetched: ProviderAuthenticationSession | undefined;
-		let signOutMark: number;
 		if (options?.forceNewSession) {
 			if (isSelfManagedHostIntegrationId(this.authProviderId)) {
 				const connectionId =
@@ -132,9 +186,6 @@ abstract class IntegrationAuthenticationProviderBase<
 			);
 			signOutMark = this.configuredIntegrationService.getSignOutMark();
 		} else {
-			// Taken before the stored-token read (a sign-out landing during the read is ordered after it by the storage
-			// lock, so it counts either way).
-			signOutMark = this.configuredIntegrationService.getSignOutMark();
 			const stored = await this.configuredIntegrationService.getStoredSession(
 				this.authProviderId,
 				options?.sync ? { ...descriptor, cloud: true } : descriptor,
@@ -204,6 +255,13 @@ abstract class IntegrationAuthenticationProviderBase<
 		return session;
 	}
 
+	protected connectNewSession(
+		_descriptor: IntegrationAuthenticationSessionDescriptor,
+		_options: GetSessionOptions | undefined,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		return Promise.resolve(undefined);
+	}
+
 	protected abstract getNewSession(
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		options?: GetNewSessionOptions,
@@ -247,7 +305,7 @@ export class CloudIntegrationAuthenticationProvider<
 		// make the call or not.
 		// `refreshRejectedToken` joins the list for the same reason `refreshIfExpired` is on it: both mean the
 		// session in hand is known-unusable, so skipping the cloud round trip would just re-serve it.
-		let session =
+		const session =
 			options?.refreshIfExpired ||
 			options?.refreshRejectedToken ||
 			options?.createIfNeeded ||
@@ -256,16 +314,21 @@ export class CloudIntegrationAuthenticationProvider<
 				? await this.getCloudSession(descriptor, options)
 				: undefined;
 
-		const shouldCreateSession = options?.createIfNeeded && session == null;
-		if (shouldCreateSession) {
-			const connected = await this.connectCloudSession(true, options?.source);
-			if (!connected) return undefined;
-
-			// This should get us the session we just created with connectCloudSession, because a syncCloudIntegrations run from
-			// integration service should have resulted in it being created and stored by this provider
-			session = await this.getSession(descriptor, { source: options?.source });
+		if (options?.createIfNeeded && session == null && !options.skipConnect) {
+			return this.connectNewSession(descriptor, options);
 		}
+
 		return session;
+	}
+
+	protected override async connectNewSession(
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		options: GetSessionOptions | undefined,
+	): Promise<ProviderAuthenticationSession | undefined> {
+		const connected = await this.connectCloudSession(true, options?.source);
+		if (!connected) return undefined;
+
+		return this.getSession(descriptor, { source: options?.source });
 	}
 
 	private connectCloudSession(skipIfConnected: boolean, source: Sources | undefined): Promise<boolean> {

@@ -120,6 +120,7 @@ import type { SupportedFilters } from './providerFilters.js';
 import type { ApiClients } from './providers/apiClients.js';
 import { createApiClients } from './providers/apiClients.js';
 import type { AzureDevOpsIntegration } from './providers/azureDevOps.js';
+import type { AzureDevOpsServerIntegration } from './providers/azureDevOpsServer.js';
 import { toAzurePullRequestWriteFailure } from './providers/azurePullRequestWriteErrors.js';
 import type { AzurePullRequestWriter } from './providers/azurePullRequestWrites.js';
 import { isAzurePullRequestScope, isAzurePullRequestWrite } from './providers/azurePullRequestWrites.js';
@@ -1712,7 +1713,10 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		input: WorkItemWriteScope,
 		run: (writer: AzureWorkItemWriter) => Promise<T>,
 	): Promise<T | IssueTrackerWriteFailure> {
-		if (input.providerId !== GitCloudHostIntegrationId.AzureDevOps) {
+		if (
+			input.providerId !== GitCloudHostIntegrationId.AzureDevOps &&
+			input.providerId !== GitSelfManagedHostIntegrationId.AzureDevOpsServer
+		) {
 			return { ok: false, reason: 'unsupported', mutationDispatched: false };
 		}
 		if (!isWorkItemWriteScope(input)) {
@@ -1720,8 +1724,20 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		}
 
 		try {
-			const integration = await this.get(input.providerId);
-			const writer = await integration.getWorkItemWriter(input);
+			let writer: AzureWorkItemWriter | undefined;
+			if (input.providerId === GitCloudHostIntegrationId.AzureDevOps) {
+				writer = await (await this.get(input.providerId)).getWorkItemWriter(input);
+			} else {
+				const integration = await this.getIntegrationForRead(
+					input.providerId,
+					input.connectionId,
+					input.domain,
+				);
+				writer =
+					integration?.id === GitSelfManagedHostIntegrationId.AzureDevOpsServer
+						? await (integration as AzureDevOpsServerIntegration).getWorkItemWriter(input)
+						: undefined;
+			}
 			return writer == null
 				? { ok: false, reason: 'no-connection', mutationDispatched: false }
 				: await run(writer);
@@ -2261,6 +2277,15 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 		}
 	}
 
+	private isUnprovenRepoint(id: IntegrationIds, connection: CloudIntegrationConnection & { id: string }): boolean {
+		const current = this.configuredIntegrationService
+			.getConfigured(id, { cloud: true })
+			.find(c => c.id === connection.id)?.baseUrl;
+		return (
+			current != null && Boolean(connection.domain?.trim()) && !sameConfiguredBaseUrl(current, connection.domain)
+		);
+	}
+
 	private getConfiguredCloudConnection(id: IntegrationIds, connectionId: string): ConfiguredIntegrationDescriptor {
 		const connection = this.configuredIntegrationService
 			.getConfigured(id, { cloud: true })
@@ -2489,9 +2514,30 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 					repointedDomains.add(host);
 				}
 
-				try {
+				const fetchConnection = async () => {
 					const session = await cloudIntegrations.getConnectionSession(id, undefined, connection.id);
 					if (session == null) return undefined;
+					if (
+						this.configuredIntegrationService.serializesCredentialAcquisition(id) &&
+						((session.id != null && session.id !== connection.id) ||
+							(Boolean(session.domain?.trim()) &&
+								!sameConfiguredBaseUrl(session.domain, connection.domain)))
+					) {
+						scope?.warn(
+							`Skipping connection '${connection.id}' for ${id}: token issued for another connection`,
+						);
+						return undefined;
+					}
+					if (
+						this.configuredIntegrationService.serializesCredentialAcquisition(id) &&
+						!session.domain?.trim() &&
+						this.isUnprovenRepoint(id, connection)
+					) {
+						scope?.warn(
+							`Skipping connection '${connection.id}' for ${id}: token does not confirm its moved address`,
+						);
+						return undefined;
+					}
 
 					let providerSession = toProviderSession(id, connection, session, host, cached?.baseUrl);
 
@@ -2520,6 +2566,31 @@ export class IntegrationService implements Disposable, IntegrationManager, Repos
 						providerSession: providerSession,
 						resource: resource,
 					};
+				};
+
+				try {
+					if (!this.configuredIntegrationService.serializesCredentialAcquisition(id)) {
+						return await fetchConnection();
+					}
+
+					return await this.configuredIntegrationService.withCredentialAcquisition(
+						id,
+						connection.id,
+						async () => {
+							const prepared = await fetchConnection();
+							if (prepared == null) return undefined;
+
+							const stored = await this.configuredIntegrationService.storeSession(
+								id,
+								prepared.providerSession,
+								{
+									signOutMark: signOutMark,
+									resource: prepared.resource,
+								},
+							);
+							return stored ? { ...prepared, kind: 'published' as const } : undefined;
+						},
+					);
 				} catch (ex) {
 					scope?.warn(
 						`Failed to sync connection '${connection.id}' for ${id}: ${ex instanceof Error ? ex.message : String(ex)}`,

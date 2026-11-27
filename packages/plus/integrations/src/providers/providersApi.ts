@@ -19,7 +19,10 @@ import type { Disposable } from '@gitlens/utils/disposable.js';
 import { Logger } from '@gitlens/utils/logger.js';
 import type { PagedResult } from '@gitlens/utils/paging.js';
 import { mapSettledBounded } from '@gitlens/utils/promise.js';
-import type { IntegrationAuthenticationService } from '../authentication/integrationAuthenticationService.js';
+import type {
+	IntegrationAuthenticationService,
+	TrackedSession,
+} from '../authentication/integrationAuthenticationService.js';
 import type { ProviderAuthenticationSession, TokenOptInfo, TokenWithInfo } from '../authentication/models.js';
 import { toTokenWithInfo } from '../authentication/models.js';
 import { isIncompleteCollection, toCollectionScopeFailure, withValidSkippedItems } from '../collectionMetadata.js';
@@ -34,7 +37,7 @@ import { RequestNotFoundError, toError } from '../errors.js';
 import type { AzurePullRequestCreateCapabilityOptions } from '../models/azurePullRequestWrites.js';
 import type { IssueTrackerWriteConnection } from '../models/issueTrackerWrites.js';
 import type { ProviderPullRequestCount, ProviderPullRequestSearchPage } from '../models/pullRequestReads.js';
-import type { WorkItemWriteScope } from '../models/workItemWrites.js';
+import type { AzureServerWorkItemWriteScope, AzureServicesWorkItemWriteScope } from '../models/workItemWrites.js';
 import type { AzurePullRequest, AzureWorkItemEtagRead, AzureWorkItemResponse } from './azure/models.js';
 import {
 	azureIssueStateCategory,
@@ -53,6 +56,7 @@ import {
 	resolveAzureWorkItemStateCategory,
 } from './azure/workItemStateCategories.js';
 import { AzurePullRequestWriter } from './azurePullRequestWrites.js';
+import { WorkItemWriteNotDispatchedError } from './azureWorkItemWriteErrors.js';
 import { AzureWorkItemWriter } from './azureWorkItemWrites.js';
 import { requestBitbucketServerProjects, requestBitbucketServerRepositories } from './bitbucket-server/discovery.js';
 import {
@@ -187,6 +191,12 @@ function isAzureNotFoundResponse(ex: unknown, typeKeys: ReadonlySet<string>): bo
 /** The credential provider-apis sends Azure DevOps: a PAT as Basic (encoded here, as it does), anything else as a bearer. */
 function azureAuthorization(token: string, isPAT: boolean | undefined): string {
 	return isPAT ? `Basic ${base64(`:${token}`)}` : `Bearer ${token}`;
+}
+
+// SEE: learn.microsoft.com REST "API and TFS version mapping": Server 2019 = 5.0, 2020 = 6.0, 2022 = 7.0, TFS 2018 = 4.x.
+function toAzureServerWorkItemApiVersion(negotiated: string | undefined): string | undefined {
+	const major = Number(/^(\d+)\.\d+/.exec(negotiated ?? '')?.[1]);
+	return major >= 5 ? `${Math.min(major, 7)}.0` : undefined;
 }
 
 const azureDevOpsBaseUrl = 'https://dev.azure.com';
@@ -1281,7 +1291,7 @@ export class ProvidersApi implements Disposable {
 	}
 
 	getAzureWorkItemWriter(
-		options: WorkItemWriteScope,
+		options: AzureServicesWorkItemWriteScope,
 		session: ProviderAuthenticationSession,
 		isSessionCurrent: () => Promise<boolean>,
 	): Promise<AzureWorkItemWriter> {
@@ -1292,6 +1302,41 @@ export class ProvidersApi implements Disposable {
 				authorization: azureAuthorization(session.accessToken, true),
 			},
 			options,
+			isSessionCurrent,
+		);
+	}
+
+	getAzureServerWorkItemWriter(
+		options: AzureServerWorkItemWriteScope,
+		session: ProviderAuthenticationSession,
+		route: { collectionBaseUrl: string; collectionUrl: string; collection: string },
+		ignoreSSLErrors: boolean | 'force',
+		isSessionCurrent: TrackedSession,
+	): Promise<AzureWorkItemWriter> {
+		const http = this.authenticationService.ctx.http;
+		const request: ProviderRequestFunction = o =>
+			http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
+				// KEEP: no await between this check and the fetch, so a retirement cannot land in between.
+				o.method != null && o.method !== 'GET' && isSessionCurrent.isRetired()
+					? Promise.reject(new WorkItemWriteNotDispatchedError())
+					: this.request(o),
+			);
+		const negotiate = async (resource: AzureDevOpsRestResource, version: string) =>
+			(
+				await http.wrapForForcedInsecureSSL(ignoreSSLErrors, () =>
+					this.azureRestApi.getRestApiResource(
+						{ namespace: route.collection, resource: resource, version: version },
+						{ token: session.accessToken, isPAT: true, baseUrl: route.collectionBaseUrl },
+					),
+				)
+			)?.apiVersion;
+		return AzureWorkItemWriter.connectServer(
+			request,
+			azureAuthorization(session.accessToken, true),
+			options,
+			route.collectionUrl,
+			async () => toAzureServerWorkItemApiVersion(await negotiate('workItems', '7.0')),
+			() => negotiate('workItemTypeStates', '7.1'),
 			isSessionCurrent,
 		);
 	}

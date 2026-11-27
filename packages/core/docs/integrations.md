@@ -1047,6 +1047,31 @@ including one produced by the host's fetch, is `rate-limit` and never reported a
 confirm the result of a dispatched write, it returns `applied: 'maybe'`. Reconcile the provider state before
 attempting a new write.
 
+### Azure DevOps Server work item writes
+
+Use the same five work item methods with `providerId: GitSelfManagedHostIntegrationId.AzureDevOpsServer`.
+Pass the selected Server `connectionId` and its configured `baseUrl`, including the scheme, port and
+context path. If the connection is configured at the collection itself, retain that path in `baseUrl`.
+Set `organizationId`, `organizationName` and `collectionUrl` to the collection's ID, name and URL from
+`listOrgs`. Pass the `projectId` discovered under that collection and, for an existing item, its numeric
+`workItemId`. Core refuses a `baseUrl` or `collectionUrl` that differs from the connection's own, or that
+names an Azure DevOps Services host, before sending any request.
+
+The writer uses the selected Server connection's credential. On the first options or target call, omit
+`expectedAccountId`. Pin the returned `accountId` for mutations and approvals. That ID identifies the
+authenticated user in the selected collection. The installation-level ID from `getCurrentAccount` can
+differ. Successful Server results identify the collection in `organization` and include `organization.url`.
+
+Core negotiates the instance's Work Item Tracking REST version and requires the capabilities introduced
+in Azure DevOps Server 2019. It reads fields and workflow transitions from the selected project. Azure
+enforces the connection's work item scopes, project permissions and process rules at dispatch. An unknown
+delete capability means Core could not verify the project permission before dispatch.
+
+Pin the resolved connection, collection, project, account, item and revision across delete confirmation.
+Core rereads the item and checks the credential before sending one recoverable DELETE. It reports success
+only when the provider confirms the approved project and the next revision. Use the same
+`target-changed` and `applied: 'maybe'` handling described above for a changed target or an uncertain result.
+
 ### Azure DevOps Services pull request writes
 
 The following `IntegrationManager` methods and their types are exported from
