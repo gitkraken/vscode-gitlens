@@ -27,6 +27,24 @@ const tokenWithInfo = {
 	scopes: [],
 } as unknown as TokenWithInfo;
 
+test('an undecodable 403 preserves its status and only the throttle header', async () => {
+	const response = new Response('sensitive malformed JSON', {
+		status: 403,
+		headers: {
+			'content-type': 'application/json',
+			'retry-after': '20',
+			'set-cookie': 'private',
+			'x-amzn-remapped-authorization': 'private',
+			'x-amzn-remapped-www-authenticate': 'private',
+		},
+	});
+	await assert.rejects(parseFetchResponseForApi(response), (ex: Error) => {
+		assert.deepEqual({ ...ex }, { statusCode: 403, response: { status: 403, headers: { 'retry-after': '20' } } });
+		assert.doesNotMatch(String(ex), /sensitive|private/);
+		return true;
+	});
+});
+
 // Azure DevOps answers a rejected credential by redirecting to its sign-in page, which returns `203 text/html`.
 // `response.ok` spans 200-299, so that page used to be handed to provider code as a successful body — a bad
 // credential looked like a successful write on a route returning `void` (GKDEV-3617).

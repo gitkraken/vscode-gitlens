@@ -1,6 +1,8 @@
 import * as assert from 'node:assert/strict';
 import { suite, test } from 'mocha';
 import type { Account } from '@gitlens/git/models/author.js';
+import { defer } from '@gitlens/utils/promise.js';
+import { ConfiguredIntegrationService } from '../authentication/configuredIntegrationService.js';
 import type { ProviderAuthenticationSession, TokenWithInfo } from '../authentication/models.js';
 import type { StoredIntegrationConfigurations } from '../constants.js';
 import {
@@ -30,8 +32,9 @@ interface TokenBackend {
 	errorStatus?: number;
 }
 
-function createManager(backend: TokenBackend) {
-	const runtime = createFakeRuntime();
+function createManager(backend: TokenBackend, sharedStorage?: ReturnType<typeof createFakeRuntime>['storage']) {
+	const fake = createFakeRuntime();
+	const runtime = sharedStorage ? { ...fake, storage: sharedStorage } : fake;
 	const paths: string[] = [];
 	runtime.account.getAccount = async () => ({ id: 'me' });
 	runtime.account.fetchGkApi = async (path: string) => {
@@ -67,7 +70,599 @@ const githubToken = (path: string) => {
 	return { tokenId: tokenId, accessToken: `tok-${tokenId}`, expiresIn: 3600, scopes: 'repo', type: 'oauth' };
 };
 
+const githubId = GitCloudHostIntegrationId.GitHub;
+function githubConnection(id: string, secondaries: string[] = []) {
+	return {
+		tokenId: id,
+		provider: 'github',
+		type: 'oauth',
+		domain: 'github.com',
+		accountName: id,
+		secondaries: secondaries.map(s => ({
+			tokenId: s,
+			provider: 'github',
+			type: 'oauth',
+			domain: 'github.com',
+			accountName: s,
+		})),
+	};
+}
+function githubSession(id: string, token = id): ProviderAuthenticationSession {
+	return {
+		id: id,
+		accessToken: token,
+		account: { id: '', label: id },
+		domain: 'github.com',
+		cloud: true,
+		type: 'oauth',
+		scopes: ['repo'],
+	};
+}
+
 suite('cloud sync — multi-account reconcile (#5430)', () => {
+	for (const force of [false, true]) {
+		test(`logout is serialized after an in-flight ${force ? 'forced' : 'routine'} authenticated list`, async () => {
+			const { manager, runtime } = createManager({ connections: [githubConnection('p1')], token: githubToken });
+			const store = new ConfiguredIntegrationService(runtime);
+			await store.storeSession(githubId, githubSession('p1'));
+			let account: { id: string } | undefined = { id: 'me' };
+			runtime.account.getAccount = async () => account;
+			const entered = defer<void>();
+			const release = defer<void>();
+			const fetch = runtime.account.fetchGkApi;
+			runtime.account.fetchGkApi = async (path, init) => {
+				if (path === 'v1/provider-tokens') {
+					entered.fulfill();
+					await release.promise;
+				}
+				return fetch(path, init);
+			};
+			runtime.fireSubscriptionCheckIn(force);
+			await entered.promise;
+			account = undefined;
+			runtime.fireSubscriptionChange();
+			await new Promise(resolve => setImmediate(resolve));
+			release.fulfill();
+			await flush();
+			assert.deepEqual(manager.getConfigured(githubId), []);
+			assert.equal(await runtime.storage.getSecret('integration.auth.cloud:github|p1'), undefined);
+			assert.deepEqual(
+				runtime.emittedEvents.filter(e => e.event === 'integration.connection.count.changed').at(-1)?.props
+					?.integrationIds,
+				[],
+			);
+			manager.dispose();
+			store.dispose();
+		});
+	}
+
+	for (const fresh of [false, true]) {
+		test(`a delayed logout retires only credentials acquired before it (${fresh ? 'fresh token' : 'cached list'})`, async () => {
+			let token = 'first';
+			const { manager, runtime } = createManager({
+				connections: [githubConnection('p1')],
+				token: path => ({ ...githubToken(path), accessToken: token }),
+			});
+			const store = new ConfiguredIntegrationService(runtime);
+			const earlier = defer<undefined>();
+			const second = createManager(
+				{
+					connections: [githubConnection('p1')],
+					token: path => ({ ...githubToken(path), accessToken: token }),
+				},
+				runtime.storage,
+			);
+			try {
+				await manager.refreshConnections();
+				const integration = await manager.get(githubId);
+				assert.equal((await integration.getCredential('integrations'))?.accessToken, 'first');
+				const other = await second.manager.get(githubId);
+				await other.getCredential('integrations');
+				second.paths.length = 0;
+				runtime.account.getAccount = () => earlier.promise;
+				const logout = manager['onSubscriptionChanged']();
+				token = 'second';
+				runtime.account.getAccount = async () => ({ id: 'second' });
+				second.runtime.account.getAccount = runtime.account.getAccount;
+				await second.manager['syncCloudIntegrations'](fresh);
+				assert.equal(
+					second.paths.some(path => path.startsWith('v1/provider-tokens/')),
+					fresh,
+				);
+				earlier.fulfill(undefined);
+				await logout;
+				assert.notEqual((await integration.getCredential('integrations'))?.accessToken, 'first');
+				assert.equal(
+					(await store.peekStoredSession(githubId, 'p1', true, 'github.com'))?.accessToken,
+					fresh ? token : undefined,
+				);
+			} finally {
+				earlier.fulfill(undefined);
+				second.manager.dispose();
+				manager.dispose();
+				store.dispose();
+			}
+		});
+	}
+
+	for (const fetchFirst of [true, false]) {
+		test(`logout retires a token fetch that settles ${fetchFirst ? 'before' : 'after'} the credential clear`, async () => {
+			const entered = defer<void>();
+			const release = defer<void>();
+			const { runtime, manager } = createManager({
+				connections: [githubConnection('p1')],
+				token: async path => {
+					entered.fulfill();
+					await release.promise;
+					return githubToken(path);
+				},
+			});
+			const store = new ConfiguredIntegrationService(runtime);
+			await store.storeSession(githubId, { ...githubSession('p1'), expiresAt: new Date(0) });
+			let loggedIn = true;
+			const logoutSeen = defer<void>();
+			const clear = defer<void>();
+			runtime.account.getAccount = async () => {
+				if (loggedIn) return { id: 'me' };
+
+				logoutSeen.fulfill();
+				if (fetchFirst) {
+					await clear.promise;
+				}
+				return undefined;
+			};
+			const integration = await manager.get(githubId);
+			(
+				integration as unknown as { getProviderCurrentAccount: () => Promise<Pick<Account, 'id'>> }
+			).getProviderCurrentAccount = async () => ({ id: 'viewer' });
+			const pending = manager.getCurrentAccount({ providerId: githubId, connectionId: 'p1' });
+			await entered.promise;
+			loggedIn = false;
+			runtime.fireSubscriptionChange();
+			await logoutSeen.promise;
+			if (!fetchFirst) {
+				await flush();
+			}
+			release.fulfill();
+			await pending;
+			clear.fulfill();
+			await flush();
+			assert.deepEqual(manager.getConfigured(githubId), []);
+			assert.equal(await runtime.storage.getSecret('integration.auth.cloud:github|p1'), undefined);
+			assert.deepEqual(
+				runtime.emittedEvents.filter(e => e.event === 'integration.connection.count.changed').at(-1)?.props
+					?.integrationIds,
+				[],
+			);
+			manager.dispose();
+			store.dispose();
+		});
+	}
+
+	test('logout clears stored cloud tokens when the active session is a local PAT', async () => {
+		const { manager, runtime } = createManager({ connections: [], token: githubToken });
+		const store = new ConfiguredIntegrationService(runtime);
+		await store.storeSession(githubId, { ...githubSession('p1', 'local'), cloud: false, type: 'pat' });
+		await store.storeSession(githubId, githubSession('p1', 'cloud'));
+		const github = await manager.get(githubId);
+		assert.equal((await github.getSession('integrations'))?.accessToken, 'local');
+		runtime.account.getAccount = async () => undefined;
+		runtime.fireSubscriptionChange();
+		await flush();
+		assert.equal(await runtime.storage.getSecret('integration.auth.cloud:github|p1'), undefined);
+		assert.equal((await github.getSession('integrations'))?.accessToken, 'local');
+		assert.deepEqual(
+			store.getConfigured(githubId).map(c => c.cloud),
+			[false],
+		);
+		manager.dispose();
+		store.dispose();
+	});
+
+	for (const hold of ['list', 'primary', 'reconcile']) {
+		test(`a cached later list supersedes older work waiting on the ${hold} request`, async () => {
+			const entered = defer<void>();
+			const release = defer<void>();
+			const first = createManager({
+				connections: hold === 'list' ? [] : [githubConnection('p1', ['s1'])],
+				token: async path => {
+					if (path === (hold === 'primary' ? 'v1/provider-tokens/github' : 'v1/provider-tokens/tokens/p1')) {
+						entered.fulfill();
+						await release.promise;
+					}
+					return { ...githubToken(path), accessToken: 'older-sync' };
+				},
+			});
+			const second = createManager(
+				{ connections: [githubConnection('s1', ['p1'])], token: githubToken },
+				first.runtime.storage,
+			);
+			const store = new ConfiguredIntegrationService(first.runtime);
+			await store.storeSession(githubId, githubSession('p1'));
+			await store.storeSession(githubId, githubSession('s1'));
+			assert.ok(await (await second.manager.get(githubId)).isConnected());
+			if (hold === 'list') {
+				const fetch = first.runtime.account.fetchGkApi;
+				first.runtime.account.fetchGkApi = async (path, init) => {
+					if (path === 'v1/provider-tokens') {
+						entered.fulfill();
+						await release.promise;
+					}
+					return fetch(path, init);
+				};
+			}
+			const pending = first.manager.refreshConnections();
+			await entered.promise;
+			second.runtime.fireSubscriptionCheckIn(false);
+			await flush();
+			assert.deepEqual(second.paths, ['v1/provider-tokens']);
+			const before = await store.peekStoredSession(githubId, 'p1', true, 'github.com');
+			release.fulfill();
+			await pending;
+			assert.deepEqual(
+				store
+					.getConfigured(githubId)
+					.map(c => c.id)
+					.sort(),
+				['p1', 's1'],
+			);
+			assert.equal(store.getConfigured(githubId).find(c => c.primary)?.id, 's1');
+			assert.equal(
+				(await store.peekStoredSession(githubId, 'p1', true, 'github.com'))?.accessToken,
+				before?.accessToken,
+			);
+			first.manager.dispose();
+			second.manager.dispose();
+			store.dispose();
+		});
+	}
+
+	test('a newer failed list leaves the earlier authenticated list authoritative', async () => {
+		const first = createManager({ connections: [], token: githubToken });
+		const second = createManager(
+			{ connections: [], connectionsStatus: 503, token: githubToken },
+			first.runtime.storage,
+		);
+		const store = new ConfiguredIntegrationService(first.runtime);
+		await store.storeSession(githubId, githubSession('p1'));
+		const entered = defer<void>();
+		const release = defer<void>();
+		const fetch = first.runtime.account.fetchGkApi;
+		first.runtime.account.fetchGkApi = async (path, init) => {
+			if (path === 'v1/provider-tokens') {
+				entered.fulfill();
+				await release.promise;
+			}
+			return fetch(path, init);
+		};
+		const pending = first.manager.refreshConnections();
+		await entered.promise;
+		await assert.rejects(second.manager.refreshConnections(), /Failed to refresh provider connections/);
+		release.fulfill();
+		await pending;
+		assert.deepEqual(store.getConfigured(githubId), []);
+		assert.equal(await first.runtime.storage.getSecret('integration.auth.cloud:github|p1'), undefined);
+		first.manager.dispose();
+		second.manager.dispose();
+		store.dispose();
+	});
+
+	test('a cached list confirming the existing primary prevents an older unscoped GET from selecting a different account', async () => {
+		const entered = defer<void>();
+		const release = defer<void>();
+		const first = createManager({
+			connections: [],
+			token: async () => {
+				entered.fulfill();
+				await release.promise;
+				return githubToken('b');
+			},
+		});
+		const second = createManager(
+			{ connections: [githubConnection('a', ['b'])], token: githubToken },
+			first.runtime.storage,
+		);
+		const store = new ConfiguredIntegrationService(first.runtime);
+		for (const id of ['a', 'b']) {
+			await store.storeSession(githubId, githubSession(id));
+		}
+		const old = await first.manager.get(githubId);
+		assert.ok(await old.isConnected());
+		assert.ok(await (await second.manager.get(githubId)).isConnected());
+		const pending = old.syncCloudConnection('connected', true);
+		await entered.promise;
+		second.runtime.fireSubscriptionCheckIn(false);
+		await flush();
+		assert.deepEqual(second.paths, ['v1/provider-tokens']);
+		release.fulfill();
+		await pending;
+		assert.equal(store.getConfigured(githubId).find(c => c.primary)?.id, 'a');
+		assert.equal((await old.getSession('integrations'))?.id, 'a');
+		first.manager.dispose();
+		second.manager.dispose();
+		store.dispose();
+	});
+
+	test('a warm check-in selects its listed primary and preserves a newly refreshed unlisted account', async () => {
+		const { runtime, manager, paths } = createManager({
+			connections: [githubConnection('b', ['a'])],
+			token: githubToken,
+		});
+		const store = new ConfiguredIntegrationService(runtime);
+		for (const id of ['a', 'b', 'c']) {
+			await store.storeSession(githubId, githubSession(id));
+		}
+		const github = await manager.get(githubId);
+		assert.equal((await github.getSession('integrations'))?.id, 'a');
+		const fetch = runtime.account.fetchGkApi;
+		runtime.account.fetchGkApi = async (path, init) => {
+			if (path === 'v1/provider-tokens') {
+				await store.storeSession(githubId, githubSession('c', 'updated'));
+			}
+			return fetch(path, init);
+		};
+		runtime.fireSubscriptionCheckIn(false);
+		await flush();
+		assert.deepEqual(paths, ['v1/provider-tokens']);
+		assert.equal(store.getConfigured(githubId).find(c => c.primary)?.id, 'b');
+		assert.equal((await github.getSession('integrations'))?.id, 'b');
+		assert.equal((await store.peekStoredSession(githubId, 'c', true, 'github.com'))?.accessToken, 'updated');
+		store.dispose();
+		manager.dispose();
+	});
+
+	test('refreshing a scoped token cannot invalidate a newer named primary observation', async () => {
+		const entered = defer<void>();
+		const release = defer<void>();
+		const { runtime, manager } = createManager({
+			connections: [githubConnection('a', ['b', 'c'])],
+			token: async path => {
+				if (path === 'v1/provider-tokens/github') {
+					entered.fulfill();
+					await release.promise;
+					return githubToken('b');
+				}
+				return githubToken(path);
+			},
+		});
+		const store = new ConfiguredIntegrationService(runtime);
+		for (const id of ['a', 'b', 'c']) {
+			await store.storeSession(githubId, githubSession(id));
+		}
+		const pending = manager.refreshConnections();
+		await entered.promise;
+		await store.storeSession(githubId, githubSession('c', 'scoped-refresh'));
+		release.fulfill();
+		await pending;
+		assert.equal(store.getConfigured(githubId).find(c => c.primary)?.id, 'b');
+		manager.dispose();
+		store.dispose();
+	});
+
+	test('an empty list cannot disconnect a first account published while the list is pending', async () => {
+		const { manager, runtime } = createManager({ connections: [], token: githubToken });
+		const configured = new ConfiguredIntegrationService(runtime);
+		const github = GitCloudHostIntegrationId.GitHub;
+		const entered = defer<void>();
+		const release = defer<void>();
+		const fetch = runtime.account.fetchGkApi;
+		runtime.account.fetchGkApi = async (path, init) => {
+			if (path === 'v1/provider-tokens') {
+				entered.fulfill();
+				await release.promise;
+			}
+			return fetch(path, init);
+		};
+		const refresh = manager.refreshConnections();
+		await entered.promise;
+		const writeStarted = defer<void>();
+		const finishWrite = defer<void>();
+		const storeSecret = runtime.storage.storeSecret;
+		runtime.storage.storeSecret = async (key, value) => {
+			writeStarted.fulfill();
+			await finishWrite.promise;
+			await storeSecret(key, value);
+		};
+		const write = configured.storeSession(github, {
+			id: 'new',
+			accessToken: 'new-token',
+			cloud: true,
+			domain: 'github.com',
+			scopes: ['repo'],
+			account: { id: 'new', label: 'New' },
+			type: 'oauth',
+		});
+		await writeStarted.promise;
+		release.fulfill();
+		await new Promise(resolve => setImmediate(resolve));
+		finishWrite.fulfill();
+		assert.ok(await write);
+		await refresh;
+		assert.deepEqual(
+			manager.getConfigured(github).map(c => c.id),
+			['new'],
+		);
+		const integration = await manager.get(github);
+		assert.equal((await integration.getSession('integrations'))?.accessToken, 'new-token');
+		const published = runtime.emittedEvents.filter(e => e.event === 'integration.connection.count.changed');
+		assert.deepEqual(published.at(-1)?.props?.integrationIds, [github]);
+		manager.dispose();
+		configured.dispose();
+	});
+
+	test('a warm integration re-resolves the credential that superseded a disconnected list', async () => {
+		const github = GitCloudHostIntegrationId.GitHub;
+		const { manager, runtime } = createManager({ connections: [], token: githubToken });
+		const store = new ConfiguredIntegrationService(runtime);
+		const initial: ProviderAuthenticationSession = {
+			id: 'p1',
+			accessToken: 'old',
+			cloud: true,
+			domain: 'github.com',
+			scopes: ['repo'],
+			type: 'oauth',
+			account: { id: 'p1', label: 'p1' },
+		};
+		await store.storeSession(github, initial);
+		const integration = await manager.get(github);
+		assert.equal((await integration.getSession('integrations'))?.accessToken, 'old');
+		const fetch = runtime.account.fetchGkApi;
+		runtime.account.fetchGkApi = async (path, init) => {
+			if (path === 'v1/provider-tokens') {
+				await store.storeSession(github, { ...initial, accessToken: 'new' });
+			}
+			return fetch(path, init);
+		};
+		await manager.refreshConnections();
+		assert.equal((await integration.getSession('integrations'))?.accessToken, 'new');
+		manager.dispose();
+		store.dispose();
+	});
+
+	for (const primaryId of ['new-primary', undefined]) {
+		test(`reconciliation distinguishes a ${primaryId ? 'named' : 'legacy id-less'} primary response from the list it follows`, async () => {
+			const github = GitCloudHostIntegrationId.GitHub;
+			const { manager, runtime } = createManager({
+				connections: [
+					{
+						tokenId: 'listed',
+						provider: 'github',
+						accountName: 'account',
+						type: 'oauth',
+						domain: 'github.com',
+					},
+				],
+				token: path =>
+					path === 'v1/provider-tokens/github'
+						? {
+								tokenId: primaryId,
+								accessToken: 'from-primary',
+								expiresIn: 3600,
+								scopes: 'repo',
+								type: 'oauth',
+							}
+						: githubToken(path),
+			});
+			await manager.refreshConnections();
+			const configured = manager.getConfigured(github);
+			const primary = configured.find(c => c.primary);
+			assert.equal(primary?.id, primaryId ?? 'listed');
+			assert.deepEqual(configured.map(c => c.id).sort(), primaryId ? ['listed', primaryId].sort() : ['listed']);
+			assert.equal(await runtime.storage.getSecret('integration.auth.cloud:github|github.com'), undefined);
+			if (primaryId) {
+				const integration = await manager.get(github);
+				assert.equal((await integration.getSession('integrations'))?.accessToken, 'from-primary');
+			}
+			manager.dispose();
+		});
+	}
+
+	test('a newer named primary also supersedes the earlier ordering of two listed accounts', async () => {
+		const github = GitCloudHostIntegrationId.GitHub;
+		const { manager } = createManager({
+			connections: [
+				{
+					tokenId: 'a',
+					provider: 'github',
+					type: 'oauth',
+					accountName: 'a',
+					domain: 'github.com',
+					secondaries: [
+						{ tokenId: 'b', provider: 'github', type: 'oauth', accountName: 'b', domain: 'github.com' },
+					],
+				},
+			],
+			token: path => githubToken(path === 'v1/provider-tokens/github' ? 'b' : path),
+		});
+		await manager.refreshConnections();
+		assert.equal(manager.getConfigured(github).find(c => c.primary)?.id, 'b');
+		manager.dispose();
+	});
+
+	test('a refreshed secondary in the same manager survives an older list and retains its explicit promotion', async () => {
+		const github = GitCloudHostIntegrationId.GitHub;
+		const entered = defer<void>();
+		const release = defer<void>();
+		const { manager, runtime } = createManager({
+			connections: [
+				{ tokenId: 'p1', provider: 'github', accountName: 'p1', type: 'oauth', domain: 'github.com' },
+			],
+			token: async path => {
+				if (path === 'v1/provider-tokens/github') {
+					entered.fulfill();
+					await release.promise;
+				}
+				return githubToken(path);
+			},
+		});
+		const configured = new ConfiguredIntegrationService(runtime);
+		const initial: ProviderAuthenticationSession = {
+			id: 'p1',
+			accessToken: 'old-p1',
+			cloud: true,
+			domain: 'github.com',
+			scopes: ['repo'],
+			account: { id: '', label: '' },
+			type: 'oauth',
+		};
+		await configured.storeSession(github, initial);
+		await configured.storeSession(github, { ...initial, id: 's1', accessToken: 'old-s1', expiresAt: new Date(0) });
+		const integration = await manager.get(github);
+		(
+			integration as unknown as { getProviderCurrentAccount: () => Promise<Pick<Account, 'id' | 'username'>> }
+		).getProviderCurrentAccount = async () => ({ id: 'me', username: 'me' });
+		const list = manager.refreshConnections();
+		await entered.promise;
+		await manager.getCurrentAccount({ providerId: github, connectionId: 's1' });
+		await manager.setPrimaryConnection(github, 's1');
+		release.fulfill();
+		await list;
+		assert.equal((await configured.peekStoredSession(github, 's1', true, 'github.com'))?.accessToken, 'tok-s1');
+		assert.equal(manager.getConfigured(github).find(c => c.primary)?.id, 's1');
+		manager.dispose();
+		configured.dispose();
+	});
+
+	test('a connection added while the backend list is pending survives reconciliation of the older list', async () => {
+		const { manager, runtime } = createManager({
+			connections: [
+				{ tokenId: 'p1', provider: 'github', type: 'oauth', domain: 'github.com', accountName: 'primary' },
+			],
+			token: githubToken,
+		});
+		const configured = new ConfiguredIntegrationService(runtime);
+		const github = GitCloudHostIntegrationId.GitHub;
+		const session: ProviderAuthenticationSession = {
+			id: 'p1',
+			accessToken: 'tok-p1',
+			domain: 'github.com',
+			cloud: true,
+			scopes: ['repo'],
+			type: 'oauth',
+			account: { id: 'primary', label: 'primary' },
+		};
+		await configured.storeSession(github, session);
+		const entered = defer<void>();
+		const release = defer<void>();
+		const fetch = runtime.account.fetchGkApi;
+		runtime.account.fetchGkApi = async (path, init) => {
+			if (path === 'v1/provider-tokens') {
+				entered.fulfill();
+				await release.promise;
+			}
+			return fetch(path, init);
+		};
+		const refresh = manager.refreshConnections();
+		await entered.promise;
+		await configured.storeSession(github, { ...session, id: 'added', accessToken: 'new' });
+		release.fulfill();
+		await refresh;
+		assert.ok(configured.getConfigured(github).some(c => c.id === 'added'));
+		assert.equal((await configured.peekStoredSession(github, 'added', true, 'github.com'))?.accessToken, 'new');
+		manager.dispose();
+		configured.dispose();
+	});
+
 	test('refreshConnections rejects and preserves configured state when the backend list fails', async () => {
 		const { runtime, manager } = createManager({
 			connections: [],
@@ -1487,13 +2082,10 @@ suite('Linear workspace connection metadata (#5956)', () => {
 		domain: 'linear.app',
 		accountName: 'same-person',
 	});
-	const token = (path: string) => ({
-		tokenId: path.split('/').pop(),
-		accessToken: `token-${path.split('/').pop()}`,
-		expiresIn: 3600,
-		scopes: 'read',
-		type: 'oauth',
-	});
+	const token = (path: string) => {
+		const id = path === 'v1/provider-tokens/linear' ? 'one' : path.split('/').pop();
+		return { tokenId: id, accessToken: `token-${id}`, expiresIn: 3600, scopes: 'read', type: 'oauth' };
+	};
 	const mockLinearOrganization = (
 		manager: ReturnType<typeof createManager>['manager'],
 		lookup: (info: TokenWithInfo) => Promise<unknown>,
@@ -1502,6 +2094,50 @@ suite('Linear workspace connection metadata (#5956)', () => {
 			getLinearOrganization: lookup,
 		});
 	};
+
+	test('a prepared session waiting on workspace enrichment cannot restore an older expiry', async () => {
+		const id = IssuesCloudHostIntegrationId.Linear;
+		const { runtime, manager } = createManager({
+			connections: [connection('one')],
+			token: () => token('one'),
+		});
+		const configured = new ConfiguredIntegrationService(runtime);
+		const entered = defer<void>();
+		const release = defer<void>();
+		mockLinearOrganization(manager, async () => {
+			entered.fulfill();
+			await release.promise;
+			return { id: 'org-one', name: 'First' };
+		});
+		const refresh = manager.refreshConnections();
+		await entered.promise;
+		const session = await configured.peekStoredSession(id, 'one', true, 'linear.app');
+		assert.ok(session);
+		const currency = await configured.captureStoredRelationshipCurrency(id, session);
+		assert.ok(currency);
+		assert.ok(currency());
+		const expired = { ...session, expiresAt: new Date(0) };
+		await configured.storeSession(id, expired);
+		release.fulfill();
+		await refresh;
+		assert.equal((await configured.peekStoredSession(id, 'one', true, 'linear.app'))?.expiresAt?.getTime(), 0);
+		assert.equal(currency(), false);
+		const later = new Date(Date.now() + 3600_000);
+		assert.ok(
+			await configured.storeSession(
+				id,
+				{ ...session, expiresAt: later },
+				{ signOutMark: configured.getSignOutMark() },
+			),
+		);
+		assert.ok(currency());
+		assert.equal(
+			(await configured.peekStoredSession(id, 'one', true, 'linear.app'))?.expiresAt?.getTime(),
+			later.getTime(),
+		);
+		manager.dispose();
+		configured.dispose();
+	});
 
 	test('resolves each workspace with its own token on every token fetch and keeps it by connection id', async () => {
 		const { runtime, manager } = createManager({

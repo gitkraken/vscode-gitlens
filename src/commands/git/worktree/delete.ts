@@ -762,7 +762,7 @@ export class WorktreeDeleteGitCommand extends QuickCommand<State> {
 
 			notices.push(
 				createDirectiveQuickPickItem(Directive.Noop, false, {
-					label: l10n.t('$(loading~spin)  Checking Worktrees...'),
+					label: l10n.t('$(loading~spin) \u00a0Checking Worktrees...'),
 				}),
 				createQuickPickSeparator(),
 			);

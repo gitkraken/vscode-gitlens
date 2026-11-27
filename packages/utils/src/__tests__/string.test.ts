@@ -527,8 +527,8 @@ suite('C-quoted string reading', () => {
 		});
 
 		test('keeps a leading U+FEFF, escaped or raw', () => {
-			assert.strictEqual(unquoteCString('"\\357\\273\\277bom\\".txt"'), '﻿bom".txt');
-			assert.strictEqual(unquoteCString('"﻿bom\\".txt"'), '﻿bom".txt');
+			assert.strictEqual(unquoteCString('"\\357\\273\\277bom\\".txt"'), '\ufeffbom".txt');
+			assert.strictEqual(unquoteCString('"\ufeffbom\\".txt"'), '\ufeffbom".txt');
 		});
 	});
 });

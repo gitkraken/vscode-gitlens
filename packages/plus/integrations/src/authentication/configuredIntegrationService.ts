@@ -18,16 +18,27 @@ import {
 	sameConfiguredBaseUrl,
 } from '../utils/domain.utils.js';
 import { isSelfManagedHostIntegrationId } from '../utils/integration.utils.js';
+import type { CloudCredentialOrigin, CloudIntegrationSync } from './cloudIntegrationObservations.js';
+import { CloudIntegrationObservations } from './cloudIntegrationObservations.js';
 import type { IntegrationAuthenticationSessionDescriptor } from './integrationAuthenticationProvider.js';
 import type {
 	CloudIntegrationAuthType,
+	CloudIntegrationConnection,
 	ConfiguredIntegrationDescriptor,
 	ConnectionResource,
 	ProviderAuthenticationSession,
 } from './models.js';
-import { getSessionIdentity } from './models.js';
+import {
+	getSessionIdentity,
+	getSupportedCloudIntegrationIds,
+	isSameAuthenticationSession,
+	sessionExpiry,
+} from './models.js';
+
+const cloudLogoutKey = 'integrations:cloudLogout';
 
 interface StoredSession {
+	cloudOrigin?: CloudCredentialOrigin;
 	id: string;
 	accessToken: string;
 	account?: { label?: string; displayName?: string; id: string };
@@ -54,10 +65,25 @@ type IntegrationSessionChangeEvent = {
 	readonly previousDomain?: string;
 };
 
-type StoredWriteRetirements = { epoch: number; scopes: Map<string, number> };
 type CredentialAcquisitions = { unscoped?: Promise<void>; connections: Map<string, Promise<void>> };
 
-const storedWriteRetirements = new WeakMap<IntegrationServiceContext['storage'], StoredWriteRetirements>();
+type CloudLogoutConnection = ConfiguredIntegrationDescriptor & { retained: boolean };
+
+type ConfiguredStorageState = {
+	configured?: Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>;
+	persistence: Promise<void>;
+	locks: Map<IntegrationIds, Promise<void>>;
+	epoch: number;
+	scopes: Map<string, number>;
+	signOuts: Map<string, number>;
+	publications: Map<string, number>;
+	removals: Map<string, number>;
+	cloud: CloudIntegrationObservations;
+	onCloudLogout: Emitter<readonly CloudLogoutConnection[]>;
+	// KEEP: A partial secret/descriptor write blocks this variant until both are stored successfully.
+	expiries: Map<string, number | null>;
+};
+const configuredStorageState = new WeakMap<IntegrationServiceContext['storage'], ConfiguredStorageState>();
 
 export class ConfiguredIntegrationService implements Disposable {
 	private readonly _onDidChange = new Emitter<ConfiguredIntegrationsChangeEvent>();
@@ -68,22 +94,14 @@ export class ConfiguredIntegrationService implements Disposable {
 		cloud?: boolean;
 		domain?: string;
 	}>();
-	private storeConfiguredQueue: Promise<void> = Promise.resolve();
-	/**
-	 * One provider's secret and descriptor mutations run one at a time, so a sign-out never interleaves with a
-	 * token being stored: storing writes the secret and then registers its descriptor, and a delete in between would
-	 * miss a connection it cannot see yet, or be undone by the pending write (#5948).
-	 */
-	private readonly _locks = new Map<IntegrationIds, Promise<void>>();
 	private readonly _acquisitions = new Map<IntegrationIds, CredentialAcquisitions>();
-	/** Monotonic across providers; see {@link getSignOutMark}. */
-	private _signOutEpoch = 0;
-	/** The latest retirement of pending stores per provider, self-managed host, or connection. */
-	private readonly _signOuts = new Map<string, number>();
-	private readonly _storedWriteRetirements: StoredWriteRetirements;
+	private readonly state: ConfiguredStorageState;
 	private _disposed = false;
 	get onDidChange(): Event<ConfiguredIntegrationsChangeEvent> {
 		return this._onDidChange.event;
+	}
+	get onCloudLogout(): Event<readonly CloudLogoutConnection[]> {
+		return this.state.onCloudLogout.event;
 	}
 	get onWillChangeSession(): Event<IntegrationSessionChangeEvent> {
 		return this._onWillChangeSession.event;
@@ -93,12 +111,23 @@ export class ConfiguredIntegrationService implements Disposable {
 	}
 
 	constructor(private readonly ctx: IntegrationServiceContext) {
-		let retirements = storedWriteRetirements.get(ctx.storage);
-		if (retirements == null) {
-			retirements = { epoch: 0, scopes: new Map() };
-			storedWriteRetirements.set(ctx.storage, retirements);
+		let state = configuredStorageState.get(ctx.storage);
+		if (state == null) {
+			state = {
+				persistence: Promise.resolve(),
+				locks: new Map(),
+				epoch: 0,
+				scopes: new Map(),
+				signOuts: new Map(),
+				publications: new Map(),
+				removals: new Map(),
+				cloud: new CloudIntegrationObservations(ctx.storage.get(cloudLogoutKey)),
+				onCloudLogout: new Emitter<readonly CloudLogoutConnection[]>(),
+				expiries: new Map(),
+			};
+			configuredStorageState.set(ctx.storage, state);
 		}
-		this._storedWriteRetirements = retirements;
+		this.state = state;
 	}
 
 	dispose(): void {
@@ -108,10 +137,9 @@ export class ConfiguredIntegrationService implements Disposable {
 		this._onWillRemoveSessions.dispose();
 	}
 
-	private _configured?: Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>;
 	private get configured(): Map<IntegrationIds, ConfiguredIntegrationDescriptor[]> {
-		if (this._configured == null) {
-			this._configured = new Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>();
+		if (this.state.configured == null) {
+			this.state.configured = new Map<IntegrationIds, ConfiguredIntegrationDescriptor[]>();
 
 			const storedConfigured = this.ctx.storage.get('integrations:configured');
 			for (const [id, configured] of Object.entries(storedConfigured ?? {}) as [
@@ -124,24 +152,16 @@ export class ConfiguredIntegrationService implements Disposable {
 					...d,
 					baseUrl: isSelfManagedHostIntegrationId(id) ? getStoredBaseUrl(d.baseUrl, d.domain) : d.baseUrl,
 					domain: this.normalizeConfiguredDomain(id, d.domain),
-					// Backfill a stable connection id for pre-multi-account stored data: the domain for
-					// self-managed hosts, or the provider's canonical domain for cloud (which is the legacy
-					// secret-key session id), so existing secrets keep resolving with zero migration. Fall back
-					// to the integration id (never empty) when no domain is known — self-managed providers carry
-					// `domain: ''` in metadata, and an empty id would collide across connections and produce
-					// ambiguous secret keys (`...|`).
 					id: d.id || d.domain || providersMetadata[id]?.domain || id,
 					expiresAt: d.expiresAt ? new Date(d.expiresAt) : undefined,
 				}));
-				this._configured.set(id, descriptors);
+				this.state.configured.set(id, descriptors);
 			}
 		}
 
-		return this._configured;
+		return this.state.configured;
 	}
 
-	// Synchronous: reads the in-memory configured map (lazily hydrated from storage). No async work —
-	// the old async variant only existed to weave in the built-in VS Code GitHub session, which is gone.
 	getConfigured(
 		id?: IntegrationIds,
 		options?: { cloud?: boolean; domain?: string },
@@ -174,25 +194,30 @@ export class ConfiguredIntegrationService implements Disposable {
 		return descriptors;
 	}
 
-	private async storeConfigured(): Promise<void> {
-		// We need to convert the map to a record to store
-		const configured: StoredIntegrationConfigurations = {} as unknown as StoredIntegrationConfigurations;
-		for (const [id, descriptors] of this.configured) {
-			configured[id] = descriptors.map(d => ({
-				...d,
-				expiresAt: d.expiresAt
-					? d.expiresAt instanceof Date
-						? d.expiresAt.toISOString()
-						: d.expiresAt
-					: undefined,
-			}));
-		}
+	private storeConfigured(id: IntegrationIds, descriptors?: ConfiguredIntegrationDescriptor[]): Promise<void> {
+		const pending = this.state.persistence.then(async () => {
+			const updated = new Map(this.configured);
+			if (descriptors == null) {
+				updated.delete(id);
+			} else {
+				updated.set(id, descriptors);
+			}
 
-		const pending = this.storeConfiguredQueue.then(() =>
-			this.ctx.storage.store('integrations:configured', configured),
-		);
-		this.storeConfiguredQueue = pending.catch(() => {});
-		await pending;
+			const record: Partial<StoredIntegrationConfigurations> = {};
+			for (const [providerId, connections] of updated) {
+				record[providerId] = connections.map(connection => ({
+					...connection,
+					expiresAt:
+						connection.expiresAt instanceof Date
+							? connection.expiresAt.toISOString()
+							: connection.expiresAt,
+				}));
+			}
+			await this.ctx.storage.store('integrations:configured', record);
+			this.state.configured = updated;
+		});
+		this.state.persistence = pending.catch(() => {});
+		return pending;
 	}
 
 	private async addOrUpdateConfigured(descriptor: ConfiguredIntegrationDescriptor): Promise<void> {
@@ -203,9 +228,7 @@ export class ConfiguredIntegrationService implements Disposable {
 				: descriptor.baseUrl,
 			domain: this.normalizeConfiguredDomain(descriptor.integrationId, descriptor.domain),
 		};
-		const descriptors = this.configured.get(descriptor.integrationId) ?? [];
-		// Key connections by their stable id (+ cloud, to preserve legacy local/cloud coexistence) so
-		// multiple accounts on the same provider+domain no longer overwrite each other.
+		const descriptors = [...(this.configured.get(descriptor.integrationId) ?? [])];
 		const existing = descriptors.find(d => d.id === descriptor.id && d.cloud === descriptor.cloud);
 
 		// The first connection for a provider/domain is primary by default; an explicit flag (or the
@@ -259,19 +282,17 @@ export class ConfiguredIntegrationService implements Disposable {
 				existing.resourceName !== normalized.resourceName ||
 				existing.resourceId !== normalized.resourceId;
 
-			// remove the existing descriptor from the array
 			descriptors.splice(descriptors.indexOf(existing), 1);
 		} else {
 			changed = true;
 		}
 
 		descriptors.push(normalized);
-		this.configured.set(descriptor.integrationId, descriptors);
+		await this.storeConfigured(descriptor.integrationId, descriptors);
 
 		if (changed) {
 			this.fireChange(descriptor.integrationId);
 		}
-		await this.storeConfigured();
 	}
 
 	private async removeConfigured(
@@ -312,21 +333,21 @@ export class ConfiguredIntegrationService implements Disposable {
 			}
 		}
 
-		this.configured.set(id, descriptors);
+		await this.storeConfigured(id, descriptors);
 		this.fireChange(undefined, id);
-		await this.storeConfigured();
 	}
 
-	private withLock<T>(id: IntegrationIds, fn: () => Promise<T>): Promise<T> {
-		const run = (this._locks.get(id) ?? Promise.resolve()).then(fn);
+	private withLock<T>(id: IntegrationIds, fn: () => Promise<T> | T): Promise<T> {
+		const locks = this.state.locks;
+		const run = (locks.get(id) ?? Promise.resolve()).then(fn);
 		const settled = run.then(
 			() => undefined,
 			() => undefined,
 		);
-		this._locks.set(id, settled);
+		locks.set(id, settled);
 		void settled.then(() => {
-			if (this._locks.get(id) === settled) {
-				this._locks.delete(id);
+			if (locks.get(id) === settled) {
+				locks.delete(id);
 			}
 		});
 		return run;
@@ -392,29 +413,260 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * that replaces the credential invalidates the pending store.
 	 */
 	getSignOutMark(): number {
-		return this._signOutEpoch;
+		return ++this.state.epoch;
 	}
 
-	private retirePendingStores(scope: string): void {
-		this._signOuts.set(scope, ++this._signOutEpoch);
-		this.retireStoredWrites(scope);
+	private retirePendingStores(scope: string, cloud?: boolean): void {
+		this.retireStoredWrites(scope, cloud);
+		this.state.signOuts.set(cloud == null ? scope : `${scope}|${cloud}`, this.getStoredWriteMark());
+	}
+
+	beginCloudSync(): number {
+		return ++this.state.epoch;
+	}
+
+	get lastCloudLogout(): number {
+		return this.state.cloud.lastLogout;
+	}
+
+	get hasCloudLogout(): boolean {
+		return this.state.cloud.hasLogout;
+	}
+
+	async retireCloudAccount(mark: number): Promise<CloudIntegrationSync | undefined> {
+		if (this._disposed) return undefined;
+
+		const connections = this.getConfigured(undefined, { cloud: true });
+		const sync = this.state.cloud.acceptLogout(mark, ++this.state.epoch, connections);
+		if (sync == null) return undefined;
+
+		const persist = this.persistCloudLogout();
+
+		const departing = connections.map(c => ({
+			...c,
+			retained: this.state.cloud.acquiredAfter(`${c.integrationId}|connection:${c.id}`, mark),
+		}));
+		// KEEP: Reserve all provider locks before notifying observers that can start publishing the next account.
+		const cleanup = getSupportedCloudIntegrationIds().map(id =>
+			this.withLock(id, () => this.clearDepartedCloudCredentials(id, mark, sync.mark)),
+		);
+		this.state.onCloudLogout.fire(departing);
+		const results = await Promise.allSettled([persist, ...cleanup]);
+		const failure = results.find(result => result.status === 'rejected');
+		if (failure != null) throw failure.reason;
+		return this._disposed ? undefined : sync;
+	}
+
+	private persistCloudLogout(): Promise<void> {
+		const pending = this.state.persistence.then(() =>
+			this.ctx.storage.store(cloudLogoutKey, this.state.cloud.snapshotLogout()),
+		);
+		this.state.persistence = pending.catch(() => {});
+		return pending;
+	}
+
+	private async clearDepartedCloudCredentials(id: IntegrationIds, cutoff: number, logout: number): Promise<void> {
+		const connections = this.getConfigured(id);
+		const ids = new Set(connections.map(c => c.id));
+		ids.add(providersMetadata[id]?.domain || id);
+		const failures: unknown[] = [];
+		for (const connectionId of ids) {
+			try {
+				const localKey = this.getLocalSecretKey(id, connectionId);
+				const raw = await this.ctx.storage.getSecret(localKey);
+				if (raw != null && isLegacyCloudSecret(raw)) {
+					await this.ctx.storage.deleteSecret(localKey);
+					await this.removeConfigured(id, { connectionId: connectionId, cloud: false });
+				}
+				const scope = `${id}|connection:${connectionId}`;
+				if (this.state.cloud.acquiredAfter(scope, cutoff)) continue;
+
+				const departed = connections.find(c => c.id === connectionId && c.cloud);
+				if (departed != null && this.state.cloud.depart(id, departed.domain, connectionId, logout)) {
+					await this.persistCloudLogout();
+				}
+				try {
+					await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, connectionId));
+				} finally {
+					this.state.cloud.remove(scope);
+					await this.removeConfigured(id, { connectionId: connectionId, cloud: true });
+				}
+			} catch (ex) {
+				failures.push(ex);
+			}
+		}
+		if (failures.length) throw new AggregateError(failures, 'Unable to clear retired cloud credentials.');
+	}
+
+	getCloudDeparture(id: IntegrationIds, session: ProviderAuthenticationSession): number | undefined {
+		return session.cloud ? this.state.cloud.departedAt(id, session.domain, session.id) : undefined;
+	}
+
+	confirmHostCloudSession(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession,
+		logout: number,
+	): Promise<boolean> {
+		return this.withLock(id, async () => {
+			if (this._disposed) return false;
+
+			const departure = this.getCloudDeparture(id, session);
+			if (departure != null && logout < departure) return false;
+
+			const stored = await this.peekSecret(id, session.id, true, session.domain);
+			if (this._disposed || logout !== this.lastCloudLogout || stored === null) return false;
+			if (stored === undefined) {
+				return (
+					departure == null &&
+					!this.getConfigured(id, {
+						cloud: true,
+						domain: isSelfManagedHostIntegrationId(id) ? session.domain : undefined,
+					}).some(c => c.id === session.id)
+				);
+			}
+
+			return (
+				stored.id === session.id &&
+				stored.cloud &&
+				stored.accessToken === session.accessToken &&
+				(!stored.account.id || stored.account.id === session.account.id)
+			);
+		});
+	}
+
+	async acceptCloudSync(
+		mark: number,
+		connections: ReadonlyMap<IntegrationIds, readonly CloudIntegrationConnection[]>,
+	): Promise<CloudIntegrationSync | undefined> {
+		if (this._disposed) return undefined;
+
+		const sync = this.state.cloud.accept(mark, connections);
+		if (sync == null) return undefined;
+
+		// KEEP: A previous sync may already have dispatched a storage operation under another provider lock.
+		await Promise.all(this.state.locks.values());
+		return !this._disposed && sync.isCurrent() ? sync : undefined;
+	}
+
+	supersedingPrimary(id: IntegrationIds, session: ProviderAuthenticationSession, mark: number): string | undefined {
+		return this.state.cloud.supersedingPrimary(id, session.domain, session.id, mark);
+	}
+
+	hasNewCloudConnection(id: IntegrationIds, domain: string | undefined, mark: number): boolean {
+		const scopedDomain = isSelfManagedHostIntegrationId(id) ? domain : undefined;
+		return this.getConfigured(id, { cloud: true, domain: scopedDomain }).some(c =>
+			this.state.cloud.observedSince(`${id}|connection:${c.id}`, mark),
+		);
+	}
+
+	async dispatchHostListRetirement(
+		id: IntegrationIds,
+		domain: string,
+		sync: CloudIntegrationSync,
+		retire: () => Promise<void>,
+	): Promise<boolean> {
+		const dispatched = await this.withLock(id, () => {
+			if (this._disposed || !sync.isCurrent() || this.hasNewCloudConnection(id, domain, sync.mark)) {
+				return undefined;
+			}
+
+			// KEEP: The host can re-enter storage after dispatch, so it must settle outside the provider lock.
+			return { settled: retire() };
+		});
+		if (dispatched == null) return false;
+
+		await dispatched.settled;
+		return !this._disposed && sync.isCurrent() && !this.hasNewCloudConnection(id, domain, sync.mark);
 	}
 
 	getStoredWriteMark(): number {
-		return this._storedWriteRetirements.epoch;
+		return this.state.epoch;
 	}
 
 	isStoredWriteRetiredSince(
 		id: IntegrationIds,
-		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
+		session: Pick<ProviderAuthenticationSession, 'id' | 'domain' | 'cloud'>,
 		mark: number,
 	): boolean {
-		return this._disposed || this.hasRetirement(this._storedWriteRetirements.scopes, id, session, mark);
+		return (
+			this._disposed ||
+			(session.cloud && this.state.cloud.loggedOutSince(mark)) ||
+			this.hasRetirement(this.state.scopes, id, session, mark)
+		);
 	}
 
-	private retireStoredWrites(scope: string): void {
-		const retirements = this._storedWriteRetirements;
-		retirements.scopes.set(scope, ++retirements.epoch);
+	async captureConfiguredConnection(id: IntegrationIds, connectionId: string): Promise<(() => boolean) | undefined> {
+		const matches = this.getConfigured(id).filter(connection => connection.id === connectionId);
+		const selected = matches.find(connection => connection.cloud) ?? matches[0];
+		if (selected == null) return undefined;
+
+		const mark = this.state.epoch;
+		const scope = { id: connectionId, domain: selected.domain ?? '', cloud: selected.cloud };
+		const current = () =>
+			!this._disposed &&
+			!(selected.cloud && this.state.cloud.loggedOutSince(mark)) &&
+			!this.hasRetirement(this.state.removals, id, scope, mark) &&
+			this.configured
+				.get(id)
+				?.some(connection => connection.id === connectionId && connection.cloud === selected.cloud) === true;
+		return this.withLock(id, async () => {
+			if (
+				selected.cloud &&
+				this.hasCloudLogout &&
+				(await this.peekSecret(id, connectionId, true, scope.domain)) == null
+			) {
+				return undefined;
+			}
+			return current() ? current : undefined;
+		});
+	}
+
+	private async duringRemoval(scope: string, cloud: boolean | undefined, remove: () => Promise<void>): Promise<void> {
+		const key = cloud == null ? scope : `${scope}|${cloud}`;
+		this.retirePendingStores(scope, cloud);
+		this.state.removals.set(key, Infinity);
+		try {
+			await remove();
+		} finally {
+			const mark = ++this.state.epoch;
+			this.state.removals.set(key, mark);
+			this.state.signOuts.set(key, mark);
+		}
+	}
+
+	captureStoredRelationshipCurrency(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession,
+	): Promise<(() => boolean) | undefined> {
+		return this.withLock(id, async () => {
+			const mark = this.getStoredWriteMark();
+			const stored = await this.peekSecret(id, session.id, session.cloud, session.domain);
+			if (
+				this.isStoredWriteRetiredSince(id, session, mark) ||
+				stored == null ||
+				!isSameAuthenticationSession(stored, session)
+			) {
+				return undefined;
+			}
+
+			const scope = `${id}|connection:${session.id}|${session.cloud}`;
+			const expiries = this.state.expiries;
+			if (expiries.get(scope) === null) return undefined;
+
+			expiries.set(scope, sessionExpiry(stored.expiresAt));
+			return () => !this.isStoredWriteRetiredSince(id, session, mark) && (expiries.get(scope) ?? 0) > Date.now();
+		});
+	}
+
+	private retireStoredWrites(scope: string, cloud?: boolean): void {
+		const retirements = this.state;
+		retirements.scopes.set(cloud == null ? scope : `${scope}|${cloud}`, ++retirements.epoch);
+		for (const variant of cloud == null ? [true, false] : [cloud]) {
+			const key = `${scope}|${variant}`;
+			if (retirements.expiries.get(key) !== null) {
+				retirements.expiries.delete(key);
+			}
+		}
 	}
 
 	private getHostScope(id: IntegrationIds, domain: string): string {
@@ -423,19 +675,27 @@ export class ConfiguredIntegrationService implements Disposable {
 
 	isSessionRetiredSince(
 		id: IntegrationIds,
-		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
+		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'> & { cloud?: boolean },
 		mark: number,
+		acquisitionMark = mark,
 	): boolean {
-		return this.hasRetirement(this._signOuts, id, session, mark);
+		return (
+			(session.cloud !== false && !this.state.cloud.allows(this.state.cloud.origin(mark))) ||
+			this.hasRetirement(this.state.signOuts, id, session, mark) ||
+			this.hasRetirement(this.state.publications, id, session, acquisitionMark)
+		);
 	}
 
 	private hasRetirement(
 		scopes: ReadonlyMap<string, number>,
 		id: IntegrationIds,
-		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'>,
+		session: Pick<ProviderAuthenticationSession, 'id' | 'domain'> & { cloud?: boolean },
 		mark: number,
 	): boolean {
-		const since = (scope: string) => (scopes.get(scope) ?? 0) > mark;
+		const since = (scope: string) =>
+			(scopes.get(scope) ?? 0) > mark ||
+			(session.cloud !== false && (scopes.get(`${scope}|true`) ?? 0) > mark) ||
+			(session.cloud !== true && (scopes.get(`${scope}|false`) ?? 0) > mark);
 		if (since(id)) return true;
 		if (isSelfManagedHostIntegrationId(id) && session.domain && since(this.getHostScope(id, session.domain))) {
 			return true;
@@ -450,27 +710,48 @@ export class ConfiguredIntegrationService implements Disposable {
 	storeSession(
 		id: IntegrationIds,
 		session: ProviderAuthenticationSession,
-		options?: { signOutMark?: number; resource?: ConnectionResource; expectedStoredAccessToken?: string },
+		options?: {
+			signOutMark?: number;
+			acquisitionMark?: number;
+			resource?: ConnectionResource;
+			expectedStoredAccessToken?: string;
+			primaryResponse?: 'named' | 'legacy';
+			sync?: CloudIntegrationSync;
+		},
 	): Promise<boolean> {
+		const origin = session.cloud
+			? this.state.cloud.origin(options?.sync?.mark ?? options?.signOutMark ?? this.getSignOutMark())
+			: undefined;
 		return this.withLock(id, async () => {
-			if (options?.signOutMark != null && this.isSessionRetiredSince(id, session, options.signOutMark)) {
-				return false;
-			}
+			const canStore = () =>
+				!this._disposed &&
+				(origin == null || this.state.cloud.allows(origin)) &&
+				options?.sync?.isCurrent() !== false &&
+				(options?.signOutMark == null ||
+					!this.isSessionRetiredSince(id, session, options.signOutMark, options.acquisitionMark));
+			if (!canStore()) return false;
 
-			const previous = await this.readSecret(id, session.id, session.cloud);
+			const scope = `${id}|connection:${session.id}`;
+			const expiryScope = `${scope}|${session.cloud}`;
+			const expiries = this.state.expiries;
+			const previous = await this.peekSecret(id, session.id, session.cloud, session.domain);
 			if (
-				options?.expectedStoredAccessToken != null &&
-				previous?.accessToken !== options.expectedStoredAccessToken
+				(options?.primaryResponse === 'legacy' &&
+					options.signOutMark != null &&
+					this.state.cloud.observedSince(scope, options.signOutMark)) ||
+				!canStore() ||
+				(options?.expectedStoredAccessToken != null &&
+					previous?.accessToken !== options.expectedStoredAccessToken)
 			) {
 				return false;
 			}
 
-			if (getSessionIdentity(previous) !== getSessionIdentity(session)) {
-				if (previous != null) {
-					this.retireStoredWrites(`${id}|connection:${session.id}`);
-				}
-
-				// Readers share this lock, so none can resolve the retired token after this synchronous fence.
+			const changed = getSessionIdentity(previous) !== getSessionIdentity(session);
+			const replaced = changed || previous?.account?.id !== session.account?.id;
+			if (replaced) {
+				this.retireStoredWrites(scope, session.cloud);
+			}
+			if (changed) {
 				this._onWillChangeSession.fire({
 					integrationId: id,
 					session: session,
@@ -478,72 +759,140 @@ export class ConfiguredIntegrationService implements Disposable {
 				});
 			}
 
-			await this.writeSecret(id, session, options?.resource);
-			if (
-				options?.expectedStoredAccessToken != null &&
-				session.accessToken !== options.expectedStoredAccessToken
-			) {
-				this.retirePendingStores(`${id}|connection:${session.id}`);
+			if (!canStore()) return false;
+
+			const trackedExpiry = expiries.get(expiryScope);
+			const nextExpiry = sessionExpiry(session.expiresAt);
+			if (typeof trackedExpiry === 'number') {
+				expiries.set(expiryScope, Math.min(trackedExpiry, nextExpiry));
+			}
+			const logoutAtDispatch = this.lastCloudLogout;
+			try {
+				await this.writeSecret(id, session, options?.resource, origin);
+			} catch (ex) {
+				if (origin != null && !this.state.cloud.allows(origin)) throw ex;
+
+				this.retirePendingStores(scope, session.cloud);
+				if (session.cloud) {
+					this.state.cloud.observe(scope, this.state.epoch);
+				}
+				expiries.set(expiryScope, null);
+				throw ex;
+			}
+			if (origin != null && !this.state.cloud.allows(origin)) return false;
+
+			if (origin != null) {
+				this.state.cloud.published(scope, origin.mark);
+			}
+			if (expiries.has(expiryScope)) {
+				expiries.set(expiryScope, nextExpiry);
+			}
+			if (replaced || nextExpiry !== sessionExpiry(previous?.expiresAt)) {
+				// KEEP: A write already dispatched at logout precedes acquisitions admitted after it.
+				const mark =
+					session.cloud && this.lastCloudLogout !== logoutAtDispatch
+						? this.lastCloudLogout
+						: ++this.state.epoch;
+				this.state.publications.set(expiryScope, mark);
+				if (
+					options?.expectedStoredAccessToken != null &&
+					session.accessToken !== options.expectedStoredAccessToken
+				) {
+					this.state.signOuts.set(expiryScope, mark);
+				}
 			}
 
+			if (session.cloud && options?.primaryResponse !== 'legacy') {
+				this.state.cloud.observe(
+					scope,
+					options?.sync?.isCurrent() === false ? options.sync.mark : ++this.state.epoch,
+				);
+				if (
+					options?.primaryResponse === 'named' &&
+					options.signOutMark != null &&
+					options.sync?.isCurrent() !== false &&
+					this.supersedingPrimary(id, session, options.signOutMark) == null
+				) {
+					const primaryMark = ++this.state.epoch;
+					await this.setPrimaryConnectionCore(id, session.id);
+					this.state.cloud.observePrimary(id, session.domain, session.id, primaryMark);
+				}
+			}
 			return true;
 		});
 	}
 
-	async peekStoredSession(
+	peekStoredSession(
 		id: IntegrationIds,
 		connectionId: string,
 		cloud: boolean,
 		domain: string,
 	): Promise<ProviderAuthenticationSession | undefined> {
 		return this.withLock(id, async () => {
-			const json = await this.ctx.storage.getSecret(this.getSecretKey(id, connectionId, cloud));
-			if (json == null) return undefined;
+			if (this._disposed) return undefined;
 
-			try {
-				return convertStoredSessionToSession(
-					JSON.parse(json) as StoredSession,
-					{ connectionId: connectionId, domain: domain, scopes: [] },
-					cloud,
-				);
-			} catch {
-				return undefined;
-			}
+			const session = await this.peekSecret(id, connectionId, cloud, domain);
+			return this._disposed ? undefined : (session ?? undefined);
 		});
+	}
+
+	private async peekSecret(
+		id: IntegrationIds,
+		connectionId: string,
+		cloud: boolean,
+		domain: string,
+	): Promise<ProviderAuthenticationSession | null | undefined> {
+		const json = await this.ctx.storage.getSecret(this.getSecretKey(id, connectionId, cloud));
+		if (json == null) return undefined;
+
+		try {
+			const stored = JSON.parse(json) as StoredSession;
+			if (this.isRetiredSecret(stored, cloud)) return null;
+			return convertStoredSessionToSession(
+				stored,
+				{ connectionId: connectionId, domain: domain, scopes: [] },
+				cloud,
+			);
+		} catch {
+			return undefined;
+		}
+	}
+
+	private isRetiredSecret(session: StoredSession, cloud: boolean): boolean {
+		if (!cloud && session.cloud !== false && session.expiresAt != null) return this.hasCloudLogout;
+		return (cloud || session.cloud === true) && !this.state.cloud.allows(session.cloudOrigin);
 	}
 
 	getStoredSession(
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 	): Promise<ProviderAuthenticationSession | undefined> {
-		// Under the lock too: reading can repair storage (a legacy local-key cloud session, a missing descriptor).
 		return this.withLock(id, async () => {
+			if (this._disposed) return undefined;
+
 			const sessionId = this.resolveConnectionId(id, descriptor);
 			let session = descriptor.cloud === true ? undefined : await this.readSecret(id, sessionId, false);
+			if (this._disposed) return undefined;
 
 			let cloudIfMissing = false;
-			if (session != null) {
-				// Check the `expiresAt` field
-				// If it has an expiresAt property and the key is the old type, then it's a cloud session,
-				// so delete it from the local key and
-				// store with the "cloud" type key, and then use that one.
-				// Otherwise it's a local session under the local key, so just return it.
-				if (session.expiresAt != null) {
-					cloudIfMissing = true;
-					try {
-						await this.deleteSecrets(id, session.id);
-						await this.writeSecret(id, session);
-					} catch {}
-				}
+			if (session != null && session.cloud !== false && session.expiresAt != null) {
+				cloudIfMissing = true;
+				try {
+					await this.deleteSecrets(id, session.id);
+					if (this.hasCloudLogout) return undefined;
+
+					await this.writeSecret(id, { ...session, cloud: true });
+				} catch {}
 			}
 
-			// If no local session we try to restore a session with the cloud key
 			if (session == null && descriptor.cloud !== false) {
 				cloudIfMissing = true;
 				session = await this.readSecret(id, sessionId, true);
 			}
 
-			return convertStoredSessionToSession(session, descriptor, cloudIfMissing);
+			return this._disposed || (session != null && this.isRetiredSecret(session, cloudIfMissing))
+				? undefined
+				: convertStoredSessionToSession(session, descriptor, cloudIfMissing);
 		});
 	}
 
@@ -556,13 +905,32 @@ export class ConfiguredIntegrationService implements Disposable {
 		id: IntegrationIds,
 		descriptor: IntegrationAuthenticationSessionDescriptor,
 		cloud?: boolean,
-		options?: { preserveConfigured?: boolean; signOut?: boolean; signOutMark?: number },
+		options?: {
+			preserveConfigured?: boolean;
+			signOut?: boolean;
+			signOutMark?: number;
+			unobservedSince?: number;
+			sync?: CloudIntegrationSync;
+		},
 	): Promise<boolean> {
 		return this.withLock(id, async () => {
+			if (this._disposed || options?.sync?.isCurrent() === false) return false;
+
 			const connectionId = this.resolveConnectionId(id, descriptor);
 			if (
+				options?.unobservedSince != null &&
+				this.state.cloud.observedSince(`${id}|connection:${connectionId}`, options.unobservedSince)
+			) {
+				return false;
+			}
+
+			if (
 				options?.signOutMark != null &&
-				this.isSessionRetiredSince(id, { id: connectionId, domain: descriptor.domain }, options.signOutMark)
+				this.isSessionRetiredSince(
+					id,
+					{ id: connectionId, domain: descriptor.domain, cloud: cloud },
+					options.signOutMark,
+				)
 			) {
 				return false;
 			}
@@ -574,85 +942,94 @@ export class ConfiguredIntegrationService implements Disposable {
 						: id,
 				);
 			}
-			this._onWillRemoveSessions.fire({
-				integrationId: id,
-				connectionId: connectionId,
-				cloud: cloud,
-				domain: descriptor.domain,
+			await this.deleteSecrets(id, connectionId, cloud, {
+				...options,
+				onRemoving: () =>
+					this._onWillRemoveSessions.fire({
+						integrationId: id,
+						connectionId: connectionId,
+						cloud: cloud,
+						domain: descriptor.domain,
+					}),
 			});
-			await this.deleteSecrets(id, connectionId, cloud, options);
 			return true;
 		});
 	}
 
 	/** Signs out of every stored session of the provider, or of one self-managed host when `domain` is given. */
-	deleteAllStoredSessions(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
+	deleteAllStoredSessions(
+		id: IntegrationIds,
+		cloud?: boolean,
+		domain?: string,
+		sync?: CloudIntegrationSync,
+	): Promise<boolean> {
+		const scope = isSelfManagedHostIntegrationId(id) && domain != null ? this.getHostScope(id, domain) : id;
 		return this.withLock(id, async () => {
-			this.retirePendingStores(
-				isSelfManagedHostIntegrationId(id) && domain != null ? this.getHostScope(id, domain) : id,
-			);
-			this._onWillRemoveSessions.fire({ integrationId: id, cloud: cloud, domain: domain });
-			await this.deleteAllSecrets(id, cloud, domain);
+			if (
+				this._disposed ||
+				sync?.isCurrent() === false ||
+				(sync && this.hasNewCloudConnection(id, domain, sync.mark))
+			) {
+				return false;
+			}
+
+			await this.duringRemoval(scope, cloud, async () => {
+				this._onWillRemoveSessions.fire({ integrationId: id, cloud: cloud, domain: domain });
+				if (this._disposed) return;
+
+				await this.deleteAllSecrets(id, cloud, domain);
+			});
+			return !this._disposed;
 		});
 	}
 
-	/**
-	 * Reclaims all stored configuration + secrets for the given (typically retired) integration ids.
-	 * Used to clean up state left behind when an id is removed from the model — e.g. the local
-	 * self-managed `github-enterprise`/`gitlab-self-hosted` ids dropped when integrations went cloud-only.
-	 * Domains are read from the stored config (secrets are keyed by domain); ids with no stored config
-	 * are a no-op.
-	 */
 	async purgeStoredConfiguration(ids: readonly string[]): Promise<void> {
-		const stored =
-			this.ctx.storage.get<Record<string, StoredConfiguredIntegrationDescriptor[] | undefined>>(
-				'integrations:configured',
-			);
-		if (stored == null) return;
+		for (const id of ids as readonly IntegrationIds[]) {
+			await this.withLock(id, async () => {
+				const descriptors =
+					this.ctx.storage.get<StoredIntegrationConfigurations>('integrations:configured')?.[id];
+				if (descriptors == null) return;
 
-		let changed = false;
-		for (const id of ids) {
-			if (!(id in stored)) continue;
-
-			for (const descriptor of stored[id] ?? []) {
-				// Mirror the hydration backfill so the secret keys we delete match what was written: fall back
-				// through domain, the provider's canonical domain, then the integration id (never empty). A
-				// legacy cloud descriptor stored neither id nor domain, so an empty connection id here would
-				// miss the canonical-domain secret (e.g. `integration.auth.cloud:github|github.com`) and orphan it.
-				const connectionId =
-					descriptor.id || descriptor.domain || providersMetadata[id as IntegrationIds]?.domain || id;
-				await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id as IntegrationIds, connectionId));
-				await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id as IntegrationIds, connectionId));
-				if (descriptor.domain) {
-					await this.ctx.storage.deleteWorkspace(`connected:${id}:${descriptor.domain}`);
-				}
-			}
-			changed = true;
+				await this.duringRemoval(id, undefined, async () => {
+					for (const descriptor of descriptors) {
+						const key = descriptor.id || descriptor.domain || providersMetadata[id]?.domain || id;
+						await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, key));
+						await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, key));
+						if (descriptor.domain) {
+							await this.ctx.storage.deleteWorkspace(`connected:${id}:${descriptor.domain}`);
+						}
+					}
+					await this.storeConfigured(id);
+				});
+			});
 		}
-		if (!changed) return;
-
-		const remaining = Object.fromEntries(Object.entries(stored).filter(([key]) => !ids.includes(key)));
-		await this.ctx.storage.store('integrations:configured', remaining as StoredIntegrationConfigurations);
 	}
 
 	private async deleteSecrets(
 		id: IntegrationIds,
 		connectionId: string,
 		cloud?: boolean,
-		options?: { preserveConfigured?: boolean },
+		options?: { preserveConfigured?: boolean; onRemoving?: () => void },
 	): Promise<void> {
-		this.retireStoredWrites(`${id}|connection:${connectionId}`);
-		if (cloud == null || cloud === false) {
-			await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, connectionId));
-		}
+		await this.duringRemoval(`${id}|connection:${connectionId}`, cloud, async () => {
+			if (options?.onRemoving != null) {
+				options.onRemoving();
+				if (this._disposed) return;
+			}
 
-		if (cloud == null || cloud === true) {
-			await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, connectionId));
-		}
+			if (cloud == null || cloud === false) {
+				await this.ctx.storage.deleteSecret(this.getLocalSecretKey(id, connectionId));
+			}
 
-		if (options?.preserveConfigured) return;
+			if (cloud == null || cloud === true) {
+				await this.ctx.storage.deleteSecret(this.getCloudSecretKey(id, connectionId));
+				this.state.cloud.remove(`${id}|connection:${connectionId}`);
+			}
 
-		await this.removeConfigured(id, { connectionId: connectionId, cloud: cloud });
+			if (options?.preserveConfigured) return;
+
+			await this.removeConfigured(id, { connectionId: connectionId, cloud: cloud });
+		});
 	}
 
 	private async deleteAllSecrets(id: IntegrationIds, cloud?: boolean, domain?: string): Promise<void> {
@@ -691,10 +1068,11 @@ export class ConfiguredIntegrationService implements Disposable {
 		id: IntegrationIds,
 		session: ProviderAuthenticationSession | StoredSession,
 		resource?: ConnectionResource,
+		cloudOrigin?: CloudCredentialOrigin,
 	): Promise<void> {
 		await this.ctx.storage.storeSecret(
 			this.getSecretKey(id, session.id, session.cloud ?? false),
-			JSON.stringify(session),
+			JSON.stringify(cloudOrigin == null ? session : { ...session, cloudOrigin: cloudOrigin }),
 		);
 
 		await this.addOrUpdateConfigured({
@@ -720,9 +1098,13 @@ export class ConfiguredIntegrationService implements Disposable {
 		let storedSession: StoredSession | undefined;
 		try {
 			const sessionJSON = await this.ctx.storage.getSecret(this.getSecretKey(id, sessionId, cloud));
+			if (this._disposed) return undefined;
+
 			if (sessionJSON) {
 				storedSession = JSON.parse(sessionJSON);
 				if (storedSession != null) {
+					if (this.isRetiredSecret(storedSession, cloud)) return undefined;
+
 					const configured = this.configured.get(id);
 					const connectionId = storedSession.id ?? sessionId;
 					const sessionCloud = storedSession.cloud ?? cloud;
@@ -754,6 +1136,8 @@ export class ConfiguredIntegrationService implements Disposable {
 				}
 			}
 		} catch (_ex) {
+			if (this._disposed) return undefined;
+
 			try {
 				await this.deleteSecrets(id, sessionId, cloud);
 			} catch {}
@@ -904,8 +1288,32 @@ export class ConfiguredIntegrationService implements Disposable {
 	 * Marks the given connection as the primary/default for the provider and clears the flag on its
 	 * siblings. Persists immediately instead of relying on a session re-store to carry the primary flag.
 	 */
-	setPrimaryConnection(id: IntegrationIds, connectionId: string): Promise<void> {
-		return this.withLock(id, () => this.setPrimaryConnectionCore(id, connectionId));
+	setPrimaryConnection(
+		id: IntegrationIds,
+		connectionId: string,
+		list?: { sync: CloudIntegrationSync; domain?: string },
+	): Promise<void> {
+		return this.withLock(id, async () => {
+			if (this._disposed) return;
+
+			if (
+				list != null &&
+				(!list.sync.isCurrent() ||
+					this.state.cloud.supersedingPrimary(id, list.domain, connectionId, list.sync.mark) != null)
+			) {
+				return;
+			}
+
+			await this.setPrimaryConnectionCore(id, connectionId);
+			if (list != null || this._disposed) return;
+
+			const selected = this.getConfigured(id, { cloud: true }).find(c => c.id === connectionId && c.primary);
+			if (selected != null) {
+				const mark = ++this.state.epoch;
+				this.state.cloud.observe(`${id}|connection:${connectionId}`, mark);
+				this.state.cloud.observePrimary(id, selected.domain, connectionId, mark);
+			}
+		});
 	}
 
 	private async setPrimaryConnectionCore(id: IntegrationIds, connectionId: string): Promise<void> {
@@ -937,9 +1345,8 @@ export class ConfiguredIntegrationService implements Disposable {
 		});
 		if (!changed) return;
 
-		this.configured.set(id, updated);
+		await this.storeConfigured(id, updated);
 		this.fireChange(id);
-		await this.storeConfigured();
 	}
 
 	/**
@@ -950,10 +1357,12 @@ export class ConfiguredIntegrationService implements Disposable {
 	 */
 	deleteConnection(id: IntegrationIds, connectionId: string, cloud?: boolean): Promise<void> {
 		return this.withLock(id, async () => {
-			// The connection is gone, so a token of it fetched before must not be stored back.
-			this.retirePendingStores(`${id}|connection:${connectionId}`);
-			this._onWillRemoveSessions.fire({ integrationId: id, connectionId: connectionId, cloud: cloud });
-			await this.deleteSecrets(id, connectionId, cloud);
+			if (this._disposed) return;
+
+			await this.deleteSecrets(id, connectionId, cloud, {
+				onRemoving: () =>
+					this._onWillRemoveSessions.fire({ integrationId: id, connectionId: connectionId, cloud: cloud }),
+			});
 		});
 	}
 
@@ -992,6 +1401,15 @@ export class ConfiguredIntegrationService implements Disposable {
 			this._removedIds.add(removed);
 		}
 		this._fireChangeDebounced();
+	}
+}
+
+function isLegacyCloudSecret(raw: string): boolean {
+	try {
+		const session = JSON.parse(raw) as StoredSession;
+		return session?.cloud === true || (session?.cloud !== false && session?.expiresAt != null);
+	} catch {
+		return false;
 	}
 }
 

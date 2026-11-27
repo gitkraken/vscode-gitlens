@@ -901,6 +901,42 @@ What holds for all of them:
 - An Asana task's tags are its labels and its likes, a thumbs-up on the task, its reactions. Its comments are stories, which a task doesn't
   count, so reading them would cost a request per task. Asana has no batch read.
 
+### GitHub.com issue relationships
+
+Call `getIssueRelationships` with `providerId`, `connectionId` and an `issue` containing `owner`, `repo` and
+`number`. Supply `expectedNodeId` on the issue to verify its identity. Set `expectedLogin` to have Core verify
+the GitHub login with the selected connection. A successful read returns the canonical issue, its nullable
+parent, a page of direct children, overall completion progress, and a `connectionProof`. For the next page,
+repeat the original scope and pass `pageInfo.endCursor` as `cursor` and the proof as `expectedConnectionProof`.
+GitHub’s aggregate completion count on a paginated list can lag a recent write.
+
+Call `writeIssueRelationship` with the same connection, an action, and `parent` and `child` targets. Every write
+target includes its repository owner, repository name, issue number and `expectedNodeId`. Use `add` to attach
+an issue, `remove` to detach it, or `reorder` with a pinned sibling in either `placement.before` or
+`placement.after`. GitHub enforces the credential's permissions at write time. Hosts with their own account
+session can pass a synchronous currency check as the second argument to either method. Core checks
+it alongside the GitHub credential before each mutation, including the attach that follows a detach.
+
+Hosts that publish the result after further asynchronous work can pass `captureCurrency` as the third
+argument to either method. When Core binds the selected credential it calls this callback with a
+synchronous `isCurrent()` check. Run that check immediately before publishing issue details. Core withholds
+a retired credential’s read results and reports a superseded write receipt as `unknown` with an `unconfirmed`
+outcome. An HTTP 401 on a current credential arms recovery for the next operation.
+
+Custom authentication providers must fire `onDidChange` synchronously whenever a credential is retired or
+replaced, including sign-out followed by sign-in with the same token. Core uses that signal to retire
+outstanding relationship proofs. The event has no connection ID, so a change to one host-managed account
+also retires proofs for other accounts from that provider. Looking up another descriptor for the same
+credential preserves its proof.
+
+For a replacement, read the child's relationships before approval. Supply the approved old parent as
+`replaceParent` on the add and return the read's `connectionProof` as `expectedConnectionProof`.
+The proof expires when the selected credential changes or the manager is recreated. GitHub processes the
+detach and attach separately. On failure, inspect `phase`, `outcome` and `detached`. A confirmed detach
+followed by a failed attach can leave the child parentless. Refresh the child and both parents before
+deciding whether to retry. GitHub can hide private resources behind a not-found response.
+[GitHub GraphQL issue reference](https://docs.github.com/en/graphql/reference/issues)
+
 ### GitHub issue writes
 
 Use the selected GitHub connection ID from `getConfigured()` together with `providerId`, `owner`, and `repo`.

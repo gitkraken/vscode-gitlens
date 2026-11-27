@@ -95,9 +95,12 @@ describe('parseGitConfigSections', () => {
 
 	it('rejects bytes that are not UTF-8', () => {
 		assert.strictEqual(parseGitConfigBytes(new Uint8Array([0x5b, 0x73, 0x5d, 0x0a, 0xff, 0xfe])), undefined);
-		assert.deepStrictEqual(Object.fromEntries(parseGitConfigBytes(new TextEncoder().encode('﻿[s]\n\ta = é\n'))!), {
-			s: ['a=é'],
-		});
+		assert.deepStrictEqual(
+			Object.fromEntries(parseGitConfigBytes(new TextEncoder().encode('\ufeff[s]\n\ta = é\n'))!),
+			{
+				s: ['a=é'],
+			},
+		);
 	});
 });
 

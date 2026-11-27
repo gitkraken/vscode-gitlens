@@ -1,4 +1,5 @@
 import type { GitRemote } from '@gitlens/git/models/remote.js';
+import { CancellationError } from '@gitlens/utils/cancellation.js';
 import { gate } from '@gitlens/utils/decorators/gate.js';
 import { debug } from '@gitlens/utils/decorators/log.js';
 import type { Disposable } from '@gitlens/utils/disposable.js';
@@ -16,19 +17,21 @@ import type { ApiClients } from '../providers/apiClients.js';
 import type { Source } from '../telemetry.js';
 import { isSelfManagedHostIntegrationId, supportedIntegrationIds } from '../utils/integration.utils.js';
 import { CloudIntegrationAuthenticationProvider } from './cloudIntegrationAuthenticationProvider.js';
+import type { CloudIntegrationSync } from './cloudIntegrationObservations.js';
 import type { CloudIntegrationService } from './cloudIntegrationService.js';
 import type { ConfiguredIntegrationService } from './configuredIntegrationService.js';
 import type {
 	IntegrationAuthenticationProvider,
 	IntegrationAuthenticationSessionDescriptor,
 } from './integrationAuthenticationProvider.js';
-import type { ProviderAuthenticationSession } from './models.js';
-import { getSessionIdentity } from './models.js';
+import type { ProviderAuthenticationSession, RelationshipSessionGuard } from './models.js';
+import { getSessionIdentity, sessionExpiry } from './models.js';
 import { ObservedAuthenticationProvider } from './observedAuthenticationProvider.js';
 
 export type TrackedSession = (() => Promise<boolean>) & { readonly isRetired: () => boolean };
 
 export class IntegrationAuthenticationService implements Disposable {
+	private disposed = false;
 	private readonly providers = new Map<IntegrationIds, IntegrationAuthenticationProvider>();
 
 	constructor(
@@ -45,6 +48,9 @@ export class IntegrationAuthenticationService implements Disposable {
 	) {}
 
 	dispose(): void {
+		if (this.disposed) return;
+
+		this.disposed = true;
 		this.providers.forEach(p => p.dispose());
 		this.providers.clear();
 	}
@@ -84,11 +90,52 @@ export class IntegrationAuthenticationService implements Disposable {
 		return this.ensureProvider(providerId);
 	}
 
+	async clearAbsentCloudScope(
+		id: IntegrationIds,
+		descriptor: IntegrationAuthenticationSessionDescriptor,
+		sync: CloudIntegrationSync,
+	): Promise<boolean> {
+		const provider = await this.get(id);
+		if (provider instanceof CloudIntegrationAuthenticationProvider) {
+			return provider.clearSessions(descriptor, sync);
+		}
+
+		return this.configuredIntegrationService.dispatchHostListRetirement(id, descriptor.domain, sync, () =>
+			provider.deleteAllSessions(descriptor),
+		);
+	}
+
+	isCloudListCurrent(id: IntegrationIds, domain: string, sync: CloudIntegrationSync): boolean {
+		return (
+			!this.disposed &&
+			sync.isCurrent() &&
+			!this.configuredIntegrationService.hasNewCloudConnection(id, domain, sync.mark)
+		);
+	}
+
 	getSignOutMark(): number {
 		return this.configuredIntegrationService.getSignOutMark();
 	}
 
-	trackStoredSession(id: IntegrationIds, session: ProviderAuthenticationSession): TrackedSession {
+	captureConfiguredConnection(id: IntegrationIds, connectionId: string): Promise<(() => boolean) | undefined> {
+		return this.configuredIntegrationService.captureConfiguredConnection(id, connectionId);
+	}
+
+	async trackStoredRelationshipSession(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession,
+	): Promise<RelationshipSessionGuard | undefined> {
+		const isCurrent = await this.configuredIntegrationService.captureStoredRelationshipCurrency(id, session);
+		return isCurrent == null
+			? undefined
+			: { isCurrent: isCurrent, verify: this.trackStoredSession(id, session, true) };
+	}
+
+	trackStoredSession(
+		id: IntegrationIds,
+		session: ProviderAuthenticationSession,
+		checkExpiry = false,
+	): TrackedSession {
 		const store = this.configuredIntegrationService;
 		const mark = store.getStoredWriteMark();
 		const identity = getSessionIdentity(session);
@@ -102,7 +149,8 @@ export class IntegrationAuthenticationService implements Disposable {
 				current != null &&
 				!store.isStoredWriteRetiredSince(id, session, mark) &&
 				getSessionIdentity(current) === identity &&
-				current.account?.id === session.account?.id
+				current.account?.id === session.account?.id &&
+				(!checkExpiry || sessionExpiry(current.expiresAt) > Date.now())
 			);
 		};
 		return Object.assign(isCurrent, { isRetired: () => store.isStoredWriteRetiredSince(id, session, mark) });
@@ -157,20 +205,25 @@ export class IntegrationAuthenticationService implements Disposable {
 
 	@gate()
 	private async ensureProvider(providerId: IntegrationIds): Promise<IntegrationAuthenticationProvider> {
+		if (this.disposed) throw new CancellationError();
+
 		let provider = this.providers.get(providerId);
 		if (provider != null) return provider;
 
-		// Optional consumer override for custom auth (e.g. a manual-token provider). GitLens omits it —
-		// the package constructs its own cloud providers below (so GitLens's cloud auth needs no host hook).
 		const hostProvider = await this.ctx.hooks?.createAuthenticationProvider?.({
 			id: providerId,
 		});
+		if (this.disposed) {
+			hostProvider?.dispose();
+			throw new CancellationError();
+		}
 		if (hostProvider != null) {
 			provider = new ObservedAuthenticationProvider(
 				hostProvider,
 				isSelfManagedHostIntegrationId(providerId),
 				(publication, domains) =>
 					this.getIntegrationService().onSessionPublishing(providerId, publication, domains),
+				{ id: providerId, store: this.configuredIntegrationService },
 			);
 			this.providers.set(providerId, provider);
 			return provider;

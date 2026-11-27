@@ -157,7 +157,10 @@ export function issueWriteFailure(ex: unknown): Extract<IssueWriteResult, { ok: 
 			case 403:
 				return {
 					ok: false,
-					reason: ex.message.toLowerCase().includes('rate limit') ? 'rate-limit' : 'forbidden',
+					reason:
+						ex.response?.headers['retry-after'] != null || ex.message.toLowerCase().includes('rate limit')
+							? 'rate-limit'
+							: 'forbidden',
 				};
 			case 404:
 			case 410:

@@ -150,8 +150,10 @@ const unloggableResponseHeaders = new Set([
 	'x-auth-token',
 ]);
 
-/** Strips the credential-bearing headers from a response and cuts its body to a diagnostic prefix. */
-function sanitizeErrorResponse(status: number, response: ProviderErrorResponse | undefined): SanitizedErrorResponse {
+export function sanitizeErrorResponse(
+	status: number,
+	response: ProviderErrorResponse | undefined,
+): SanitizedErrorResponse {
 	const headers: Record<string, string> = {};
 	for (const [name, value] of Object.entries(response?.headers ?? {})) {
 		if (unloggableResponseHeaders.has(name.toLowerCase())) continue;

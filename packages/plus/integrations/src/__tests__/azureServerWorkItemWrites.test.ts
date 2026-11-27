@@ -631,7 +631,11 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 	test('sends an edit or delete on a host credential only while its issuance holds', async () => {
 		const descriptor = { domain: 'server.test', scopes: [], connectionId: 'connection', cloud: true };
 		type Host = { token: string; cloud: boolean; account: string };
-		type Change = (provider: IntegrationAuthenticationProvider, host: Host) => Promise<unknown>;
+		type Change = (
+			provider: IntegrationAuthenticationProvider,
+			host: Host,
+			configured: ConfiguredIntegrationService,
+		) => Promise<unknown>;
 		const run = async (action: 'edit' | 'delete', change?: Change, atCheck?: number) => {
 			const server = createServer();
 			const host: Host = { token: 'me-token', cloud: true, account: 'me' };
@@ -664,7 +668,7 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 				integration['resolveReadSessionOrThrow'] = async (...args) => {
 					const current = await resolve(...args);
 					if (++checks === atCheck) {
-						await change!(provider, host);
+						await change!(provider, host, service['configuredIntegrationService']);
 					}
 					return current;
 				};
@@ -690,8 +694,8 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 			host.token = 'other-token';
 			await provider.getSession(descriptor);
 		};
-		const replaceAndReturn: Change = async (provider, host) => {
-			await replace(provider, host);
+		const replaceAndReturn: Change = async (provider, host, configured) => {
+			await replace(provider, host, configured);
 			host.token = 'me-token';
 			await provider.getSession(descriptor);
 		};
@@ -699,6 +703,8 @@ suite('IntegrationManager Azure DevOps Server work item writes', () => {
 			replace: replace,
 			'replace and return': replaceAndReturn,
 			remove: provider => provider.deleteSession(descriptor),
+			'desktop logout': (_provider, _host, configured) =>
+				configured.retireCloudAccount(configured.beginCloudSync()),
 			'alternate observed variants': async (provider, host) => {
 				for (const cloud of [false, true, false]) {
 					host.cloud = cloud;

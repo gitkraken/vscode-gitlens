@@ -617,8 +617,8 @@ export class StartReviewCommand extends QuickCommand<StartReviewState> {
 		if (overrideStep == null) {
 			step = this.createConfirmStep(
 				hasConnectedIntegration
-					? l10n.t('{title}  •  Connect an Additional Integration', { title: this.title })
-					: l10n.t('{title}  •  Connect an Integration', { title: this.title }),
+					? l10n.t('{title} \u00a0•\u00a0 Connect an Additional Integration', { title: this.title })
+					: l10n.t('{title} \u00a0•\u00a0 Connect an Integration', { title: this.title }),
 				[
 					createQuickPickItemOfT(
 						{

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ## [Unreleased]
 
+### Added
+
+- Adds GitHub.com parent and sub-issue reads and writes to `IntegrationManager`. Hosts can page through direct children, read progress, and attach, detach or reorder issues using an explicit connection. Replacing a parent requires the approved previous parent and the credential proof from a relationship read (plus/integrations) ([#6294](https://github.com/gitkraken/vscode-gitlens/issues/6294))
+
 ## [0.52.0] - 2026-11-27
 
 ### Added
